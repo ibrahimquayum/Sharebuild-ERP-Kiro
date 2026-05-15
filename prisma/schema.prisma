@@ -1,0 +1,706 @@
+// Sharebuild ERP — Prisma Schema
+// Multi-tenant SaaS: Company → Project → Phase → Buyers/Expenses
+// Derived from Relax Tower Excel workbook analysis
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum UserRole {
+  SUPER_ADMIN   // SaaS platform owner
+  COMPANY_ADMIN // Owner/MD of a construction company
+  MANAGER       // Project manager
+  ACCOUNTANT    // Finance/accounts staff
+  SITE_ENGINEER // Can log expenses, progress
+  VIEWER        // Read-only access
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum PhaseType {
+  PILING
+  BASEMENT
+  SLAB          // General floor slab (1st, 2nd, ... 10th)
+  HALF_SLAB
+  GATHUNI       // Finishing work per floor (Gatoni/Gathuni)
+  SANITARY
+  FINISHING
+  CUSTOM
+}
+
+enum PhaseStatus {
+  DRAFT
+  ACTIVE
+  APPROVED
+  INCLUDED_IN_SUMMARY
+  EXCLUDED_FROM_SUMMARY
+  CANCELLED
+  DUPLICATE
+}
+
+enum UnitType {
+  FLAT
+  COMMERCIAL
+  PARKING
+  ROOF
+  LAND_SHARE
+}
+
+enum UnitStatus {
+  AVAILABLE
+  BOOKED
+  SOLD
+  REGISTERED
+  DISPUTED
+}
+
+enum BuyerStatus {
+  PROSPECT
+  ACTIVE
+  DEFAULTER
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  CHEQUE
+  BANK_TRANSFER
+  MOBILE_BANKING  // bKash, Nagad, etc.
+  OTHER
+}
+
+enum TransactionType {
+  COLLECTION      // Money received from buyer
+  REFUND          // Refund to buyer
+  ADJUSTMENT      // Manual correction
+}
+
+enum ExpenseCategory {
+  ROD_STEEL
+  CEMENT
+  STONE_AGGREGATE
+  SAND
+  BRICK
+  READYMIX_CONCRETE
+  TIMBER_SHUTTERING
+  PAINT
+  TILES
+  SANITARY_FITTINGS
+  ELECTRICAL_MATERIAL
+  HARDWARE
+  CHEMICAL
+  LABOUR_BILL
+  CONTRACTOR_BILL
+  SECURITY_SALARY
+  SITE_STAFF_SALARY
+  WATER_BILL
+  ELECTRICITY_BILL
+  SITE_FOOD_HOSPITALITY
+  TRANSPORT
+  EQUIPMENT_HIRE
+  SURVEY_DRAWING
+  LEGAL_REGISTRATION
+  MUNICIPALITY_FEE
+  BANK_CHARGE
+  SERVICE_CHARGE
+  OTHER
+}
+
+enum ExpenseStatus {
+  PENDING_APPROVAL
+  APPROVED
+  PAID
+  PARTIALLY_PAID
+  DISPUTED
+  CANCELLED
+}
+
+enum SupplierType {
+  MATERIAL_SUPPLIER
+  LABOUR_CONTRACTOR
+  EQUIPMENT_SUPPLIER
+  SERVICE_PROVIDER
+  CONSULTANT
+}
+
+enum PayableStatus {
+  UNPAID
+  PARTIALLY_PAID
+  PAID
+  DISPUTED
+  WRITTEN_OFF
+}
+
+enum DemandStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  FULLY_PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  APPROVE
+  REJECT
+  LOGIN
+  LOGOUT
+}
+
+// ─────────────────────────────────────────────
+// TENANT: COMPANY
+// ─────────────────────────────────────────────
+
+model Company {
+  id              String   @id @default(cuid())
+  name            String
+  nameBn          String?  // Bangla name
+  registrationNo  String?
+  address         String?
+  addressBn       String?
+  phone           String?
+  email           String?
+  logoUrl         String?
+  website         String?
+  taxId           String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  users           User[]
+  projects        Project[]
+  suppliers       Supplier[]
+  buyers          Buyer[]
+  settings        CompanySetting[]
+
+  @@map("companies")
+}
+
+model CompanySetting {
+  id          String  @id @default(cuid())
+  companyId   String
+  key         String
+  value       String
+  updatedAt   DateTime @updatedAt
+
+  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, key])
+  @@map("company_settings")
+}
+
+// ─────────────────────────────────────────────
+// USERS & AUTH
+// ─────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  companyId     String?
+  name          String
+  nameBn        String?
+  email         String    @unique
+  phone         String?
+  passwordHash  String
+  role          UserRole  @default(VIEWER)
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  company         Company?          @relation(fields: [companyId], references: [id])
+  projectAccess   ProjectUserAccess[]
+  auditLogs       AuditLog[]
+  approvals       Approval[]
+  createdExpenses Expense[]         @relation("ExpenseCreatedBy")
+  approvedExpenses Expense[]        @relation("ExpenseApprovedBy")
+
+  @@map("users")
+}
+
+model ProjectUserAccess {
+  id        String   @id @default(cuid())
+  userId    String
+  projectId String
+  role      UserRole
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@map("project_user_access")
+}
+
+// ─────────────────────────────────────────────
+// PROJECT & LAND
+// ─────────────────────────────────────────────
+
+model Project {
+  id              String        @id @default(cuid())
+  companyId       String
+  name            String
+  nameBn          String?
+  code            String?       // e.g. RT-2023
+  address         String?
+  addressBn       String?       // Unicode Bangla address
+  area            String?       // e.g. Kawlar, Dakkhinkhan
+  city            String?       @default("Dhaka")
+  postCode        String?
+  phone           String?       // e.g. 01712553110
+  totalFloors     Int?
+  status          ProjectStatus @default(ACTIVE)
+  startDate       DateTime?
+  expectedEndDate DateTime?
+  actualEndDate   DateTime?
+  description     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  company         Company              @relation(fields: [companyId], references: [id])
+  lands           Land[]
+  units           Unit[]
+  phases          Phase[]
+  buyers          ProjectBuyer[]
+  userAccess      ProjectUserAccess[]
+  documents       Document[]
+  auditLogs       AuditLog[]
+
+  @@map("projects")
+}
+
+model Land {
+  id            String   @id @default(cuid())
+  projectId     String
+  plotNo        String?
+  mouza         String?
+  khatian       String?
+  dag           String?
+  totalArea     Decimal? // in decimal/katha/sqft
+  areaUnit      String?  @default("katha")
+  ownerShares   LandShare[]
+  purchasePrice Decimal?
+  registrationDate DateTime?
+  registrationCost Decimal?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  project       Project  @relation(fields: [projectId], references: [id])
+
+  @@map("lands")
+}
+
+model LandShare {
+  id          String  @id @default(cuid())
+  landId      String
+  buyerId     String
+  sharePercent Decimal
+  shareArea   Decimal?
+  salePrice   Decimal?
+  notes       String?
+
+  land        Land    @relation(fields: [landId], references: [id])
+  buyer       Buyer   @relation(fields: [buyerId], references: [id])
+
+  @@map("land_shares")
+}
+
+// ─────────────────────────────────────────────
+// UNITS / FLATS
+// ─────────────────────────────────────────────
+
+model Unit {
+  id              String     @id @default(cuid())
+  projectId       String
+  floor           Int?
+  unitNo          String     // e.g. A1, B2, 3rd Floor East
+  unitType        UnitType   @default(FLAT)
+  status          UnitStatus @default(AVAILABLE)
+  sizesqft        Decimal?
+  facing          String?    // North, South, East, West
+  agreedPrice     Decimal?   // Total sale price
+  registrationFee Decimal?
+  utilityCharge   Decimal?
+  notes           String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  project         Project    @relation(fields: [projectId], references: [id])
+  buyerAllocations UnitBuyer[]
+  demands          Demand[]
+
+  @@map("units")
+}
+
+model UnitBuyer {
+  id           String   @id @default(cuid())
+  unitId       String
+  buyerId      String
+  sharePercent Decimal  @default(100)
+  isPrimary    Boolean  @default(true)
+  assignedAt   DateTime @default(now())
+
+  unit   Unit  @relation(fields: [unitId], references: [id])
+  buyer  Buyer @relation(fields: [buyerId], references: [id])
+
+  @@unique([unitId, buyerId])
+  @@map("unit_buyers")
+}
+
+// ─────────────────────────────────────────────
+// BUYERS / CONTACTS
+// ─────────────────────────────────────────────
+
+model Buyer {
+  id           String      @id @default(cuid())
+  companyId    String
+  name         String
+  nameBn       String?
+  fatherName   String?
+  phone        String?
+  phone2       String?
+  email        String?
+  nidNo        String?
+  address      String?
+  addressBn    String?
+  status       BuyerStatus @default(ACTIVE)
+  notes        String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  company        Company         @relation(fields: [companyId], references: [id])
+  projectLinks   ProjectBuyer[]
+  unitAllocations UnitBuyer[]
+  landShares     LandShare[]
+  collections    Collection[]
+  demands        Demand[]
+  documents      Document[]
+
+  @@map("buyers")
+}
+
+model ProjectBuyer {
+  id        String   @id @default(cuid())
+  projectId String
+  buyerId   String
+  joinedAt  DateTime @default(now())
+  notes     String?
+
+  project Project @relation(fields: [projectId], references: [id])
+  buyer   Buyer   @relation(fields: [buyerId], references: [id])
+
+  @@unique([projectId, buyerId])
+  @@map("project_buyers")
+}
+
+// ─────────────────────────────────────────────
+// DEMAND NOTICES
+// ─────────────────────────────────────────────
+
+model Demand {
+  id           String       @id @default(cuid())
+  unitId       String
+  buyerId      String
+  phaseId      String?
+  demandNo     String?      // e.g. DN-2024-001
+  title        String
+  titleBn      String?
+  amount       Decimal
+  dueDate      DateTime?
+  status       DemandStatus @default(DRAFT)
+  issuedAt     DateTime?
+  notes        String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  unit         Unit         @relation(fields: [unitId], references: [id])
+  buyer        Buyer        @relation(fields: [buyerId], references: [id])
+  phase        Phase?       @relation(fields: [phaseId], references: [id])
+  collections  Collection[]
+
+  @@map("demands")
+}
+
+// ─────────────────────────────────────────────
+// PHASES (Construction Stages)
+// ─────────────────────────────────────────────
+
+model Phase {
+  id            String      @id @default(cuid())
+  projectId     String
+  name          String      // e.g. "Piling", "Basement", "1st Floor Slab"
+  nameBn        String?
+  phaseType     PhaseType   @default(SLAB)
+  floorNo       Int?        // for slab/gathuni phases
+  status        PhaseStatus @default(DRAFT)
+  sequence      Int         @default(0)  // ordering
+  workDesc      String?
+  workDescBn    String?
+  startDate     DateTime?
+  endDate       DateTime?
+  serviceChargePct Decimal? @default(0)  // e.g. 5%
+  notes         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  project       Project     @relation(fields: [projectId], references: [id])
+  collections   Collection[]
+  expenses      Expense[]
+  demands       Demand[]
+  materialItems MaterialItem[]
+  approvals     Approval[]
+
+  @@map("phases")
+}
+
+// ─────────────────────────────────────────────
+// COLLECTIONS (Income from Buyers)
+// ─────────────────────────────────────────────
+
+model Collection {
+  id              String          @id @default(cuid())
+  phaseId         String
+  buyerId         String
+  demandId        String?
+  receiptNo       String?         // e.g. RCP-2024-001
+  amount          Decimal
+  paymentMethod   PaymentMethod   @default(CASH)
+  transactionType TransactionType @default(COLLECTION)
+  chequeNo        String?
+  chequeDate      DateTime?
+  bankName        String?
+  reference       String?
+  receivedDate    DateTime        @default(now())
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  phase   Phase   @relation(fields: [phaseId], references: [id])
+  buyer   Buyer   @relation(fields: [buyerId], references: [id])
+  demand  Demand? @relation(fields: [demandId], references: [id])
+
+  @@map("collections")
+}
+
+// ─────────────────────────────────────────────
+// EXPENSES
+// ─────────────────────────────────────────────
+
+model Expense {
+  id            String          @id @default(cuid())
+  phaseId       String
+  supplierId    String?
+  category      ExpenseCategory
+  description   String
+  descriptionBn String?
+  amount        Decimal
+  quantity      Decimal?
+  unit          String?         // kg, bags, cft, trucks, etc.
+  unitPrice     Decimal?
+  status        ExpenseStatus   @default(PENDING_APPROVAL)
+  expenseDate   DateTime        @default(now())
+  billNo        String?
+  payableId     String?
+  createdById   String
+  approvedById  String?
+  approvedAt    DateTime?
+  notes         String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  phase       Phase      @relation(fields: [phaseId], references: [id])
+  supplier    Supplier?  @relation(fields: [supplierId], references: [id])
+  createdBy   User       @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
+  approvedBy  User?      @relation("ExpenseApprovedBy", fields: [approvedById], references: [id])
+  payable     SupplierPayable? @relation(fields: [payableId], references: [id])
+  documents   Document[]
+
+  @@map("expenses")
+}
+
+// ─────────────────────────────────────────────
+// MATERIAL PURCHASE (grouped purchase bills)
+// ─────────────────────────────────────────────
+
+model MaterialItem {
+  id            String          @id @default(cuid())
+  phaseId       String
+  supplierId    String?
+  category      ExpenseCategory
+  description   String
+  descriptionBn String?
+  quantity      Decimal
+  unit          String          // kg, bag, cft, pcs, truck, etc.
+  unitPrice     Decimal
+  totalAmount   Decimal
+  purchaseDate  DateTime        @default(now())
+  billNo        String?
+  notes         String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  phase    Phase     @relation(fields: [phaseId], references: [id])
+  supplier Supplier? @relation(fields: [supplierId], references: [id])
+
+  @@map("material_items")
+}
+
+// ─────────────────────────────────────────────
+// SUPPLIERS
+// ─────────────────────────────────────────────
+
+model Supplier {
+  id           String       @id @default(cuid())
+  companyId    String
+  name         String
+  nameBn       String?
+  supplierType SupplierType @default(MATERIAL_SUPPLIER)
+  phone        String?
+  email        String?
+  address      String?
+  contactPerson String?
+  bankName     String?
+  bankAccount  String?
+  notes        String?
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  company    Company           @relation(fields: [companyId], references: [id])
+  expenses   Expense[]
+  materials  MaterialItem[]
+  payables   SupplierPayable[]
+
+  @@map("suppliers")
+}
+
+// ─────────────────────────────────────────────
+// SUPPLIER PAYABLES
+// ─────────────────────────────────────────────
+
+model SupplierPayable {
+  id           String        @id @default(cuid())
+  supplierId   String
+  billNo       String?
+  billDate     DateTime
+  totalAmount  Decimal
+  paidAmount   Decimal       @default(0)
+  dueAmount    Decimal
+  dueDate      DateTime?
+  status       PayableStatus @default(UNPAID)
+  notes        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  supplier  Supplier          @relation(fields: [supplierId], references: [id])
+  payments  SupplierPayment[]
+  expenses  Expense[]
+
+  @@map("supplier_payables")
+}
+
+model SupplierPayment {
+  id            String        @id @default(cuid())
+  payableId     String
+  amount        Decimal
+  paymentMethod PaymentMethod @default(BANK_TRANSFER)
+  chequeNo      String?
+  chequeDate    DateTime?
+  bankName      String?
+  reference     String?
+  paidAt        DateTime      @default(now())
+  notes         String?
+  createdAt     DateTime      @default(now())
+
+  payable SupplierPayable @relation(fields: [payableId], references: [id])
+
+  @@map("supplier_payments")
+}
+
+// ─────────────────────────────────────────────
+// DOCUMENTS / ATTACHMENTS
+// ─────────────────────────────────────────────
+
+model Document {
+  id          String   @id @default(cuid())
+  projectId   String?
+  buyerId     String?
+  expenseId   String?
+  fileName    String
+  fileUrl     String
+  fileType    String?
+  fileSize    Int?
+  description String?
+  uploadedAt  DateTime @default(now())
+
+  project Project? @relation(fields: [projectId], references: [id])
+  buyer   Buyer?   @relation(fields: [buyerId], references: [id])
+  expense Expense? @relation(fields: [expenseId], references: [id])
+
+  @@map("documents")
+}
+
+// ─────────────────────────────────────────────
+// APPROVALS WORKFLOW
+// ─────────────────────────────────────────────
+
+model Approval {
+  id          String   @id @default(cuid())
+  phaseId     String?
+  entityType  String   // "expense" | "phase" | "demand"
+  entityId    String
+  status      String   // "pending" | "approved" | "rejected"
+  requestedBy String
+  reviewedBy  String?
+  reviewNote  String?
+  requestedAt DateTime @default(now())
+  reviewedAt  DateTime?
+
+  phase      Phase? @relation(fields: [phaseId], references: [id])
+  reviewer   User?  @relation(fields: [reviewedBy], references: [id])
+
+  @@map("approvals")
+}
+
+// ─────────────────────────────────────────────
+// AUDIT LOG
+// ─────────────────────────────────────────────
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  userId     String?
+  projectId  String?
+  action     AuditAction
+  entityType String      // "expense" | "collection" | "phase" | "buyer" etc.
+  entityId   String?
+  oldValues  Json?
+  newValues  Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime    @default(now())
+
+  user    User?    @relation(fields: [userId], references: [id])
+  project Project? @relation(fields: [projectId], references: [id])
+
+  @@map("audit_logs")
+}
