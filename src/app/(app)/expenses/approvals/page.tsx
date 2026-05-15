@@ -7,18 +7,22 @@ import { Card, CardContent } from '@/components/ui/card';
 import { formatBDT, formatDate, expenseCategoryLabel, cn } from '@/lib/utils';
 import { Clock } from 'lucide-react';
 import Link from 'next/link';
+import { ApprovalActions } from './approval-actions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ExpenseApprovalsPage() {
   const session = await getServerSession(authOptions);
   const companyId = (session?.user as any)?.companyId ?? '';
+  const userRole  = (session?.user as any)?.role ?? '';
+
+  const canApprove = ['COMPANY_ADMIN', 'MANAGER', 'ACCOUNTANT'].includes(userRole);
 
   const pending = await prisma.expense.findMany({
     where: { phase: { project: { companyId } }, status: 'PENDING_APPROVAL' },
     include: {
-      phase: { select: { id: true, name: true } },
-      supplier: { select: { name: true } },
+      phase:     { select: { id: true, name: true } },
+      supplier:  { select: { name: true } },
       createdBy: { select: { name: true } },
     },
     orderBy: { createdAt: 'asc' },
@@ -40,7 +44,7 @@ export default async function ExpenseApprovalsPage() {
               <div className="flex flex-col items-center py-16 text-muted-foreground">
                 <Clock className="h-10 w-10 mb-3 opacity-30" />
                 <p className="font-medium">No pending approvals</p>
-                <p className="text-sm mt-1">All expenses are reviewed.</p>
+                <p className="text-sm mt-1">All expenses have been reviewed.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -54,7 +58,9 @@ export default async function ExpenseApprovalsPage() {
                       <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Category</th>
                       <th className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Amount</th>
                       <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">By</th>
-                      <th className="px-4 py-2.5 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Action</th>
+                      {canApprove && (
+                        <th className="px-4 py-2.5 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Action</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -67,23 +73,18 @@ export default async function ExpenseApprovalsPage() {
                           {e.descriptionBn && <div className="bn text-xs text-muted-foreground">{e.descriptionBn}</div>}
                         </td>
                         <td className="px-4 py-3">
-                          <Link href={`/phases/${e.phase.id}`} className="text-xs hover:text-primary hover:underline">{e.phase.name}</Link>
+                          <Link href={`/phases/${e.phase.id}`} className="text-xs hover:text-primary hover:underline">
+                            {e.phase.name}
+                          </Link>
                         </td>
                         <td className="px-4 py-3 text-xs text-muted-foreground">{expenseCategoryLabel(e.category)}</td>
                         <td className="px-4 py-3 text-right font-bold text-red-500">{formatBDT(Number(e.amount))}</td>
                         <td className="px-4 py-3 text-xs text-muted-foreground">{e.createdBy.name}</td>
-                        <td className="px-4 py-3 text-center">
-                          <form action={`/api/expenses/${e.id}/approve`} method="POST" className="inline">
-                            <button type="submit" className="text-xs bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 transition-colors mr-1">
-                              Approve
-                            </button>
-                          </form>
-                          <form action={`/api/expenses/${e.id}/reject`} method="POST" className="inline">
-                            <button type="submit" className="text-xs bg-red-100 text-red-700 px-3 py-1 rounded-md hover:bg-red-200 transition-colors">
-                              Reject
-                            </button>
-                          </form>
-                        </td>
+                        {canApprove && (
+                          <td className="px-4 py-3 text-center">
+                            <ApprovalActions expenseId={e.id} />
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -91,7 +92,7 @@ export default async function ExpenseApprovalsPage() {
                     <tr className="bg-muted/60 font-bold border-t-2">
                       <td colSpan={5} className="px-4 py-3">Total Pending</td>
                       <td className="px-4 py-3 text-right text-red-500">{formatBDT(totalPending)}</td>
-                      <td colSpan={2} />
+                      <td colSpan={canApprove ? 2 : 1} />
                     </tr>
                   </tfoot>
                 </table>

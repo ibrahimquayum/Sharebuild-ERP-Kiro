@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -12,7 +13,7 @@ interface PageHeaderProps {
     onClick?: () => void;
     icon?: LucideIcon;
   };
-  children?: React.ReactNode;
+  children?: ReactNode;
   className?: string;
 }
 

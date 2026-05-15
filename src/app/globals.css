@@ -59,11 +59,11 @@
   }
 }
 
-/* Bangla font support */
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+/* Bangla + English font support — loaded via next/font in production */
+/* Fallback stack below; add next/font/google in layout.tsx for production */
 
 body {
-  font-family: 'Inter', 'Noto Sans Bengali', sans-serif;
+  font-family: 'Inter', 'Noto Sans Bengali', 'Segoe UI', system-ui, sans-serif;
 }
 
 .bn {
