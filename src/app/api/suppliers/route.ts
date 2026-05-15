@@ -47,5 +47,15 @@ export async function POST(req: NextRequest) {
     data: { ...d, companyId, email: d.email || undefined },
   });
 
+  await prisma.auditLog.create({
+    data: {
+      userId: (session.user as any).id,
+      action: 'CREATE',
+      entityType: 'supplier',
+      entityId: supplier.id,
+      newValues: supplier as any,
+    },
+  });
+
   return NextResponse.json(supplier, { status: 201 });
 }

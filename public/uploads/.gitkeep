@@ -1,0 +1,3 @@
+# This directory is used for local file uploads in development.
+# In production, use S3 / Cloudflare R2 / similar object storage.
+# The /uploads/<companyId>/ subdirectories are created automatically.

@@ -77,6 +77,7 @@ export default async function ExpensesPage() {
                     <th className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Amount</th>
                     <th className="px-4 py-2.5 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
                     <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Supplier</th>
+                    <th className="px-4 py-2.5 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Docs</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -114,6 +115,15 @@ export default async function ExpensesPage() {
                             {e.supplier ? (
                               <Link href={`/suppliers/${e.supplier.id}`} className="hover:text-primary hover:underline">{e.supplier.name}</Link>
                             ) : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <Link
+                              href={`/expenses/${e.id}/upload`}
+                              className="text-xs text-muted-foreground hover:text-primary"
+                              title="Upload voucher"
+                            >
+                              📎
+                            </Link>
                           </td>
                         </tr>
                       );

@@ -68,11 +68,12 @@ export default async function SupplierPayablesPage() {
                     <th className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Paid</th>
                     <th className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Due</th>
                     <th className="px-4 py-2.5 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
+                    <th className="px-4 py-2.5 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {payables.length === 0 ? (
-                    <tr><td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">No payables recorded.</td></tr>
+                    <tr><td colSpan={10} className="px-4 py-12 text-center text-muted-foreground">No payables recorded.</td></tr>
                   ) : (
                     payables.map((p, i) => {
                       const due = Number(p.dueAmount);
@@ -99,6 +100,16 @@ export default async function SupplierPayablesPage() {
                           <td className="px-4 py-3 text-center">
                             <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', sm.color)}>{sm.label}</span>
                           </td>
+                          <td className="px-4 py-3 text-center">
+                            {p.status !== 'PAID' && (
+                              <Link
+                                href={`/suppliers/payables/${p.id}/pay`}
+                                className="text-xs bg-primary text-primary-foreground px-3 py-1 rounded-md hover:bg-primary/90 transition-colors"
+                              >
+                                Pay Now
+                              </Link>
+                            )}
+                          </td>
                         </tr>
                       );
                     })
@@ -111,7 +122,7 @@ export default async function SupplierPayablesPage() {
                       <td className="px-4 py-3 text-right">{formatBDT(totalBilled)}</td>
                       <td className="px-4 py-3 text-right text-green-600">{formatBDT(totalPaid)}</td>
                       <td className="px-4 py-3 text-right text-red-600">{formatBDT(totalDue)}</td>
-                      <td />
+                      <td colSpan={2} />
                     </tr>
                   </tfoot>
                 )}

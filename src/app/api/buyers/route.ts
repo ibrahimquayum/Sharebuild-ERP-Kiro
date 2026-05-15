@@ -81,5 +81,15 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  await prisma.auditLog.create({
+    data: {
+      userId: (session.user as any).id,
+      action: 'CREATE',
+      entityType: 'buyer',
+      entityId: buyer.id,
+      newValues: buyer as any,
+    },
+  });
+
   return NextResponse.json(buyer, { status: 201 });
 }
