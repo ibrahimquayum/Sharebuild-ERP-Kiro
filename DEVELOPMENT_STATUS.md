@@ -1,235 +1,87 @@
-# Development Status — Sharebuild ERP
-**Last updated:** May 2026  
-**Branch:** `feat/erp-v1`  
-**PR:** https://github.com/ibrahimquayum/Sharebuild-ERP/pull/1
+# Development Status - Sharebuild ERP
 
----
+**Last updated:** May 17, 2026  
+**Branch:** `feat/erp-v1`
 
-## Quick summary
+## Current State
+
+Sharebuild ERP now has a buildable project-first foundation. Sharebuild remains the platform brand, while tenant company branding is loaded from Company Settings for report/print surfaces.
+
+## Verified
 
 | Check | Status | Notes |
-|-------|--------|-------|
-| App runs (dev server) | ✅ Expected yes | Requires local `npm install` + PostgreSQL |
-| Build passes | ✅ Expected yes | TypeScript clean, autoprefixer now in devDeps |
-| Seed works | ✅ Fixed | Excel-accurate Top Sheet data |
-| Login / logout | ✅ Done | NextAuth credentials |
-| Protected routes | ✅ Done | Redirect to /login |
-| Top Sheet matches Excel | ✅ Verified | Income 100,143,800 / Expense 104,659,890.40 |
-| All sidebar links work | ✅ Fixed | No 404 links |
-| **Project workspace** | ✅ Stage 1 done | `/projects/[id]/*` workspace with scoped data |
-| **Phase board (cards)** | ✅ Done | Kanban columns, financial card per phase |
-| **Project-scoped buyers** | ✅ Done | Balances scoped per project |
-| **Project-scoped collections** | ✅ Done | Record payment form scoped to project |
-| **Project-scoped expenses** | ✅ Done | Add expense form scoped to project |
-| **Project-scoped payables** | ✅ Done | Supplier bills now require projectId |
-| **Project-scoped due follow-up** | ✅ Done | Per-project buyer due dashboard |
-| **Project-scoped Top Sheet** | ✅ Done | No project selector needed inside workspace |
-| **Legacy routes** | ✅ Kept | All old routes work + amber notice banners |
-| **Company setup foundation** | ✅ Done | Company settings, contacts, suppliers, subcontractors, users, setup references |
-| **Project setup foundation** | ✅ Done | Real `/projects/new` and `/projects/[id]/settings` save to DB |
+| --- | --- | --- |
+| Prisma Client | Pass | `npx prisma generate` |
+| Production build | Pass | `npm run build` |
+| Migration reset | Pass | `npx prisma migrate reset --force --skip-seed` |
+| Seed | Pass | `npm run db:seed` |
+| Top Sheet totals | Pass | Income 100,143,800 / Expense 104,659,890.40 / Balance -4,516,090.40 |
 
----
+## Implemented In This Pass
 
-## Architecture: Project-First (Stage 1 complete)
+- Clean global sidebar: Dashboard, Projects, Company Setup, Reports, Audit.
+- Project workspace sidebar reorganized into Overview, Setup, Finance, Work, Documents, Reports, Audit, Settings.
+- Project units foundation:
+  - `/projects/[id]/units`
+  - `/projects/[id]/units/new`
+  - `/projects/[id]/units/[unitId]`
+  - `POST /api/projects/[id]/units`
+  - `PUT /api/projects/[id]/units/[unitId]`
+- Buyer ownership foundation:
+  - Project-scoped Buyers & Ownership page.
+  - Unit ownership share.
+  - Co-owner support through multiple `UnitBuyer` rows.
+  - Payer flag for payer-vs-owner foundation.
+  - Project buyer detail/ledger route.
+- Document foundation:
+  - Project document library.
+  - Project document upload route.
+  - Document scope/category/title/sort/status metadata.
+  - Project, buyer, unit, phase, expense, and bill document relations.
+- Finance foundation:
+  - `/projects/[id]/finance`
+  - Project-scoped finance summary and links to daily money pages.
+- Demand foundation:
+  - `/projects/[id]/demands/new`
+  - `POST /api/projects/[id]/demands`
+  - Equal amount demand generation for selected buyer/unit ownership rows.
+- Reports foundation:
+  - Branded report header.
+  - Print action.
+  - Disabled PDF/Excel buttons until real export endpoints exist.
+  - Report entry routes for Top Sheet, buyer statement, unit statement, phase summary, collection report, expense report, supplier ledger, subcontractor ledger, due report, and audit report.
+- Permission foundation:
+  - Central permission config in `src/lib/permissions.ts`.
+  - Practical guards added to new project/unit/buyer/document/demand APIs.
+- Project audit page now reads `AuditLog`.
+- Company settings now includes report footer note.
 
-The app now follows a project-first architecture:
+## Schema Changes
 
-```
-Company Dashboard (/dashboard)
-  ↓
-Projects List (/projects)
-  ↓
-Project Workspace (/projects/[id])
-  ├── Overview          — KPIs, quick actions, phase snapshot
-  ├── Phase Board       — phase cards by status column
-  ├── Buyers            — project-specific buyers + balances
-  ├── Collections       — payments received IN this project
-  ├── Expenses          — costs incurred IN this project
-  ├── Supplier Payables — bills for this project (+ phase)
-  ├── Demands           — demand notices for this project
-  ├── Due Follow-up     — buyer dues IN this project
-  ├── Documents         — (stub — full in Stage 2)
-  └── Top Sheet         — project-scoped financial summary
+Yes. One migration was added:
 
-Company Master Data (legacy routes, still working)
-  /buyers, /suppliers, /phases, /collections, /expenses, /reports/top-sheet
-```
-
----
-
-## Schema changes (Stage 1)
-
-| Model | Change |
-|-------|--------|
-| `SupplierPayable` | Added `projectId` (required FK) |
-| `SupplierPayable` | Added `phaseId` (optional FK) |
-| `SupplierBillItem` | New model (line items on supplier bill) |
-| `ProjectStaffRole` | New enum (7 project roles) |
-| `ProjectStaffAssignment` | New model (user→project with role) |
-| Migration | `prisma/migrations/20260517000001_project_first_refactor/migration.sql` |
-
----
-
-## Schema changes (Company/Project setup pass)
-
-| Model | Change |
-|-------|--------|
-| `Project` | Added setup fields: `landSize`, `residentialFloors`, `unitsPerFloor`, `totalPlannedUnits`, `parkingUtilityNote`, `defaultServiceChargePct`, `notes` |
-| Migration | `prisma/migrations/0002_project_setup_fields/migration.sql` |
-
----
-
-## Completed features
-
-### Infrastructure
-- [x] Next.js 14 App Router, TypeScript, Prisma 5, PostgreSQL, NextAuth
-- [x] Multi-tenant: Company → Project → Phase
-- [x] autoprefixer added to devDependencies (build fix)
-- [x] Bangla Unicode support (nameBn fields, bn font class)
-- [x] Tailwind CSS + Radix UI component set
-
-### Project Workspace (new in Stage 1)
-- [x] Project workspace layout with scoped sidebar + header
-- [x] Project overview: KPI cards, quick action buttons, phase snapshot
-- [x] Phase board: kanban columns, financial cards per phase
-- [x] Project buyers: scoped list with project-specific paid amount
-- [x] Project collections: filtered by projectId from URL
-- [x] Project expenses: filtered by projectId from URL
-- [x] Project payables: bills scoped to this project + phase
-- [x] Project due follow-up: buyer dues per project only
-- [x] Project demands: demand notices for this project's phases
-- [x] Project top sheet: full report, no project selector needed
-- [x] Project documents: stub page (upload works via expense 📎)
-
-### Project-scoped forms (new in Stage 1)
-- [x] `/projects/[id]/collections/new` — buyer + phase dropdowns scoped to project
-- [x] `/projects/[id]/expenses/new` — phase dropdown scoped to project
-- [x] `/projects/[id]/payables/new` — supplier from company master, phase from project
-- [x] `/projects/new` — creates a real project and redirects to workspace
-- [x] `/projects/[id]/settings` — edits project profile/setup fields
-
-### Company setup foundation
-- [x] `/company/settings` — company profile/defaults, saves to DB
-- [x] `/company/contacts` — buyer/contact master identity list
-- [x] `/company/contacts/[id]` — identity detail + project memberships
-- [x] `/company/suppliers` — material/equipment supplier master
-- [x] `/company/suppliers/[id]` and `/edit` — supplier detail/edit
-- [x] `/company/subcontractors` — work/service providers using supplier type
-- [x] `/company/users` — create staff + basic project assignment
-- [x] `/company/materials`, `/company/categories`, `/company/payment-methods` — read-only setup references documenting schema gaps
-- [x] `/company/audit` — latest setup/project audit log
-- [x] `/company/reports` — company report entry points
-
-### Data-entry forms (from previous work)
-- [x] Add Buyer — `/buyers/new` — saves to DB, audit log
-- [x] Add Phase — `/phases/new` — saves to DB, audit log, auto-name
-- [x] Record Payment (global) — `/collections/new` — saves to DB
-- [x] Add Expense (global) — `/expenses/new` — saves to DB, auto-calc
-- [x] Add Supplier — `/suppliers/new` — saves to DB
-- [x] Add Supplier Bill — `/suppliers/payables/new` — now requires project
-- [x] Record Supplier Payment — `/suppliers/payables/[id]/pay` — atomic balance update
-- [x] Upload Voucher — `/expenses/[id]/upload` — local disk, JPG/PNG/PDF
-
-### API routes
-- [x] `GET/POST /api/projects`
-- [x] `PUT /api/projects/[id]`
-- [x] `PUT /api/company/settings`
-- [x] `POST /api/company/users`
-- [x] `PUT /api/suppliers/[id]`
-- [x] `GET/PATCH/DELETE /api/phases/[id]`
-- [x] `GET/POST /api/phases` (accepts `?projectId=` filter)
-- [x] `GET/POST /api/collections` (accepts `?phaseId=`, `?buyerId=`)
-- [x] `GET/POST /api/expenses` (accepts `?phaseId=`, `?status=`)
-- [x] `POST /api/expenses/[id]/approve` — with audit log
-- [x] `POST /api/expenses/[id]/reject` — with audit log
-- [x] `GET/POST /api/buyers` (accepts `?projectId=` filter — **key for scoping**)
-- [x] `GET/PATCH /api/buyers/[id]`
-- [x] `GET/POST /api/suppliers`
-- [x] `GET/POST /api/suppliers/payables` — now requires `projectId` in POST
-- [x] `GET/POST /api/suppliers/payables/[id]/payments`
-- [x] `GET/POST /api/documents`
-- [x] `GET /api/reports/top-sheet`
-
-### Read-only list pages (all still working)
-- [x] `/dashboard` — company-wide KPI summary
-- [x] `/projects` — project cards
-- [x] `/phases` — global phase list with financials
-- [x] `/phases/[id]` — phase detail (income+expense ledger)
-- [x] `/buyers` — company-wide buyer list (with legacy notice)
-- [x] `/buyers/[id]` — buyer profile with payment history
-- [x] `/buyers/dues` — global due dashboard
-- [x] `/collections` — global collections list (with legacy notice)
-- [x] `/expenses` — global expense list (with legacy notice)
-- [x] `/expenses/approvals` — pending approvals with Approve/Reject
-- [x] `/suppliers` — supplier list
-- [x] `/suppliers/payables` — payables list with Pay Now
-- [x] `/reports/top-sheet` — global top sheet
-- [x] `/reports/phase-summary` — phase summary
-- [x] `/settings` — company info, team, role permissions
-- [x] `/login` — auth
-
-### Audit log coverage
-| Entity | CREATE | UPDATE | APPROVE/REJECT |
-|--------|--------|--------|----------------|
-| Buyer | ✅ | ❌ | — |
-| Phase | ✅ | ❌ | — |
-| Collection | ✅ | — | — |
-| Expense | ✅ | — | ✅ |
-| Supplier | ✅ | — | — |
-| SupplierPayable | ✅ (with projectId) | — | — |
-| SupplierPayment | ✅ (with projectId) | — | — |
-
----
-
-## Missing features (Stage 2 scope)
-
-| Feature | Priority | Notes |
-|---------|----------|-------|
-| Phase detail inside project workspace | High | Currently links to global `/phases/[id]` |
-| Phase status change form (dropdown on card) | High | Cards are read-only now |
-| Project-scoped demand issuance form | High | Needs bulk issue to all project buyers |
-| SupplierBillItem UI (multi-line bills) | Medium | Model and schema ready |
-| ProjectStaffAssignment UI | Medium | Model and migration ready |
-| Audit lock enforcement | High | `isAuditLocked` check before edits |
-| Audit log viewer page | Medium | `audit_logs` table exists and is populated |
-| Documents tab full implementation | Medium | Stub page only |
-| Company accounting roll-up dashboard | Future | After all project data is correct |
-| PDF export (Top Sheet, buyer statement) | Medium | Print CSS exists |
-| User management UI | Medium | Users can be created via seed |
-| Buyer portal (read-only cross-project view) | Future | Architecture defined |
-
----
-
-## Known issues
-
-1. **SupplierPayable migration on existing DBs** — If any existing SupplierPayable rows exist without a projectId, the migration backfills from linked expenses or deletes them. Safe on fresh installs (no payable rows in seed).
-
-2. **Phase board is static** — Phase cards are in columns but cannot be dragged. Status change requires visiting the phase detail page.
-
-3. **Project workspace demands form** — The "Issue Demand" button in `/projects/[id]/demands` links to global `/demands/new` which does not pre-fill the project. Stage 2 will add a project-scoped demand form.
-
-4. **Buyer due calculation without demands** — The due follow-up page calculates due as `totalDemanded - totalPaid`. If no demands have been issued, due shows ৳ 0 even if payments are expected. Issue demands first.
-
-5. **File upload is local disk only** — `/public/uploads/[companyId]/`. Replace with S3/R2 before production deployment.
-
----
-
-## How to run locally
-
-See [LOCAL_TESTING_GUIDE.md](./LOCAL_TESTING_GUIDE.md)
-
-```bash
-npm install
-cp .env.example .env       # set DATABASE_URL + NEXTAUTH_SECRET
-npx prisma migrate dev --name init
-npm run db:seed
-npm run dev
+```text
+prisma/migrations/0003_product_foundation/migration.sql
 ```
 
-Open: http://localhost:3000  
-Login: `admin@relaxdevelopers.com` / `admin123`
+It adds:
 
-**After Stage 1 migration (if upgrading existing DB):**
-```bash
-npx prisma migrate dev --name project_first_refactor
-```
+- New user roles for the permission foundation.
+- Additional unit type/status values.
+- `DocumentScope` and `DocumentStatus`.
+- Document metadata and relations for unit, phase, payable, and uploadedBy.
+- `UnitBuyer.isPayer`, `UnitBuyer.relationship`, and `UnitBuyer.notes`.
+
+## Still Incomplete / Placeholder
+
+- PDF and Excel exports are not implemented yet; buttons are intentionally disabled.
+- Most non-Top-Sheet report pages are branded print-ready foundations, not full report engines.
+- Materials, categories, and payment methods are still documented schema gaps.
+- Full dynamic permission editing UI/database tables are not built; permissions are code-configured.
+- Subcontractor bill creation is still not fully separated from supplier payable internals.
+- Payment allocation against demands is basic; deeper allocation/reversal logic is a future accounting step.
+- File upload remains local disk under `public/uploads/[companyId]`.
+
+## Next Recommended Build Step
+
+Implement real report export endpoints and finish demand/payment allocation logic before adding advanced accounting or external portals.

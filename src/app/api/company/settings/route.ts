@@ -16,10 +16,11 @@ const settingsSchema = z.object({
   receiptPrefix: z.string().optional(),
   defaultServiceChargePct: z.number().optional(),
   fiscalYearStart: z.string().optional(),
+  reportFooterNote: z.string().optional(),
   notes: z.string().optional(),
 });
 
-const SETTING_KEYS = ['defaultCurrency', 'receiptPrefix', 'defaultServiceChargePct', 'fiscalYearStart', 'notes'] as const;
+const SETTING_KEYS = ['defaultCurrency', 'receiptPrefix', 'defaultServiceChargePct', 'fiscalYearStart', 'reportFooterNote', 'notes'] as const;
 
 export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions);

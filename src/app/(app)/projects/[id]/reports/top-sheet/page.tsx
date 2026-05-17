@@ -12,6 +12,9 @@ import { formatBDT, formatDate, phaseTypeLabel, balanceColor, cn } from '@/lib/u
 import { BarChart3, MapPin, Phone } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { getCompanyBranding } from '@/lib/branding';
+import { ReportHeader } from '@/components/shared/report-header';
+import { ReportActions } from '@/components/shared/report-actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +26,7 @@ export default async function ProjectTopSheetPage({ params }: { params: { id: st
     where: { id: params.id, companyId },
   });
   if (!project) notFound();
+  const branding = await getCompanyBranding(companyId);
 
   const phases = await prisma.phase.findMany({
     where: { projectId: project.id, status: { in: ['ACTIVE', 'APPROVED', 'INCLUDED_IN_SUMMARY'] } },
@@ -51,9 +55,18 @@ export default async function ProjectTopSheetPage({ params }: { params: { id: st
   const finalBalance       = grandTotalIncome - grandTotalExpense;
 
   return (
-    <div className="p-5 space-y-5">
+    <div className="p-5 space-y-5 print:p-0">
+      <div className="flex justify-end">
+        <ReportActions />
+      </div>
+      <ReportHeader
+        branding={branding}
+        project={project}
+        title="Project Top Sheet"
+        subtitle="Phase-wise income, expense, and balance summary"
+      />
       {/* Project header */}
-      <Card className="border-2 border-primary/20">
+      <Card className="border-2 border-primary/20 print:hidden">
         <CardContent className="p-5 text-center space-y-1">
           <h1 className="text-2xl font-bold">{project.name}</h1>
           {project.nameBn && <p className="bn text-base text-muted-foreground">{project.nameBn}</p>}

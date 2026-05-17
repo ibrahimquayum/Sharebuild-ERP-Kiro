@@ -2,47 +2,55 @@
 
 **Branch:** `feat/erp-v1`
 
-## Completed
+## Implemented
 
-| Area | Route | Backend |
-|------|-------|---------|
-| Company settings | `/company/settings` | `PUT /api/company/settings`, `Company`, `CompanySetting`, audit log |
-| Contacts / Buyers master | `/company/contacts`, `/company/contacts/[id]` | Existing `Buyer` model and `/api/buyers` |
-| Suppliers master | `/company/suppliers`, `/company/suppliers/[id]`, `/company/suppliers/[id]/edit` | `Supplier`, `/api/suppliers`, `PUT /api/suppliers/[id]` |
-| Subcontractors master | `/company/subcontractors` | Uses `Supplier` with labour/service supplier types |
-| Users / Staff | `/company/users` | `POST /api/company/users`, `User`, optional `ProjectStaffAssignment` |
-| Company reports | `/company/reports` | Links existing report routes |
-| Audit | `/company/audit` | Reads `AuditLog` |
-| Project setup | `/projects/new`, `/projects/[id]/settings`, `/projects/[id]/edit` | `POST /api/projects`, `PUT /api/projects/[id]` |
+| Area | Route | Persistence |
+| --- | --- | --- |
+| Company profile and branding | `/company/settings` | `Company`, `CompanySetting`, audit log |
+| Report footer note | `/company/settings` | `CompanySetting.reportFooterNote` |
+| Contacts / Buyers master | `/company/contacts`, `/company/contacts/[id]`, `/company/contacts/new` | `Buyer` |
+| Suppliers master | `/company/suppliers`, `/company/suppliers/[id]`, `/company/suppliers/[id]/edit`, `/company/suppliers/new` | `Supplier` |
+| Subcontractors master | `/company/subcontractors` | `Supplier` records with labour/service type |
+| Users and roles | `/company/users` | `User`, optional `ProjectStaffAssignment` |
+| Company reports | `/company/reports` | Links report areas |
+| Audit | `/company/audit` | `AuditLog` |
 
-## Schema Changes
+## Setup References / Schema Gaps
 
-Yes. One migration was added:
-
-```text
-prisma/migrations/0002_project_setup_fields/migration.sql
-```
-
-It adds project setup fields to `Project`: land size, residential floors, units per floor, total planned units, parking/common utility note, default service charge percentage, and notes.
-
-## Read-Only Setup References
-
-These routes exist and intentionally do not fake persistence because the schema does not yet have editable master tables:
+These pages intentionally do not fake editable persistence:
 
 - `/company/materials`
 - `/company/categories`
 - `/company/payment-methods`
 
-Current support:
-- Expense categories and payment methods are Prisma enums.
-- Materials exist as project material purchase line items, not a company material master.
+Current schema support:
+
+- Expense categories are Prisma enum values.
+- Payment methods are Prisma enum values.
+- Materials exist as project material purchase items, not company-level material masters.
+
+## Project Foundation Connected To Company Setup
+
+- Project creation and settings save under the current company.
+- Project units, buyers, documents, demands, finance, reports, and audit are project-scoped.
+- Tenant/company branding is used by project report headers.
+- Sharebuild remains the platform shell identity.
+
+## Schema Changes
+
+Yes:
+
+- `0002_project_setup_fields` added project setup fields.
+- `0003_product_foundation` added roles, document metadata/scope/status, unit ownership payer metadata, and document relations.
 
 ## Remaining Gaps
 
-- Add first-class editable master tables for materials, material categories, work categories, and payment methods when the product needs admin-managed setup.
-- Add edit forms for contacts/users if needed; create/list/detail basics are in place.
-- Expand supplier/subcontractor work type beyond the current `SupplierType` enum if finer categories are required.
+- Editable material master table.
+- Editable category master tables.
+- Editable payment-method settings table.
+- Dynamic database-backed role/permission editor.
+- Logo upload pipeline; company settings currently accepts a logo URL/path.
 
 ## Recommended Next Step
 
-Build project unit setup and project-buyer assignment flows, because those sit directly after project setup and before demand/collection accuracy.
+Finish export-grade report endpoints and payment allocation/reversal logic before building portals or advanced accounting.

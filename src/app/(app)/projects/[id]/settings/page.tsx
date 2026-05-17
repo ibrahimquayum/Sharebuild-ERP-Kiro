@@ -2,13 +2,17 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProjectForm } from '@/components/projects/project-form';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ProjectSettingsPage({ params }: { params: { id: string } }) {
-  const project = await prisma.project.findUnique({ where: { id: params.id } });
+  const session = await getServerSession(authOptions);
+  const companyId = (session?.user as any)?.companyId ?? '';
+  const project = await prisma.project.findFirst({ where: { id: params.id, companyId } });
   if (!project) notFound();
 
   return (

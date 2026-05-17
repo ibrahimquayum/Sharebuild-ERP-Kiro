@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { can } from '@/lib/permissions';
 
 const updateSchema = z.object({
   name: z.string().min(1),
@@ -28,6 +29,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const companyId = (session.user as any).companyId;
+  const role = (session.user as any).role;
+  if (!can(role, 'projects', 'editDraft') && !can(role, 'settings', 'editDraft')) {
+    return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+  }
   const oldProject = await prisma.project.findFirst({ where: { id: params.id, companyId } });
   if (!oldProject) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 

@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Field, FormError, TextField } from '@/components/shared/form-field';
 import { Loader2 } from 'lucide-react';
 
-const ROLES = ['COMPANY_ADMIN', 'MANAGER', 'ACCOUNTANT', 'SITE_ENGINEER', 'VIEWER'];
+const ROLES = ['COMPANY_ADMIN', 'MANAGEMENT', 'ACCOUNTS', 'COLLECTION_OFFICER', 'ENGINEER', 'SITE_SUPERVISOR', 'DOCUMENT_OFFICER', 'AUDITOR', 'VIEWER'];
 const PROJECT_ROLES = ['PROJECT_MANAGER', 'SITE_ENGINEER', 'SITE_SUPERVISOR', 'ACCOUNTS_OFFICER', 'COLLECTION_OFFICER', 'DOCUMENT_OFFICER', 'AUDITOR'];
 const NO_PROJECT = '__none';
 

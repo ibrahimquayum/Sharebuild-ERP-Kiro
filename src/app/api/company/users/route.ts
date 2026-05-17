@@ -9,7 +9,7 @@ const userSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
   phone: z.string().optional(),
-  role: z.enum(['SUPER_ADMIN', 'COMPANY_ADMIN', 'MANAGER', 'ACCOUNTANT', 'SITE_ENGINEER', 'VIEWER']),
+  role: z.enum(['SUPER_ADMIN', 'COMPANY_ADMIN', 'MANAGEMENT', 'ACCOUNTS', 'COLLECTION_OFFICER', 'ENGINEER', 'SITE_SUPERVISOR', 'DOCUMENT_OFFICER', 'AUDITOR', 'MANAGER', 'ACCOUNTANT', 'SITE_ENGINEER', 'VIEWER']),
   password: z.string().min(6),
   isActive: z.boolean().default(true),
   projectId: z.string().optional(),

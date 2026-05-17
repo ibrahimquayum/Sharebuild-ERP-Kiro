@@ -96,7 +96,7 @@ export default async function ProjectCollectionsPage({ params }: { params: { id:
                       <td className="px-4 py-3 text-xs text-muted-foreground">{i + 1}</td>
                       <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{formatDate(c.receivedDate)}</td>
                       <td className="px-4 py-3">
-                        <Link href={`/buyers/${c.buyer.id}`} className="font-medium hover:text-primary hover:underline">{c.buyer.name}</Link>
+                        <Link href={`/projects/${project.id}/buyers/${c.buyer.id}`} className="font-medium hover:text-primary hover:underline">{c.buyer.name}</Link>
                         {c.buyer.nameBn && <div className="bn text-xs text-muted-foreground">{c.buyer.nameBn}</div>}
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">

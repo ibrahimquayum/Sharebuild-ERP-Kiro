@@ -12,6 +12,7 @@ import {
   Home,
   LayoutDashboard,
   Package,
+  Tags,
   Receipt,
   Settings,
   Shield,
@@ -38,12 +39,14 @@ const sections: { label: string; items: NavItem[] }[] = [
   {
     label: 'Company',
     items: [
+      { title: 'Company Profile', href: '/company/settings', icon: Settings },
+      { title: 'Users & Roles', href: '/company/users', icon: Shield },
       { title: 'Contacts / Buyers', href: '/company/contacts', icon: Users },
       { title: 'Suppliers', href: '/company/suppliers', icon: Truck },
       { title: 'Subcontractors', href: '/company/subcontractors', icon: Receipt },
       { title: 'Materials', href: '/company/materials', icon: Package },
-      { title: 'Users', href: '/company/users', icon: Shield },
-      { title: 'Settings', href: '/company/settings', icon: Settings },
+      { title: 'Categories', href: '/company/categories', icon: Tags },
+      { title: 'Payment Methods', href: '/company/payment-methods', icon: Receipt },
     ],
   },
   {
@@ -53,13 +56,6 @@ const sections: { label: string; items: NavItem[] }[] = [
       { title: 'Audit', href: '/company/audit', icon: AlertCircle },
     ],
   },
-];
-
-const legacyItems: NavItem[] = [
-  { title: 'Legacy Phases', href: '/phases', icon: Receipt },
-  { title: 'Legacy Collections', href: '/collections', icon: Receipt },
-  { title: 'Legacy Expenses', href: '/expenses', icon: Receipt },
-  { title: 'Legacy Buyers', href: '/buyers', icon: Users },
 ];
 
 function NavItemComponent({ item }: { item: NavItem }) {
@@ -88,8 +84,6 @@ function NavItemComponent({ item }: { item: NavItem }) {
 }
 
 export function Sidebar() {
-  const [legacyOpen, setLegacyOpen] = useState(false);
-
   return (
     <aside className="w-60 shrink-0 h-screen sticky top-0 flex flex-col border-r bg-background">
       <div className="flex items-center gap-2 px-4 py-4 border-b">
@@ -103,13 +97,6 @@ export function Sidebar() {
             {section.items.map((item) => <NavItemComponent key={item.title} item={item} />)}
           </div>
         ))}
-        <div className="space-y-1">
-          <button onClick={() => setLegacyOpen(v => !v)} className="w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent">
-            Legacy daily-work pages
-            {legacyOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-          </button>
-          {legacyOpen && legacyItems.map((item) => <NavItemComponent key={item.title} item={item} />)}
-        </div>
       </nav>
       <div className="border-t px-4 py-3"><p className="text-xs text-muted-foreground">Sharebuild ERP v0.1</p></div>
     </aside>

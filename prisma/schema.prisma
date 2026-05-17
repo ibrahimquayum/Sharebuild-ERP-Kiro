@@ -18,6 +18,13 @@ datasource db {
 enum UserRole {
   SUPER_ADMIN   // SaaS platform owner
   COMPANY_ADMIN // Owner/MD of a construction company
+  MANAGEMENT
+  ACCOUNTS
+  COLLECTION_OFFICER
+  ENGINEER
+  SITE_SUPERVISOR
+  DOCUMENT_OFFICER
+  AUDITOR
   MANAGER       // Project manager
   ACCOUNTANT    // Finance/accounts staff
   SITE_ENGINEER // Can log expenses, progress
@@ -56,7 +63,10 @@ enum PhaseStatus {
 enum UnitType {
   FLAT
   COMMERCIAL
+  SHOP
   PARKING
+  COMMON
+  UTILITY
   ROOF
   LAND_SHARE
 }
@@ -66,6 +76,7 @@ enum UnitStatus {
   BOOKED
   SOLD
   REGISTERED
+  HANDED_OVER
   DISPUTED
 }
 
@@ -166,6 +177,23 @@ enum AuditAction {
   LOGOUT
 }
 
+enum DocumentScope {
+  PROJECT
+  BUYER
+  UNIT
+  PHASE
+  EXPENSE
+  SUPPLIER_BILL
+  SUBCONTRACTOR_BILL
+  AUDIT
+}
+
+enum DocumentStatus {
+  DRAFT
+  VERIFIED
+  REJECTED
+}
+
 // ─────────────────────────────────────────────
 // TENANT: COMPANY
 // ─────────────────────────────────────────────
@@ -234,6 +262,7 @@ model User {
   createdExpenses Expense[]         @relation("ExpenseCreatedBy")
   approvedExpenses Expense[]        @relation("ExpenseApprovedBy")
   staffAssignments ProjectStaffAssignment[]
+  uploadedDocuments Document[]        @relation("DocumentUploadedBy")
 
   @@map("users")
 }
@@ -358,6 +387,7 @@ model Unit {
   project         Project    @relation(fields: [projectId], references: [id])
   buyerAllocations UnitBuyer[]
   demands          Demand[]
+  documents        Document[]
 
   @@map("units")
 }
@@ -368,6 +398,9 @@ model UnitBuyer {
   buyerId      String
   sharePercent Decimal  @default(100)
   isPrimary    Boolean  @default(true)
+  isPayer       Boolean  @default(true)
+  relationship  String?  @default("OWNER")
+  notes         String?
   assignedAt   DateTime @default(now())
 
   unit   Unit  @relation(fields: [unitId], references: [id])
@@ -480,6 +513,7 @@ model Phase {
   materialItems MaterialItem[]
   approvals     Approval[]
   supplierPayables SupplierPayable[]
+  documents     Document[]
 
   @@map("phases")
 }
@@ -631,6 +665,7 @@ model SupplierPayable {
   payments  SupplierPayment[]
   expenses  Expense[]
   billItems SupplierBillItem[]
+  documents Document[]
 
   @@map("supplier_payables")
 }
@@ -677,7 +712,16 @@ model Document {
   id          String   @id @default(cuid())
   projectId   String?
   buyerId     String?
+  unitId      String?
+  phaseId     String?
   expenseId   String?
+  payableId   String?
+  uploadedById String?
+  title       String?
+  category    String?
+  scope       DocumentScope @default(PROJECT)
+  status      DocumentStatus @default(DRAFT)
+  sortOrder   Int      @default(0)
   fileName    String
   fileUrl     String
   fileType    String?
@@ -687,7 +731,18 @@ model Document {
 
   project Project? @relation(fields: [projectId], references: [id])
   buyer   Buyer?   @relation(fields: [buyerId], references: [id])
+  unit    Unit?    @relation(fields: [unitId], references: [id])
+  phase   Phase?   @relation(fields: [phaseId], references: [id])
   expense Expense? @relation(fields: [expenseId], references: [id])
+  payable SupplierPayable? @relation(fields: [payableId], references: [id])
+  uploadedBy User? @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+
+  @@index([projectId, scope])
+  @@index([buyerId])
+  @@index([unitId])
+  @@index([phaseId])
+  @@index([expenseId])
+  @@index([payableId])
 
   @@map("documents")
 }

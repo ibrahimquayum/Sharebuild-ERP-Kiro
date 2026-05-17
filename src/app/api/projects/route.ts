@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { can } from '@/lib/permissions';
 
 const createSchema = z.object({
   name: z.string().min(1),
@@ -48,30 +49,42 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const companyId = (session.user as any).companyId;
+  const role = (session.user as any).role;
+  if (!companyId) return NextResponse.json({ error: 'Your user is not assigned to a company.' }, { status: 400 });
+  if (!can(role, 'projects', 'create')) return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
 
-  const body = await req.json();
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON payload.' }, { status: 400 });
+  }
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const d = parsed.data;
-  const project = await prisma.project.create({
-    data: {
-      ...d,
-      companyId,
-      startDate: d.startDate ? new Date(d.startDate) : undefined,
-      expectedEndDate: d.expectedEndDate ? new Date(d.expectedEndDate) : undefined,
-    },
-  });
+  const project = await prisma.$transaction(async (tx) => {
+    const created = await tx.project.create({
+      data: {
+        ...d,
+        companyId,
+        startDate: d.startDate ? new Date(d.startDate) : undefined,
+        expectedEndDate: d.expectedEndDate ? new Date(d.expectedEndDate) : undefined,
+      },
+    });
 
-  await prisma.auditLog.create({
-    data: {
-      userId: (session.user as any).id,
-      projectId: project.id,
-      action: 'CREATE',
-      entityType: 'project',
-      entityId: project.id,
-      newValues: project as any,
-    },
+    await tx.auditLog.create({
+      data: {
+        userId: (session.user as any).id,
+        projectId: created.id,
+        action: 'CREATE',
+        entityType: 'project',
+        entityId: created.id,
+        newValues: created as any,
+      },
+    });
+
+    return created;
   });
 
   return NextResponse.json(project, { status: 201 });

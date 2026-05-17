@@ -57,7 +57,7 @@ export default async function ProjectDemandsPage({ params }: { params: { id: str
           <p className="text-xs text-muted-foreground">{project.name} · {demands.length} demands</p>
         </div>
         <Link
-          href="/demands/new"
+          href={`/projects/${project.id}/demands/new`}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
         >
           <Plus className="h-3.5 w-3.5" /> Issue Demand

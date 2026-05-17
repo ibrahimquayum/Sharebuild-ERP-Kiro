@@ -124,11 +124,11 @@ export default async function ProjectOverviewPage({ params }: { params: { id: st
   const quickActions: QuickAction[] = [
     { label: 'Add Expense',          href: `${base}/expenses/new`,       icon: ShoppingCart, color: 'bg-red-600 hover:bg-red-700 text-white' },
     { label: 'Record Collection',    href: `${base}/collections/new`,    icon: Receipt,      color: 'bg-green-600 hover:bg-green-700 text-white' },
-    { label: 'Issue Demand',         href: `${base}/demands`,            icon: FileText,     color: 'bg-blue-600 hover:bg-blue-700 text-white' },
+    { label: 'Issue Demand',         href: `${base}/demands/new`,        icon: FileText,     color: 'bg-blue-600 hover:bg-blue-700 text-white' },
     { label: 'Add Supplier Bill',    href: `${base}/payables/new`,       icon: Truck,        color: 'bg-orange-600 hover:bg-orange-700 text-white' },
     { label: 'Add Subcontractor Bill', href: `${base}/subcontractors/bills/new`, icon: Building2, color: 'bg-purple-600 hover:bg-purple-700 text-white' },
     { label: 'Add Buyer / Assign Unit', href: `${base}/buyers`,          icon: Users,        color: 'bg-violet-600 hover:bg-violet-700 text-white' },
-    { label: 'Upload Document',      href: `${base}/documents`,          icon: Upload,       color: 'bg-teal-600 hover:bg-teal-700 text-white' },
+    { label: 'Upload Document',      href: `${base}/documents/upload`,   icon: Upload,       color: 'bg-teal-600 hover:bg-teal-700 text-white' },
     { label: 'View Due',             href: `${base}/due-followup`,       icon: AlertCircle,  color: 'bg-amber-600 hover:bg-amber-700 text-white' },
     { label: 'Top Sheet',            href: `${base}/reports/top-sheet`,  icon: BarChart3,    color: 'border border-border hover:bg-muted text-foreground' },
   ];
