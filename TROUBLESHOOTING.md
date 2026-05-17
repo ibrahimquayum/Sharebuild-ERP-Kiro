@@ -113,40 +113,131 @@ Restarting Windows will free all ports.
 
 ## ERROR 5 — Migration failed / Prisma migrate error
 
+---
+
+### ERROR 5A — "relation does not exist" on fresh clone
+
 **What it looks like:**
 ```
-Error: P3014 Prisma schema is not valid
+ERROR: relation "supplier_payables" does not exist
 ```
 or
+```
+ERROR: relation "companies" does not exist
+```
+or any `ALTER TABLE` error on a table that doesn't exist yet.
+
+**What it means:**
+The migration history was broken — there was an incremental migration that assumed
+tables already existed, but the baseline creation migration was missing.
+
+**This has been fixed.** The repo now contains a single clean initial migration at
+`prisma/migrations/0001_init/migration.sql` that creates all tables from scratch.
+
+**Fix — pull the latest code and re-run:**
+```cmd
+cd %USERPROFILE%\Desktop\Sharebuild-ERP
+git pull
+npx prisma migrate reset
+npm run db:seed
+```
+
+Type `y` when `migrate reset` asks to confirm.
+
+---
+
+### ERROR 5B — "migration already exists" or "drift detected"
+
+**What it looks like:**
+```
+Drift detected: Your database schema is not in sync with your migration history.
+```
+or
+```
+Error: P3006 Migration `0001_init` failed to apply
+```
+
+**What it means:**
+Your database already has tables (e.g. from a previous `db push`), but the Prisma
+migration history table (`_prisma_migrations`) does not know about them.
+
+**Fix — mark the migration as already applied:**
+```cmd
+npx prisma migrate resolve --applied 0001_init
+```
+
+This tells Prisma "the tables are already there, don't run the SQL again, just record
+that this migration has been applied." Then continue with:
+```cmd
+npm run db:seed
+npm run dev
+```
+
+---
+
+### ERROR 5C — "relation already exists" (tables exist but seed fails)
+
+**What it looks like:**
 ```
 ERROR: relation "companies" already exists
 ```
-or
-```
-Failed to create migration
-```
+when running `npx prisma migrate dev`.
 
-**Fix A — Database already has old tables (reset):**
-> ⚠️ WARNING: This deletes ALL data in the database. Only do this on a fresh setup.
+**Fix:**
 ```cmd
 npx prisma migrate reset
 ```
-Type `y` when asked to confirm. Then run the seed again:
+Type `y` to confirm. This wipes and re-creates all tables, then seeds automatically.
+
+---
+
+### ERROR 5D — General migration failure on a fresh DB
+
+**What it looks like:**
+```
+Failed to apply migration `0001_init`
+Error: ...
+```
+
+**Fix — wipe and start clean:**
+> ⚠️ This deletes all data. Only safe on a fresh setup.
+```cmd
+npx prisma migrate reset
+```
+Type `y` to confirm. Then seed:
 ```cmd
 npm run db:seed
 ```
 
-**Fix B — Schema out of sync:**
-```cmd
-npx prisma db push
-```
-This forces the schema onto the database without creating migration history. Good for development.
+---
 
-**Fix C — Prisma client not generated:**
+### ERROR 5E — Prisma client out of sync with schema
+
+**What it looks like:**
+```
+Error: Cannot find module '.prisma/client'
+```
+or TypeScript errors mentioning unknown Prisma models.
+
+**Fix:**
 ```cmd
 npm run db:generate
 ```
-Then try the migration again.
+This regenerates the Prisma client from the current schema. Then restart `npm run dev`.
+
+---
+
+### Do NOT use `--name` flag on a fresh clone
+
+When the migration already exists in the repo, running:
+```cmd
+npx prisma migrate dev --name init     ← WRONG on fresh clone
+```
+...creates a new empty migration file on top of the existing one, which confuses
+Prisma. The correct command on a fresh clone is simply:
+```cmd
+npx prisma migrate dev                  ← CORRECT
+```
 
 ---
 

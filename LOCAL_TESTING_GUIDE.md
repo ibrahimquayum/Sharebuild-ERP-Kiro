@@ -199,14 +199,21 @@ This creates all the tables in your PostgreSQL database.
 
 1. In `cmd`, still inside the project folder, run:
    ```
-   npx prisma migrate dev --name init
+   npx prisma migrate dev
    ```
-2. It will ask: `Enter a name for the new migration:` — just press **Enter**
-   (or type `init` and press Enter)
+2. Prisma will apply the baseline migration (`0001_init`) automatically.
 3. Wait for it to finish. You should see:
    ```
+   The following migration(s) have been applied:
+   migrations/
+     └─ 0001_init/
+       └─ migration.sql
+
    Your database is now in sync with your schema.
    ```
+
+> ⚠️ **Do NOT add `--name init` or any other name flag** on a fresh clone.
+> The migration already exists. Adding a name would create a new empty migration on top of it.
 
 Database tables created. ✅
 
@@ -308,7 +315,7 @@ git clone https://github.com/ibrahimquayum/Sharebuild-ERP.git
 cd Sharebuild-ERP
 git checkout feat/erp-v1
 npm install
-npx prisma migrate dev --name init
+npx prisma migrate dev
 npm run db:seed
 npm run dev
 ```
