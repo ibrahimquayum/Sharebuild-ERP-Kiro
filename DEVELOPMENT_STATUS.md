@@ -15,6 +15,7 @@ Sharebuild ERP now has a buildable project-first foundation. Sharebuild remains 
 | Production build | Pass | `npm run build` |
 | Migration reset | Pass | `npx prisma migrate reset --force --skip-seed` |
 | Seed | Pass | `npm run db:seed` |
+| Project create/edit save | Pass | Authenticated API create returned 201 and update returned 200 |
 | Top Sheet totals | Pass | Income 100,143,800 / Expense 104,659,890.40 / Balance -4,516,090.40 |
 
 ## Implemented In This Pass

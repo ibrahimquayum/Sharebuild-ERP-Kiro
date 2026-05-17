@@ -5,29 +5,62 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { can } from '@/lib/permissions';
 
+const optionalText = z.preprocess((value) => value === null ? undefined : value, z.string().trim().optional());
+const optionalDate = z.preprocess((value) => value === null ? undefined : value, z.string().trim().optional())
+  .refine((value) => !value || !Number.isNaN(new Date(value).getTime()), 'Invalid date.');
+
 const createSchema = z.object({
-  name: z.string().min(1),
-  nameBn: z.string().optional(),
-  code: z.string().optional(),
-  address: z.string().optional(),
-  addressBn: z.string().optional(),
-  area: z.string().optional(),
-  city: z.string().optional(),
-  postCode: z.string().optional(),
-  phone: z.string().optional(),
-  landSize: z.string().optional(),
+  name: z.string().trim().min(1, 'Project name is required.'),
+  nameBn: optionalText,
+  code: optionalText,
+  address: optionalText,
+  addressBn: optionalText,
+  area: optionalText,
+  city: optionalText,
+  postCode: optionalText,
+  phone: optionalText,
+  landSize: optionalText,
   totalFloors: z.number().int().optional(),
   residentialFloors: z.number().int().optional(),
   unitsPerFloor: z.number().int().optional(),
   totalPlannedUnits: z.number().int().optional(),
-  parkingUtilityNote: z.string().optional(),
+  parkingUtilityNote: optionalText,
   defaultServiceChargePct: z.number().optional(),
-  notes: z.string().optional(),
+  notes: optionalText,
   status: z.enum(['PLANNING', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'CANCELLED']).optional(),
-  startDate: z.string().optional(),
-  expectedEndDate: z.string().optional(),
-  description: z.string().optional(),
+  startDate: optionalDate,
+  expectedEndDate: optionalDate,
+  description: optionalText,
 });
+
+function auditJson(value: unknown) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+async function writeProjectAudit(data: {
+  userId?: string;
+  projectId: string;
+  action: 'CREATE' | 'UPDATE';
+  entityId: string;
+  oldValues?: unknown;
+  newValues?: unknown;
+}) {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        userId: data.userId,
+        projectId: data.projectId,
+        action: data.action,
+        entityType: 'project',
+        entityId: data.entityId,
+        oldValues: data.oldValues === undefined ? undefined : auditJson(data.oldValues),
+        newValues: data.newValues === undefined ? undefined : auditJson(data.newValues),
+      },
+    });
+  } catch (error) {
+    console.error('[projects] Audit log failed after project save', error);
+  }
+}
 
 export async function GET(_req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -46,25 +79,25 @@ export async function GET(_req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
-  const role = (session.user as any).role;
-  if (!companyId) return NextResponse.json({ error: 'Your user is not assigned to a company.' }, { status: 400 });
-  if (!can(role, 'projects', 'create')) return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-
-  let body: unknown;
   try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON payload.' }, { status: 400 });
-  }
-  const parsed = createSchema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+    const session = await getServerSession(authOptions);
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const companyId = (session.user as any).companyId;
+    const role = (session.user as any).role;
+    if (!companyId) return NextResponse.json({ error: 'Your user is not assigned to a company.' }, { status: 400 });
+    if (!can(role, 'projects', 'create')) return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
 
-  const d = parsed.data;
-  const project = await prisma.$transaction(async (tx) => {
-    const created = await tx.project.create({
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON payload.' }, { status: 400 });
+    }
+    const parsed = createSchema.safeParse(body);
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+
+    const d = parsed.data;
+    const project = await prisma.project.create({
       data: {
         ...d,
         companyId,
@@ -73,19 +106,17 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    await tx.auditLog.create({
-      data: {
-        userId: (session.user as any).id,
-        projectId: created.id,
-        action: 'CREATE',
-        entityType: 'project',
-        entityId: created.id,
-        newValues: created as any,
-      },
+    await writeProjectAudit({
+      userId: (session.user as any).id,
+      projectId: project.id,
+      action: 'CREATE',
+      entityId: project.id,
+      newValues: project,
     });
 
-    return created;
-  });
-
-  return NextResponse.json(project, { status: 201 });
+    return NextResponse.json(project, { status: 201 });
+  } catch (error) {
+    console.error('[projects] Failed to create project', error);
+    return NextResponse.json({ error: 'Failed to create project. Check the server log for details.' }, { status: 500 });
+  }
 }

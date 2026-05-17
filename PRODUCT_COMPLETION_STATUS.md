@@ -13,6 +13,12 @@
 
 ## Completed Foundation
 
+### Project Save Stability
+
+- `/projects/new` create API now returns useful validation/server errors.
+- `/projects/[id]/settings` update API now returns useful validation/server errors.
+- Project save no longer depends on audit log success; audit failures are logged without rolling back the project.
+
 ### Menu And UX
 
 - Global sidebar is company/admin focused.

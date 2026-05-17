@@ -41,16 +41,28 @@ function dateValue(value?: Date | string | null) {
   return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10);
 }
 
-function intOrUndefined(value: string) {
-  if (!value.trim()) return undefined;
-  const n = Number(value);
-  return Number.isFinite(n) ? Math.trunc(n) : undefined;
+function optionalValue(value: string, editing: boolean) {
+  const trimmed = value.trim();
+  if (trimmed) return trimmed;
+  return editing ? null : undefined;
 }
 
-function numberOrUndefined(value: string) {
-  if (!value.trim()) return undefined;
+function optionalNumber(value: string, editing: boolean, integer = false) {
+  if (!value.trim()) return editing ? null : undefined;
   const n = Number(value);
-  return Number.isFinite(n) ? n : undefined;
+  if (!Number.isFinite(n)) return undefined;
+  return integer ? Math.trunc(n) : n;
+}
+
+function getResponseError(data: any, fallback: string) {
+  if (!data?.error) return fallback;
+  if (typeof data.error === 'string') return data.error;
+  const formError = data.error.formErrors?.[0];
+  if (formError) return formError;
+  const fieldErrors = data.error.fieldErrors ?? data.error;
+  const firstField = Object.keys(fieldErrors)[0];
+  const firstMessage = firstField ? fieldErrors[firstField]?.[0] : undefined;
+  return firstMessage ? `${firstField}: ${firstMessage}` : fallback;
 }
 
 export function ProjectForm({ project }: { project?: ProjectFormData }) {
@@ -82,9 +94,13 @@ export function ProjectForm({ project }: { project?: ProjectFormData }) {
     if (!name.trim()) nextErrors.name = 'Project name is required.';
     for (const [key, value] of Object.entries({ totalFloors, residentialFloors, unitsPerFloor, totalPlannedUnits })) {
       if (value && Number(value) < 0) nextErrors[key] = 'Enter a positive number.';
+      if (value && !Number.isFinite(Number(value))) nextErrors[key] = 'Enter a valid number.';
     }
     if (defaultServiceChargePct && Number(defaultServiceChargePct) < 0) {
       nextErrors.defaultServiceChargePct = 'Service charge cannot be negative.';
+    }
+    if (defaultServiceChargePct && !Number.isFinite(Number(defaultServiceChargePct))) {
+      nextErrors.defaultServiceChargePct = 'Enter a valid service charge percentage.';
     }
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -99,21 +115,21 @@ export function ProjectForm({ project }: { project?: ProjectFormData }) {
     try {
       const payload = {
         name: name.trim(),
-        nameBn: nameBn.trim() || undefined,
-        code: code.trim() || undefined,
-        address: address.trim() || undefined,
-        phone: phone.trim() || undefined,
-        landSize: landSize.trim() || undefined,
-        totalFloors: intOrUndefined(totalFloors),
-        residentialFloors: intOrUndefined(residentialFloors),
-        unitsPerFloor: intOrUndefined(unitsPerFloor),
-        totalPlannedUnits: intOrUndefined(totalPlannedUnits),
-        parkingUtilityNote: parkingUtilityNote.trim() || undefined,
-        defaultServiceChargePct: numberOrUndefined(defaultServiceChargePct),
-        notes: notes.trim() || undefined,
+        nameBn: optionalValue(nameBn, editing),
+        code: optionalValue(code, editing),
+        address: optionalValue(address, editing),
+        phone: optionalValue(phone, editing),
+        landSize: optionalValue(landSize, editing),
+        totalFloors: optionalNumber(totalFloors, editing, true),
+        residentialFloors: optionalNumber(residentialFloors, editing, true),
+        unitsPerFloor: optionalNumber(unitsPerFloor, editing, true),
+        totalPlannedUnits: optionalNumber(totalPlannedUnits, editing, true),
+        parkingUtilityNote: optionalValue(parkingUtilityNote, editing),
+        defaultServiceChargePct: optionalNumber(defaultServiceChargePct, editing),
+        notes: optionalValue(notes, editing),
         status,
-        startDate: startDate || undefined,
-        description: description.trim() || undefined,
+        startDate: startDate || (editing ? null : undefined),
+        description: optionalValue(description, editing),
       };
 
       const res = await fetch(editing ? `/api/projects/${project!.id}` : '/api/projects', {
@@ -124,7 +140,8 @@ export function ProjectForm({ project }: { project?: ProjectFormData }) {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data?.error?.formErrors?.[0] ?? data?.error ?? 'Failed to save project.');
+        console.error('[ProjectForm] Project save failed', { status: res.status, data });
+        setError(getResponseError(data, editing ? 'Failed to save changes.' : 'Failed to save project.'));
         return;
       }
 
