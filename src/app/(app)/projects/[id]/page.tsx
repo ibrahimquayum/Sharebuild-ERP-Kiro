@@ -6,16 +6,24 @@ import { StatCard } from '@/components/shared/stat-card';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   formatBDT, formatBDTCompact, formatDate,
-  phaseStatusMeta, phaseTypeLabel, balanceColor, cn,
+  phaseStatusMeta, balanceColor, cn,
 } from '@/lib/utils';
 import {
   TrendingUp, TrendingDown, Users, Layers,
   AlertCircle, CheckCircle2, Clock, ArrowRight,
-  Receipt, Truck, Plus, BarChart3,
+  Truck, Plus, BarChart3, FileText, Upload,
+  Receipt, ShoppingCart, Building2,
 } from 'lucide-react';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
+
+interface QuickAction {
+  label: string;
+  href: string;
+  icon: React.ElementType;
+  color: string;
+}
 
 export default async function ProjectOverviewPage({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -25,33 +33,64 @@ export default async function ProjectOverviewPage({ params }: { params: { id: st
     where: { id: params.id, companyId },
     include: {
       phases: {
-        include: { _count: { select: { collections: true, expenses: true } } },
+        select: { id: true, name: true, nameBn: true, status: true, sequence: true },
         orderBy: { sequence: 'asc' },
       },
-      buyers: { include: { buyer: { select: { id: true, name: true, phone: true, status: true } } }, take: 8 },
+      buyers: {
+        include: { buyer: { select: { id: true, name: true, phone: true } } },
+        take: 8,
+      },
       _count: { select: { phases: true, buyers: true, units: true } },
     },
   });
 
   if (!project) notFound();
 
+  const base = `/projects/${project.id}`;
+
   // ── Financial aggregates ─────────────────────────────────────
-  const [incAgg, expAgg, payableAgg, pendingExpenses, missingVouchers] = await Promise.all([
+  const [
+    incAgg,
+    expAgg,
+    supplierPayableAgg,
+    subcontractorPayableAgg,
+    pendingApprovalCount,
+    missingVoucherCount,
+    activePhaseCount,
+  ] = await Promise.all([
+    // Total collection
     prisma.collection.aggregate({
       where: { phase: { projectId: project.id } },
       _sum: { amount: true },
     }),
+    // Total expense
     prisma.expense.aggregate({
       where: { phase: { projectId: project.id } },
       _sum: { amount: true },
     }),
+    // Supplier payable (MATERIAL_SUPPLIER, EQUIPMENT_SUPPLIER, SERVICE_PROVIDER, CONSULTANT)
     prisma.supplierPayable.aggregate({
-      where: { projectId: project.id },
+      where: {
+        projectId: project.id,
+        supplier: {
+          supplierType: { in: ['MATERIAL_SUPPLIER', 'EQUIPMENT_SUPPLIER', 'SERVICE_PROVIDER', 'CONSULTANT'] },
+        },
+      },
       _sum: { dueAmount: true },
     }),
+    // Subcontractor payable (LABOUR_CONTRACTOR only)
+    prisma.supplierPayable.aggregate({
+      where: {
+        projectId: project.id,
+        supplier: { supplierType: 'LABOUR_CONTRACTOR' },
+      },
+      _sum: { dueAmount: true },
+    }),
+    // Pending approval count
     prisma.expense.count({
       where: { phase: { projectId: project.id }, status: 'PENDING_APPROVAL' },
     }),
+    // Missing voucher count
     prisma.expense.count({
       where: {
         phase: { projectId: project.id },
@@ -59,61 +98,86 @@ export default async function ProjectOverviewPage({ params }: { params: { id: st
         status: { in: ['APPROVED', 'PENDING_APPROVAL'] },
       },
     }),
+    // Active phase count
+    prisma.phase.count({
+      where: { projectId: project.id, status: 'ACTIVE' },
+    }),
   ]);
 
-  const income   = Number(incAgg._sum.amount   ?? 0);
-  const expense  = Number(expAgg._sum.amount   ?? 0);
-  const balance  = income - expense;
-  const payable  = Number(payableAgg._sum.dueAmount ?? 0);
+  const income              = Number(incAgg._sum.amount ?? 0);
+  const expense             = Number(expAgg._sum.amount ?? 0);
+  const balance             = income - expense;
+  const supplierPayable     = Number(supplierPayableAgg._sum.dueAmount ?? 0);
+  const subcontractorPayable = Number(subcontractorPayableAgg._sum.dueAmount ?? 0);
 
-  // ── Buyer due ─────────────────────────────────────────────────
-  const buyers = await prisma.buyer.findMany({
-    where: { projectLinks: { some: { projectId: project.id } } },
-    include: {
-      collections: { where: { phase: { projectId: project.id } }, select: { amount: true } },
+  // ── Buyer due (sum of outstanding demands) ────────────────────
+  const buyerDueAgg = await prisma.demand.aggregate({
+    where: {
+      phase: { projectId: project.id },
+      status: { notIn: ['FULLY_PAID', 'CANCELLED'] },
     },
+    _sum: { amount: true },
   });
-  const buyerDue = buyers.reduce((sum, b) => {
-    const paid = b.collections.reduce((s, c) => s + Number(c.amount), 0);
-    return sum + Math.max(0, -paid); // simplified without demands; real due needs demand model
-  }, 0);
+  const buyerDue = Number(buyerDueAgg._sum.amount ?? 0);
 
-  // ── Phase financials for top-5 ────────────────────────────────
+  // ── Quick actions ─────────────────────────────────────────────
+  const quickActions: QuickAction[] = [
+    { label: 'Add Expense',          href: `${base}/expenses/new`,       icon: ShoppingCart, color: 'bg-red-600 hover:bg-red-700 text-white' },
+    { label: 'Record Collection',    href: `${base}/collections/new`,    icon: Receipt,      color: 'bg-green-600 hover:bg-green-700 text-white' },
+    { label: 'Issue Demand',         href: `${base}/demands`,            icon: FileText,     color: 'bg-blue-600 hover:bg-blue-700 text-white' },
+    { label: 'Add Supplier Bill',    href: `${base}/payables/new`,       icon: Truck,        color: 'bg-orange-600 hover:bg-orange-700 text-white' },
+    { label: 'Add Subcontractor Bill', href: `${base}/subcontractors/bills/new`, icon: Building2, color: 'bg-purple-600 hover:bg-purple-700 text-white' },
+    { label: 'Add Buyer / Assign Unit', href: `${base}/buyers`,          icon: Users,        color: 'bg-violet-600 hover:bg-violet-700 text-white' },
+    { label: 'Upload Document',      href: `${base}/documents`,          icon: Upload,       color: 'bg-teal-600 hover:bg-teal-700 text-white' },
+    { label: 'View Due',             href: `${base}/due-followup`,       icon: AlertCircle,  color: 'bg-amber-600 hover:bg-amber-700 text-white' },
+    { label: 'Top Sheet',            href: `${base}/reports/top-sheet`,  icon: BarChart3,    color: 'border border-border hover:bg-muted text-foreground' },
+  ];
+
   const recentPhases = project.phases.slice(0, 6);
-
-  const base = `/projects/${project.id}`;
 
   return (
     <div className="p-5 space-y-5">
 
-      {/* Quick actions */}
-      <div className="flex flex-wrap gap-2">
-        <Link href={`${base}/collections/new`}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-green-600 text-white text-xs font-medium hover:bg-green-700 transition-colors">
-          <Plus className="h-3.5 w-3.5" /> Money Received
-        </Link>
-        <Link href={`${base}/expenses/new`}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 transition-colors">
-          <Plus className="h-3.5 w-3.5" /> Add Expense
-        </Link>
-        <Link href={`${base}/payables/new`}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-orange-600 text-white text-xs font-medium hover:bg-orange-700 transition-colors">
-          <Plus className="h-3.5 w-3.5" /> Supplier Bill
-        </Link>
-        <Link href={`${base}/due-followup`}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-yellow-600 text-white text-xs font-medium hover:bg-yellow-700 transition-colors">
-          <AlertCircle className="h-3.5 w-3.5" /> View Dues
-        </Link>
-        <Link href={`${base}/reports/top-sheet`}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-medium hover:bg-muted transition-colors">
-          <BarChart3 className="h-3.5 w-3.5" /> Top Sheet
-        </Link>
+      {/* ── Quick Actions ─────────────────────────────────────── */}
+      <div>
+        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+          Quick Actions
+        </h2>
+        <div className="flex flex-wrap gap-2">
+          {quickActions.map((action) => (
+            <Link
+              key={action.label}
+              href={action.href}
+              className={cn(
+                'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+                action.color
+              )}
+            >
+              <action.icon className="h-3.5 w-3.5 shrink-0" />
+              {action.label}
+            </Link>
+          ))}
+        </div>
       </div>
 
-      {/* KPI row 1 */}
+      {/* ── KPI Row 1: Financial ──────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard title="Total Collection"   value={formatBDTCompact(income)}   subtitle={formatBDT(income)}   icon={TrendingUp}    iconColor="text-green-600"  iconBg="bg-green-50" />
-        <StatCard title="Total Expense"      value={formatBDTCompact(expense)}  subtitle={formatBDT(expense)}  icon={TrendingDown}  iconColor="text-red-500"    iconBg="bg-red-50" />
+        <StatCard
+          title="Total Collection"
+          value={formatBDTCompact(income)}
+          subtitle={formatBDT(income)}
+          icon={TrendingUp}
+          iconColor="text-green-600"
+          iconBg="bg-green-50"
+        />
+        <StatCard
+          title="Total Expense"
+          value={formatBDTCompact(expense)}
+          subtitle={formatBDT(expense)}
+          icon={TrendingDown}
+          iconColor="text-red-500"
+          iconBg="bg-red-50"
+        />
         <StatCard
           title="Net Balance"
           value={formatBDTCompact(balance)}
@@ -122,20 +186,64 @@ export default async function ProjectOverviewPage({ params }: { params: { id: st
           iconColor={balance >= 0 ? 'text-emerald-600' : 'text-red-600'}
           iconBg={balance >= 0 ? 'bg-emerald-50' : 'bg-red-50'}
         />
-        <StatCard title="Supplier Payable"   value={formatBDTCompact(payable)}  subtitle={formatBDT(payable)}  icon={Truck}         iconColor="text-orange-500" iconBg="bg-orange-50" />
+        <StatCard
+          title="Buyer Due"
+          value={formatBDTCompact(buyerDue)}
+          subtitle={formatBDT(buyerDue)}
+          icon={Users}
+          iconColor="text-amber-600"
+          iconBg="bg-amber-50"
+        />
       </div>
 
-      {/* KPI row 2 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard title="Total Phases"       value={String(project._count.phases)}        subtitle="All construction stages" icon={Layers}    iconColor="text-blue-600"  iconBg="bg-blue-50" />
-        <StatCard title="Project Buyers"     value={String(project._count.buyers)}        subtitle="Registered in project"   icon={Users}     iconColor="text-violet-600" iconBg="bg-violet-50" />
-        <StatCard title="Pending Approvals"  value={String(pendingExpenses)}              subtitle="Expenses to review"      icon={Clock}     iconColor="text-amber-600" iconBg="bg-amber-50" />
-        <StatCard title="Missing Vouchers"   value={String(missingVouchers)}             subtitle="Expenses without docs"   icon={AlertCircle} iconColor={missingVouchers > 0 ? 'text-red-500' : 'text-green-600'} iconBg={missingVouchers > 0 ? 'bg-red-50' : 'bg-green-50'} />
+      {/* ── KPI Row 2: Payables + Counts ─────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <StatCard
+          title="Supplier Payable"
+          value={formatBDTCompact(supplierPayable)}
+          subtitle={formatBDT(supplierPayable)}
+          icon={Truck}
+          iconColor="text-orange-500"
+          iconBg="bg-orange-50"
+        />
+        <StatCard
+          title="Subcontractor Payable"
+          value={formatBDTCompact(subcontractorPayable)}
+          subtitle={formatBDT(subcontractorPayable)}
+          icon={Building2}
+          iconColor="text-purple-500"
+          iconBg="bg-purple-50"
+        />
+        <StatCard
+          title="Active Phases"
+          value={String(activePhaseCount)}
+          subtitle="Currently running"
+          icon={Layers}
+          iconColor="text-blue-600"
+          iconBg="bg-blue-50"
+        />
+        <StatCard
+          title="Pending Approvals"
+          value={String(pendingApprovalCount)}
+          subtitle="Expenses to review"
+          icon={Clock}
+          iconColor="text-amber-600"
+          iconBg="bg-amber-50"
+        />
+        <StatCard
+          title="Missing Vouchers"
+          value={String(missingVoucherCount)}
+          subtitle="Expenses without docs"
+          icon={AlertCircle}
+          iconColor={missingVoucherCount > 0 ? 'text-red-500' : 'text-green-600'}
+          iconBg={missingVoucherCount > 0 ? 'bg-red-50' : 'bg-green-50'}
+        />
       </div>
 
+      {/* ── Balance summary + Phase snapshot ─────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-        {/* Balance bar */}
+        {/* Balance card */}
         <Card className="lg:col-span-1">
           <CardContent className="p-4 space-y-4">
             <h3 className="text-sm font-semibold">Project Balance</h3>
@@ -162,7 +270,10 @@ export default async function ProjectOverviewPage({ params }: { params: { id: st
                 </div>
                 <div className="h-2 rounded-full bg-muted overflow-hidden">
                   <div
-                    className={cn('h-full rounded-full', expense > income ? 'bg-red-500' : 'bg-green-500')}
+                    className={cn(
+                      'h-full rounded-full',
+                      expense > income ? 'bg-red-500' : 'bg-green-500'
+                    )}
                     style={{ width: `${Math.min(100, Math.round((expense / income) * 100))}%` }}
                   />
                 </div>
@@ -171,12 +282,18 @@ export default async function ProjectOverviewPage({ params }: { params: { id: st
             <div className="pt-2 space-y-2 text-xs">
               <div className="flex justify-between text-muted-foreground">
                 <span>Supplier payable</span>
-                <span className="text-orange-600 font-medium">{formatBDT(payable)}</span>
+                <span className="text-orange-600 font-medium">{formatBDT(supplierPayable)}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
-                <span>Started</span>
-                <span>{project.startDate ? formatDate(project.startDate) : '—'}</span>
+                <span>Subcontractor payable</span>
+                <span className="text-purple-600 font-medium">{formatBDT(subcontractorPayable)}</span>
               </div>
+              {project.startDate && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Started</span>
+                  <span>{formatDate(project.startDate)}</span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -184,9 +301,12 @@ export default async function ProjectOverviewPage({ params }: { params: { id: st
         {/* Phase snapshot */}
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-semibold">Recent Phases</CardTitle>
-            <Link href={`${base}/phases`} className="text-xs text-primary flex items-center gap-1 hover:underline">
-              Phase Board <ArrowRight className="h-3 w-3" />
+            <CardTitle className="text-sm font-semibold">Phases</CardTitle>
+            <Link
+              href={`${base}/phases`}
+              className="text-xs text-primary flex items-center gap-1 hover:underline"
+            >
+              View all <ArrowRight className="h-3 w-3" />
             </Link>
           </CardHeader>
           <CardContent className="p-0">
@@ -199,12 +319,16 @@ export default async function ProjectOverviewPage({ params }: { params: { id: st
                       <span className="text-xs text-muted-foreground w-5 shrink-0">{i + 1}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{ph.name}</p>
-                        {ph.nameBn && <p className="text-xs bn text-muted-foreground truncate">{ph.nameBn}</p>}
+                        {ph.nameBn && (
+                          <p className="text-xs bn text-muted-foreground truncate">{ph.nameBn}</p>
+                        )}
                       </div>
-                      <div className="text-xs text-muted-foreground shrink-0 hidden sm:block">
-                        {ph._count.collections}↑ {ph._count.expenses}↓
-                      </div>
-                      <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium shrink-0', meta.color)}>
+                      <span
+                        className={cn(
+                          'text-xs px-2 py-0.5 rounded-full font-medium shrink-0',
+                          meta.color
+                        )}
+                      >
                         {meta.label}
                       </span>
                     </div>
@@ -214,7 +338,9 @@ export default async function ProjectOverviewPage({ params }: { params: { id: st
               {recentPhases.length === 0 && (
                 <div className="px-4 py-8 text-center text-sm text-muted-foreground">
                   No phases yet.{' '}
-                  <Link href="/phases/new" className="text-primary hover:underline">Add a phase</Link>
+                  <Link href="/phases/new" className="text-primary hover:underline">
+                    Add a phase
+                  </Link>
                 </div>
               )}
             </div>
@@ -222,12 +348,15 @@ export default async function ProjectOverviewPage({ params }: { params: { id: st
         </Card>
       </div>
 
-      {/* Buyers snapshot */}
+      {/* ── Buyers snapshot ───────────────────────────────────── */}
       {project.buyers.length > 0 && (
         <Card>
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold">Buyers in This Project</CardTitle>
-            <Link href={`${base}/buyers`} className="text-xs text-primary flex items-center gap-1 hover:underline">
+            <Link
+              href={`${base}/buyers`}
+              className="text-xs text-primary flex items-center gap-1 hover:underline"
+            >
               View all <ArrowRight className="h-3 w-3" />
             </Link>
           </CardHeader>
@@ -241,7 +370,9 @@ export default async function ProjectOverviewPage({ params }: { params: { id: st
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">{buyer.name}</p>
-                      {buyer.phone && <p className="text-xs text-muted-foreground">{buyer.phone}</p>}
+                      {buyer.phone && (
+                        <p className="text-xs text-muted-foreground">{buyer.phone}</p>
+                      )}
                     </div>
                   </div>
                 </Link>
@@ -250,7 +381,6 @@ export default async function ProjectOverviewPage({ params }: { params: { id: st
           </CardContent>
         </Card>
       )}
-
     </div>
   );
 }
