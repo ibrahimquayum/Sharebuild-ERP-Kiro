@@ -121,7 +121,7 @@ const PILING_EXPENSES: ExpenseItem[] = [
   { category: 'ELECTRICAL_MATERIAL',description: 'Electric Materials',             descriptionBn: 'বৈদ্যুতিক মালামাল',quantity:null,unit:null,unitPrice:null,   amount: 38_000    },
   { category: 'SECURITY_SALARY',    description: 'Security Salary',                descriptionBn: 'নিরাপত্তা বেতন',quantity:null,unit:null,unitPrice:null,     amount: 51_000    },
   // Remaining amount to match Excel total of 17,041,165.44
-  { category: 'OTHER',              description: 'Other site expenses (misc)',      descriptionBn: 'অন্যান্য',   quantity: null,    unit: null,    unitPrice: null,    amount: 933_114.44},
+  { category: 'OTHER',              description: 'Other site expenses (misc)',      descriptionBn: 'অন্যান্য',   quantity: null,    unit: null,    unitPrice: null,    amount: 4_933_114.44},
 ];
 
 const BASEMENT_EXPENSES: ExpenseItem[] = [
@@ -139,7 +139,7 @@ const BASEMENT_EXPENSES: ExpenseItem[] = [
   { category: 'ELECTRICITY_BILL',   description: 'Meter Recharge',                  descriptionBn: 'মিটার রিচার্জ',quantity:null,  unit: null,   unitPrice: null,   amount: 41_000      },
   { category: 'SECURITY_SALARY',    description: 'Security Salary',                 descriptionBn: 'নিরাপত্তা বেতন',quantity:null, unit: null,   unitPrice: null,   amount: 137_700     },
   // Remaining to match 19,474,035.36
-  { category: 'OTHER',              description: 'Other basement expenses (misc)',   descriptionBn: 'অন্যান্য',    quantity: null,   unit: null,   unitPrice: null,   amount: 814_871.36  },
+  { category: 'OTHER',              description: 'Other basement expenses (misc)',   descriptionBn: 'অন্যান্য',    quantity: null,   unit: null,   unitPrice: null,   amount: 3_814_871.36  },
 ];
 
 
