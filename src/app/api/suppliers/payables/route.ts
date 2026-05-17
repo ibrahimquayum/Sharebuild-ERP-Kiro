@@ -6,8 +6,10 @@ import { z } from 'zod';
 
 const createSchema = z.object({
   supplierId:  z.string().min(1),
+  projectId:   z.string().min(1),          // required — bill must belong to a project
+  phaseId:     z.string().optional(),       // optional — may be project-general
   billNo:      z.string().optional(),
-  billDate:    z.string(),          // ISO date string
+  billDate:    z.string(),
   totalAmount: z.number().positive(),
   dueDate:     z.string().optional(),
   notes:       z.string().optional(),
@@ -20,16 +22,19 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const supplierId = searchParams.get('supplierId');
+  const projectId  = searchParams.get('projectId');
 
   const payables = await prisma.supplierPayable.findMany({
     where: {
       supplier: { companyId },
       ...(supplierId ? { supplierId } : {}),
+      ...(projectId  ? { projectId  } : {}),
     },
     include: {
-      supplier:  { select: { id: true, name: true } },
-      payments:  { select: { id: true, amount: true, paidAt: true, paymentMethod: true } },
-      _count:    { select: { payments: true } },
+      supplier: { select: { id: true, name: true } },
+      phase:    { select: { id: true, name: true } },
+      payments: { select: { id: true, amount: true, paidAt: true, paymentMethod: true } },
+      _count:   { select: { payments: true } },
     },
     orderBy: { billDate: 'desc' },
   });
@@ -50,19 +55,29 @@ export async function POST(req: NextRequest) {
   const d = parsed.data;
 
   // Verify supplier belongs to this company
-  const supplier = await prisma.supplier.findFirst({
-    where: { id: d.supplierId, companyId },
-  });
+  const supplier = await prisma.supplier.findFirst({ where: { id: d.supplierId, companyId } });
   if (!supplier) return NextResponse.json({ error: 'Supplier not found' }, { status: 404 });
+
+  // Verify project belongs to this company
+  const project = await prisma.project.findFirst({ where: { id: d.projectId, companyId } });
+  if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+
+  // If phaseId provided, verify it belongs to the project
+  if (d.phaseId) {
+    const phase = await prisma.phase.findFirst({ where: { id: d.phaseId, projectId: d.projectId } });
+    if (!phase) return NextResponse.json({ error: 'Phase not found in this project' }, { status: 404 });
+  }
 
   const payable = await prisma.supplierPayable.create({
     data: {
       supplierId:  d.supplierId,
+      projectId:   d.projectId,
+      phaseId:     d.phaseId || undefined,
       billNo:      d.billNo,
       billDate:    new Date(d.billDate),
       totalAmount: d.totalAmount,
       paidAmount:  0,
-      dueAmount:   d.totalAmount,   // starts fully unpaid
+      dueAmount:   d.totalAmount,
       dueDate:     d.dueDate ? new Date(d.dueDate) : undefined,
       status:      'UNPAID',
       notes:       d.notes,
@@ -72,6 +87,7 @@ export async function POST(req: NextRequest) {
   await prisma.auditLog.create({
     data: {
       userId,
+      projectId:  d.projectId,
       action:     'CREATE',
       entityType: 'supplier_payable',
       entityId:   payable.id,

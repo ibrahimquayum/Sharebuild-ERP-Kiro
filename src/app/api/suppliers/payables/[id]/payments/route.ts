@@ -93,6 +93,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   await prisma.auditLog.create({
     data: {
       userId,
+      projectId:  payable.projectId,
       action:     'CREATE',
       entityType: 'supplier_payment',
       entityId:   payment.id,

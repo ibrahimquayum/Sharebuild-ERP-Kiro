@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { TextField, TextareaField, FormError, FormSection, Field } from '@/components/shared/form-field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowLeft, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AddSupplierBillPage() {
@@ -18,9 +18,11 @@ export default function AddSupplierBillPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
+  const [projects,  setProjects]  = useState<{ id: string; name: string }[]>([]);
   const [loading,   setLoading]   = useState(true);
 
   const [supplierId,   setSupplierId]   = useState(searchParams.get('supplierId') ?? '');
+  const [projectId,    setProjectId]    = useState(searchParams.get('projectId')  ?? '');
   const [billNo,       setBillNo]       = useState('');
   const [billDate,     setBillDate]     = useState(today());
   const [totalAmount,  setTotalAmount]  = useState('');
@@ -32,9 +34,17 @@ export default function AddSupplierBillPage() {
   }
 
   useEffect(() => {
-    fetch('/api/suppliers')
-      .then(r => r.json())
-      .then(data => setSuppliers(Array.isArray(data) ? data : []))
+    Promise.all([
+      fetch('/api/suppliers').then(r => r.json()),
+      fetch('/api/projects').then(r => r.json()),
+    ])
+      .then(([s, p]) => {
+        setSuppliers(Array.isArray(s) ? s : []);
+        const projs = Array.isArray(p) ? p : [];
+        setProjects(projs);
+        // Auto-select project if only one
+        if (projs.length === 1 && !projectId) setProjectId(projs[0].id);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -42,6 +52,7 @@ export default function AddSupplierBillPage() {
   function validate() {
     const e: Record<string, string> = {};
     if (!supplierId) e.supplierId = 'Please select a supplier.';
+    if (!projectId)  e.projectId  = 'Please select a project.';
     if (!billDate)   e.billDate   = 'Bill date is required.';
     const amt = parseFloat(totalAmount);
     if (!totalAmount || isNaN(amt) || amt <= 0) e.totalAmount = 'Enter a valid bill amount.';
@@ -58,6 +69,7 @@ export default function AddSupplierBillPage() {
     try {
       const body: Record<string, unknown> = {
         supplierId,
+        projectId,
         billDate,
         totalAmount: parseFloat(totalAmount),
       };
@@ -77,9 +89,7 @@ export default function AddSupplierBillPage() {
         return;
       }
 
-      const payable = await res.json();
-      // Redirect to payables list; supplier-specific page is future work
-      router.push(`/suppliers/payables`);
+      router.push('/suppliers/payables');
     } catch {
       setError('Network error. Check your connection and try again.');
     } finally {
@@ -92,6 +102,17 @@ export default function AddSupplierBillPage() {
       <Header title="Record Supplier Bill" />
 
       <div className="p-6 max-w-2xl mx-auto w-full space-y-4">
+        {/* Legacy notice */}
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 flex items-start gap-3">
+          <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+          <div className="text-sm text-amber-800">
+            <strong>Tip:</strong> For a better experience, record supplier bills from inside the{' '}
+            <Link href="/projects" className="underline font-medium">Project Workspace</Link>{' '}
+            → select project → Supplier Payables → Record Bill.
+            The project will be pre-filled automatically.
+          </div>
+        </div>
+
         <Link href="/suppliers/payables" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Back to Payables
         </Link>
@@ -100,14 +121,28 @@ export default function AddSupplierBillPage() {
           <CardHeader className="pb-4">
             <CardTitle className="text-lg">Record Supplier Bill</CardTitle>
             <CardDescription>
-              Enter the bill received from a supplier. This creates a payable record that you can pay off over time.
+              Enter the bill received from a supplier. Select the project this bill belongs to.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} noValidate className="space-y-6">
               <FormError message={error} />
 
-              <FormSection title="Supplier">
+              <FormSection title="Project & Supplier">
+                {/* Project selector — required now */}
+                <Field label="Project" htmlFor="projectId" required error={errors.projectId}>
+                  <Select value={projectId} onValueChange={setProjectId}>
+                    <SelectTrigger id="projectId" className={errors.projectId ? 'border-destructive' : ''}>
+                      <SelectValue placeholder={loading ? 'Loading projects…' : 'Select project'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+
                 <Field label="Supplier / Vendor" htmlFor="supplierId" required error={errors.supplierId}>
                   <Select value={supplierId} onValueChange={setSupplierId}>
                     <SelectTrigger id="supplierId" className={errors.supplierId ? 'border-destructive' : ''}>
@@ -118,18 +153,11 @@ export default function AddSupplierBillPage() {
                         <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                       ))}
                       {!loading && suppliers.length === 0 && (
-                        <SelectItem value="__none" disabled>
-                          No suppliers — add one first
-                        </SelectItem>
+                        <SelectItem value="__none" disabled>No suppliers — add one first</SelectItem>
                       )}
                     </SelectContent>
                   </Select>
                 </Field>
-                {!loading && suppliers.length === 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    <Link href="/suppliers/new" className="text-primary underline">Add a supplier first</Link>
-                  </p>
-                )}
               </FormSection>
 
               <FormSection title="Bill Details">

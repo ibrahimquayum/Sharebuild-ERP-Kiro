@@ -55,6 +55,18 @@ export default async function ExpensesPage() {
         action={{ label: 'Add Expense', href: '/expenses/new' }}
       />
       <div className="p-6 space-y-6">
+        {/* Legacy notice */}
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 flex items-start gap-3">
+          <Clock className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+          <div className="text-sm text-amber-800">
+            <strong>Tip:</strong> For project-specific expense entry and approval, use the{' '}
+            <strong>Project Workspace</strong>:{' '}
+            <Link href="/projects" className="underline font-medium">Projects</Link>{' '}
+            → select a project → <strong>Expenses</strong>.
+            Expenses recorded here are still correctly linked to their phases and projects.
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard title="Total Expenses" value={formatBDTCompact(total)} subtitle={formatBDT(total)} icon={TrendingDown} iconColor="text-red-500" iconBg="bg-red-50" />
           <StatCard title="Total Entries" value={String(totalAgg._count)} subtitle="Expense records" icon={ShoppingCart} iconColor="text-blue-600" iconBg="bg-blue-50" />

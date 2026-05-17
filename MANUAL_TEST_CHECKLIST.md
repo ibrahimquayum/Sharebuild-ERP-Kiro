@@ -1,430 +1,413 @@
 # Manual Test Checklist — Sharebuild ERP
-## Step-by-step testing after local setup
+## Step-by-step testing guide (updated for Stage 1 — Project Workspace)
 
 Work through this list top to bottom after running the app.  
-Tick each item as you go. If something fails, check TROUBLESHOOTING.md.
-
 **App URL:** http://localhost:3000  
-**Login:** admin@relaxdevelopers.com / admin123
+**Login:** `admin@relaxdevelopers.com` / `admin123`
 
 ---
 
-## TEST 1 — Login
+## SECTION A — Basic auth (existing tests)
 
-**Steps:**
-1. Open http://localhost:3000 in your browser
-2. You should be redirected to http://localhost:3000/login
-3. Enter email: `admin@relaxdevelopers.com`
-4. Enter password: `admin123`
-5. Click **Sign In**
+### TEST A-1 — Login
 
-**Expected result:**
-- You are taken to the dashboard
-- The top-left shows "Sharebuild ERP"
-- The header shows "Dashboard" and "Admin User"
-- The sidebar shows: Dashboard, Projects, Phases, Buyers, Collections, Expenses, Suppliers, Reports, Settings
+1. Open http://localhost:3000
+2. You should be redirected to `/login`
+3. Enter email: `admin@relaxdevelopers.com`, password: `admin123`
+4. Click **Sign In**
+
+**Expected:** You see the company dashboard with Relax Tower project card.
 
 **Also test — protected route:**
-1. Log out (click your name top-right → Sign Out)
-2. Try to go to http://localhost:3000/dashboard directly
-3. Expected: you are redirected to /login
+1. Log out (top-right → Sign Out)
+2. Go to http://localhost:3000/dashboard directly
+3. Expected: redirected to `/login`
 
 ✅ Pass / ❌ Fail — Notes: ___________________________
 
 ---
 
-## TEST 2 — Dashboard
+## SECTION B — Project Workspace (new Stage 1 tests)
 
-**Steps:**
-1. Log in and go to http://localhost:3000/dashboard
+### TEST B-1 — Enter project workspace
 
-**Expected result:**
-- 8 stat cards visible: Total Collection, Total Expense, Net Balance, Pending Approvals, Projects, Buyers, Phases, Active Phases
-- Total Collection shows approximately **৳ 10.01 Cr** (100,143,800)
-- Total Expense shows approximately **৳ 10.47 Cr** (104,659,890)
-- Net Balance shows **−৳ 45.16 L** (deficit, shown in red)
-- "Relax Tower" project card is visible
-- Phase list shows at least 8 phases (Piling, Basement, 1st Floor Slab, etc.)
+1. Log in
+2. Click **Projects** in the left sidebar
+3. Click the **Relax Tower** card
+4. URL should be `/projects/project-relax-tower`
 
-✅ Pass / ❌ Fail — Notes: ___________________________
-
----
-
-## TEST 3 — Top Sheet Report
-
-**Steps:**
-1. In the sidebar, click **Reports** to expand it
-2. Click **Top Sheet**
-3. URL should be http://localhost:3000/reports/top-sheet
-
-**Expected result:**
-- Page header shows "Relax Tower" project name in both English and Bangla
-- Three summary cards at the top:
-  - Grand Total Income: **৳ 10,01,43,800** (green)
-  - Grand Total Expense: **৳ 10,46,59,890.40** (red)
-  - Final Balance: **−৳ 45,16,090.40** (red, shows ⚠️ Deficit)
-- Table shows two sections: "Construction / Slab Phases" and "Gathuni / Masonry Phases"
-- "Piling" row shows Income: ৳ 1,35,00,000 / Expense: ৳ 1,70,41,165.44
-- "Basement" row shows Income: ৳ 2,49,35,000 / Expense: ৳ 1,94,74,035.36
-- At least 21 phases listed in total
-- Grand Total row at the bottom matches the summary cards
-
-**This is critical — it must match the Excel figures exactly.**
+**Expected:**
+- The left sidebar CHANGES — it now shows workspace tabs:
+  - Overview, Phase Board, Buyers, Collections, Expenses, Supplier Payables, Demands, Due Follow-up, Documents, Top Sheet
+- A **"← All Projects"** link appears at the top of the sidebar
+- The header shows "Relax Tower" as the project name
+- The global sidebar (Dashboard, Phases, Buyers, Suppliers…) is GONE — replaced by the workspace sidebar
 
 ✅ Pass / ❌ Fail — Notes: ___________________________
 
 ---
 
-## TEST 4 — Add Buyer
+### TEST B-2 — Project overview (command center)
 
-**Steps:**
-1. In the sidebar, click **Buyers** → **Add Buyer**
-2. URL: http://localhost:3000/buyers/new
-3. Fill in the form:
-   - Full Name (English): `Test Buyer One`
-   - Mobile Number: `01712000001`
-   - Leave all other fields empty
-4. Click **Save Buyer**
+While on `/projects/project-relax-tower`:
 
-**Expected result:**
-- You are redirected to the buyer's profile page (e.g. /buyers/clxxx...)
-- The page shows "Test Buyer One"
-- Phone number is shown
-- "Total Paid" shows ৳ 0
-- "Due Balance" shows "Cleared"
+**Expected:**
+- 8 KPI stat cards visible (Total Collection, Total Expense, Net Balance, Supplier Payable, Total Phases, Project Buyers, Pending Approvals, Missing Vouchers)
+- Total Collection shows approx **৳ 10.01 Cr** (100,143,800)
+- Total Expense shows approx **৳ 10.47 Cr** (104,659,890)
+- Net Balance shows approximately **−৳ 45.16 L** (deficit, in red)
+- Quick action buttons visible: **Money Received**, **Add Expense**, **Supplier Bill**, **View Dues**, **Top Sheet**
+- "Recent Phases" card shows 6 phases from Relax Tower
+- "Buyers in This Project" card shows seeded buyers
 
-**Also test — validation:**
-1. Go back to /buyers/new
-2. Leave the name field empty
+✅ Pass / ❌ Fail — Notes: ___________________________
+
+---
+
+### TEST B-3 — Phase board
+
+1. Click **Phase Board** in the workspace sidebar
+2. URL: `/projects/project-relax-tower/phases`
+
+**Expected:**
+- Phase cards displayed in columns: Draft, Active / Running, Approved, In Summary, Excluded, Cancelled
+- The "In Summary" column has the most cards (Piling, Basement, 1st–10th floor slabs, Gathuni phases)
+- Each card shows: phase name, Bangla name, financial figures (Collected, Expense, Balance)
+- "Finishing" phase card appears in the **Draft** column
+- Cards show green balance for surplus phases and red for deficit phases
+- A note at the bottom: "Phase status is changed in the phase detail page…"
+
+**Click a phase card:**
+- You should be taken to `/phases/[id]` (global phase detail — this is expected for Stage 1)
+
+✅ Pass / ❌ Fail — Notes: ___________________________
+
+---
+
+### TEST B-4 — Project buyers (scoped)
+
+1. Click **Buyers** in the workspace sidebar
+2. URL: `/projects/project-relax-tower/buyers`
+
+**Expected:**
+- Table shows only the **10 seeded buyers** from Relax Tower (Md. Karim Uddin, Nasrin Begum, etc.)
+- Global buyers from other projects (if any) are NOT shown
+- "Total Paid (This Project)" column shows project-specific amounts
+- Blue info box: "These balances are project-specific."
+
+**Verify project-scoped data:**
+- The page title says "Relax Tower · 10 buyers registered"
+- NOT "All buyers across all projects"
+
+✅ Pass / ❌ Fail — Notes: ___________________________
+
+---
+
+### TEST B-5 — Project collections (scoped)
+
+1. Click **Collections** in the workspace sidebar
+2. URL: `/projects/project-relax-tower/collections`
+
+**Expected:**
+- Only collections from Relax Tower phases are shown
+- Total Collected matches approximately ৳ 10.01 Cr
+- Each row shows: Date, Buyer name, Phase name, Amount, Method
+
+**Verify project-scoped heading:**
+- "Relax Tower · all buyer payments" shown as subtitle
+
+✅ Pass / ❌ Fail — Notes: ___________________________
+
+---
+
+### TEST B-6 — Record payment INSIDE project
+
+1. Click **Collections** → click **Record Payment** button (top right)
+   OR click **Money Received** from the overview page
+2. URL: `/projects/project-relax-tower/collections/new`
+
+**Expected:**
+- The form does NOT have a project selector
+- **Buyer dropdown** shows only the 10 Relax Tower buyers
+- **Phase dropdown** shows only phases from Relax Tower (Piling, Basement, etc.)
+- No phases from other projects appear
+
+**Fill in and save:**
+- Buyer: Md. Karim Uddin
+- Phase: Piling
+- Amount: 100000
+- Method: Cash
+- Click **Record Payment**
+
+**Expected:** Redirected to `/projects/project-relax-tower/collections` and the payment appears.
+
+✅ Pass / ❌ Fail — Notes: ___________________________
+
+---
+
+### TEST B-7 — Add expense INSIDE project
+
+1. Click **Expenses** in the workspace sidebar
+2. Click **Add Expense** (top right)
+3. URL: `/projects/project-relax-tower/expenses/new`
+
+**Expected:**
+- **Phase dropdown** shows only Relax Tower phases
+- No phases from other projects appear
+
+**Fill in and save:**
+- Phase: Piling
+- Category: Cement
+- Description: Test cement — project workspace
+- Amount: 25000
+- Date: today
+- Click **Save Expense**
+
+**Expected:** Redirected to `/projects/project-relax-tower/expenses` and the expense appears.
+
+✅ Pass / ❌ Fail — Notes: ___________________________
+
+---
+
+### TEST B-8 — Project expenses list (scoped)
+
+1. Click **Expenses** in the workspace sidebar
+2. URL: `/projects/project-relax-tower/expenses`
+
+**Expected:**
+- Only Relax Tower expenses are shown
+- Page title: "Relax Tower · all site costs"
+- Total Expense ≈ ৳ 10.47 Cr
+
+✅ Pass / ❌ Fail — Notes: ___________________________
+
+---
+
+### TEST B-9 — Add supplier bill INSIDE project
+
+1. Click **Supplier Payables** in the workspace sidebar
+2. Click **Record Bill** (top right)
+3. URL: `/projects/project-relax-tower/payables/new`
+
+**Expected:**
+- Form shows **Phase dropdown** (project-scoped phases)
+- NO project selector — project is already known from URL
+- Supplier dropdown shows company-level suppliers
+
+**Fill in and save:**
+- Supplier: ABC Cement Traders (or whichever exists)
+- Phase: Piling (optional)
+- Bill Date: today
+- Amount: 75000
+- Click **Record Bill**
+
+**Expected:** Redirected to `/projects/project-relax-tower/payables` and the bill appears with this project's bills.
+
+✅ Pass / ❌ Fail — Notes: ___________________________
+
+---
+
+### TEST B-10 — Project payables list (scoped)
+
+1. Click **Supplier Payables** in the workspace sidebar
+2. URL: `/projects/project-relax-tower/payables`
+
+**Expected:**
+- Only bills belonging to Relax Tower are shown
+- Each row shows Phase column (which phase the bill is for)
+- **Pay Now** button appears for unpaid bills
+
+✅ Pass / ❌ Fail — Notes: ___________________________
+
+---
+
+### TEST B-11 — Due follow-up (project-scoped)
+
+1. Click **Due Follow-up** in the workspace sidebar
+2. URL: `/projects/project-relax-tower/due-followup`
+
+**Expected:**
+- Table shows all 10 Relax Tower buyers
+- Demanded, Paid, and Due Balance columns shown
+- "These balances are project-specific" info box shown
+- If no demands have been issued: Demanded = ৳ 0 (this is expected — issue demands first)
+- **Record Payment** link for each buyer with a due balance
+
+✅ Pass / ❌ Fail — Notes: ___________________________
+
+---
+
+### TEST B-12 — Project Top Sheet (scoped, no selector)
+
+1. Click **Top Sheet** in the workspace sidebar
+2. URL: `/projects/project-relax-tower/reports/top-sheet`
+
+**Expected:**
+- Page shows "Relax Tower" header (no project selector dropdown — project is fixed)
+- 3 KPI cards: Grand Total Income / Grand Total Expense / Final Balance
+- Grand Total Income: **৳ 10,01,43,800** (matches Excel)
+- Grand Total Expense: **৳ 10,46,59,890.40** (matches Excel)
+- Final Balance: **−৳ 45,16,090.40** (deficit — matches Excel)
+- Table shows slab phases and gathuni phases in separate sections
+
+✅ Pass / ❌ Fail — Notes: ___________________________
+
+---
+
+### TEST B-13 — Navigate back to company view
+
+1. While inside the project workspace, click **"← All Projects"** at the top of the workspace sidebar
+2. Should go to `/projects`
+3. Click **Company Dashboard** at the bottom of the workspace sidebar
+4. Should go to `/dashboard`
+5. From `/dashboard`, the global sidebar should be visible again (Dashboard, Projects, Phases, etc.)
+
+**Expected:** The global sidebar reappears when you leave the project workspace.
+
+✅ Pass / ❌ Fail — Notes: ___________________________
+
+---
+
+## SECTION C — Legacy routes still work
+
+### TEST C-1 — Legacy buyer list with notice
+
+1. Go to `/buyers` directly (or click Buyers in the global sidebar from outside a project)
+2. **Expected:**
+   - Page opens and shows all buyers
+   - An **amber warning box** appears at the top:
+     "Tip: For project-specific buyer balances, use the Project Workspace…"
+   - The buyers table still works normally
+
+✅ Pass / ❌ Fail — Notes: ___________________________
+
+---
+
+### TEST C-2 — Legacy collections list with notice
+
+1. Go to `/collections`
+2. **Expected:** Page opens with amber notice directing to project workspace
+
+✅ Pass / ❌ Fail — Notes: ___________________________
+
+---
+
+### TEST C-3 — Legacy expenses list with notice
+
+1. Go to `/expenses`
+2. **Expected:** Page opens with amber notice directing to project workspace
+
+✅ Pass / ❌ Fail — Notes: ___________________________
+
+---
+
+### TEST C-4 — Legacy supplier bill form now requires project
+
+1. Go to `/suppliers/payables/new`
+2. **Expected:**
+   - An amber notice: "Record bills from inside the Project Workspace for a better experience"
+   - A **Project** dropdown appears (required)
+   - Select the project before submitting
+
+✅ Pass / ❌ Fail — Notes: ___________________________
+
+---
+
+### TEST C-5 — Global Top Sheet still works
+
+1. Go to `/reports/top-sheet`
+2. **Expected:** The global Top Sheet still loads and shows Relax Tower data
+
+✅ Pass / ❌ Fail — Notes: ___________________________
+
+---
+
+## SECTION D — Previous tests (still valid)
+
+### TEST D-1 — Dashboard loads with correct figures
+From `/dashboard`:
+- Total Collection ≈ ৳ 10.01 Cr
+- Total Expense ≈ ৳ 10.47 Cr
+- Net Balance ≈ −৳ 45.16 L (deficit)
+
+✅ Pass / ❌ Fail — Notes: ___________________________
+
+---
+
+### TEST D-2 — Add Buyer (global form still works)
+1. Go to `/buyers/new`
+2. Add: Full Name: `Test Buyer Two`, Phone: `01712000002`
 3. Click **Save Buyer**
-4. Expected: red error message "Full name is required." appears — form does NOT submit
+4. Expected: redirects to buyer profile
 
 ✅ Pass / ❌ Fail — Notes: ___________________________
 
 ---
 
-## TEST 5 — Buyers List
-
-**Steps:**
-1. In the sidebar, click **Buyers** → **Buyer List**
-2. URL: http://localhost:3000/buyers
-
-**Expected result:**
-- At least 10 buyers from the seed data (Md. Karim Uddin, Nasrin Begum, etc.)
-- Your new buyer "Test Buyer One" appears at the bottom or alphabetically
-- Each row shows Total Paid and Due Balance columns
-- Buyers with due balances show the amount in red; cleared buyers show ✅
+### TEST D-3 — Add Phase (global form still works)
+1. Go to `/phases/new`
+2. Select project: Relax Tower
+3. Type: Floor Slab, Floor: 13
+4. Expected: name auto-fills as "13th Floor Slab"
+5. Click **Save Phase**
 
 ✅ Pass / ❌ Fail — Notes: ___________________________
 
 ---
 
-## TEST 6 — Add Phase
-
-**Steps:**
-1. In the sidebar, click **Phases** → **Add Phase**
-2. URL: http://localhost:3000/phases/new
-3. Fill in the form:
-   - Project: select **Relax Tower** from the dropdown
-   - Phase Type: **Floor Slab**
-   - Floor Number: `12`
-   - (Name should auto-fill as "12th Floor Slab")
-   - Start Date: today's date
-   - Status: **Draft**
-4. Click **Save Phase**
-
-**Expected result:**
-- You are redirected to the phase detail page
-- Phase name shows "12th Floor Slab"
-- Income side shows no collections yet
-- Expense side shows no expenses yet
-- Status badge shows "Draft"
-
-**Also test — auto-name:**
-1. Go back to /phases/new
-2. Select Phase Type: **Gathuni (Brick Masonry)**
-3. Enter Floor Number: `5`
-4. The Name field should automatically fill with "Gathuni 5th Floor"
+### TEST D-4 — Approval workflow
+1. Go to `/expenses/approvals`
+2. If pending: Approve and Reject buttons work
 
 ✅ Pass / ❌ Fail — Notes: ___________________________
 
 ---
 
-## TEST 7 — Record Buyer Payment
-
-**Steps:**
-1. In the sidebar, click **Collections** → **Record Payment**
-2. URL: http://localhost:3000/collections/new
-3. Fill in the form:
-   - Buyer: select **Test Buyer One** from the dropdown
-   - Phase: select **Piling** from the dropdown
-   - Amount Received: `500000`
-   - Date Received: today's date
-   - Payment Method: **Cash**
-4. Click **Record Payment**
-
-**Expected result:**
-- You are redirected to Test Buyer One's profile page
-- The payment history table shows one row:
-  - Phase: Piling
-  - Amount: ৳ 5,00,000
-  - Method: CASH
-- Total Paid at the bottom: ৳ 5,00,000
-
-**Also test — cheque fields:**
-1. Go back to /collections/new
-2. Select Payment Method: **Cheque**
-3. New fields should appear: Cheque Number, Cheque Date, Bank Name
-4. Switch to **Cash** — those fields should disappear
+### TEST D-5 — Logout
+1. Click username (top-right) → Sign Out
+2. Expected: redirected to `/login`
+3. Try visiting `/dashboard` → expected: redirected to `/login`
 
 ✅ Pass / ❌ Fail — Notes: ___________________________
 
 ---
 
-## TEST 8 — Add Daily Expense
-
-**Steps:**
-1. In the sidebar, click **Expenses** → **Add Expense**
-2. URL: http://localhost:3000/expenses/new
-3. Fill in the form:
-   - Construction Phase: select **Piling** from the dropdown
-   - Expense Category: **Cement**
-   - Description: `Cement purchase — test`
-   - Quantity: `100`
-   - Unit: **bag**
-   - Unit Price: `520`
-   - (Total Amount should auto-calculate to 52000)
-   - Expense Date: today's date
-4. Click **Save Expense**
-
-**Expected result:**
-- You are redirected to the Piling phase page
-- The expense "Cement purchase — test" appears in the Expenses table on the right
-- Amount shows ৳ 52,000
-- Status shows **Approved** (because you are an admin)
-
-**Also test — auto-calculation:**
-1. Go back to /expenses/new
-2. Enter Quantity: `50`, Unit Price: `1000`
-3. The Amount field should automatically show `50000.00`
-
-**Also test — validation:**
-1. Clear the Description field
-2. Click **Save Expense**
-3. Expected: "Description is required." error appears
-
-✅ Pass / ❌ Fail — Notes: ___________________________
-
----
-
-## TEST 9 — Add Supplier
-
-**Steps:**
-1. In the sidebar, click **Suppliers** → **Add Supplier**  
-   (If you don't see "Add Supplier" in the sidebar, go to http://localhost:3000/suppliers/new)
-2. Fill in the form:
-   - Supplier / Business Name: `ABC Cement Traders`
-   - Supplier Type: **Material Supplier (Rod, Cement, Stone…)**
-   - Phone Number: `01711999888`
-   - Contact Person Name: `Md. Rahim`
-3. Click **Save Supplier**
-
-**Expected result:**
-- You are redirected to http://localhost:3000/suppliers
-- The supplier list shows "ABC Cement Traders"
-- Type shows "MATERIAL SUPPLIER"
-
-✅ Pass / ❌ Fail — Notes: ___________________________
-
----
-
-## TEST 10 — Add Supplier Bill
-
-**Steps:**
-1. In the sidebar, click **Suppliers** → **Payables**
-2. Click the **Record Bill** button (top right)
-3. URL: http://localhost:3000/suppliers/payables/new
-4. Fill in the form:
-   - Supplier: select **ABC Cement Traders**
-   - Bill Number: `INV-TEST-001`
-   - Bill Date: today's date
-   - Total Bill Amount: `150000`
-   - Payment Due By: (leave blank)
-5. Click **Record Bill**
-
-**Expected result:**
-- You are redirected to the payables list
-- "ABC Cement Traders" appears with:
-  - Bill No: INV-TEST-001
-  - Total: ৳ 1,50,000
-  - Paid: ৳ 0
-  - Due: ৳ 1,50,000 (in red)
-  - Status: **Unpaid**
-  - A **Pay Now** button on the right
-
-✅ Pass / ❌ Fail — Notes: ___________________________
-
----
-
-## TEST 11 — Record Supplier Payment
-
-**Steps:**
-1. On the payables list, find the "ABC Cement Traders" row
-2. Click the **Pay Now** button
-3. URL: http://localhost:3000/suppliers/payables/[id]/pay
-4. You should see a blue summary box showing:
-   - Total: ৳ 1,50,000 · Paid: ৳ 0 · Outstanding: ৳ 1,50,000
-5. Fill in the form:
-   - Amount Paid: `50000`
-   - Payment Date: today's date
-   - Payment Method: **Bank Transfer**
-   - Bank / Account: `Sonali Bank`
-   - Transaction Reference: `TXN001`
-6. Click **Record Payment**
-
-**Expected result:**
-- You are redirected to the payables list
-- "ABC Cement Traders" now shows:
-  - Total: ৳ 1,50,000
-  - Paid: ৳ 50,000 (green)
-  - Due: ৳ 1,00,000 (red)
-  - Status: **Part Paid**
-
-**Click Pay Now again:**
-1. Click **Pay Now** on the same row
-2. Outstanding should now show ৳ 1,00,000
-3. Enter Amount Paid: `100000`
-4. Click **Record Payment**
-5. Expected: Status changes to **Paid**, due amount shows ✅
-
-**Test over-payment protection:**
-1. If the bill still has a balance, click Pay Now
-2. Try to enter an amount LARGER than the outstanding balance
-3. Expected: error message "Payment amount exceeds outstanding due"
-
-✅ Pass / ❌ Fail — Notes: ___________________________
-
----
-
-## TEST 12 — Upload Voucher / Attachment
-
-**Steps:**
-1. Go to http://localhost:3000/expenses
-2. Find the expense "Cement purchase — test"
-3. Click the **📎** icon in the last column
-4. URL: http://localhost:3000/expenses/[id]/upload
-5. Click the dashed box (or drag a file onto it)
-6. Select any small JPG, PNG, or PDF file from your computer
-7. In the Description field, type: `Test voucher`
-8. Click **Upload File**
-
-**Expected result:**
-- A green checkmark and file name appear in the dashed box before uploading
-- After clicking Upload, the file appears in the "Uploaded in this session" list below
-- A "View" link appears — click it to verify the file opens
-
-**Test file type restriction:**
-1. Try uploading a `.xlsx` or `.docx` file
-2. Expected: error message "File type not allowed. Use JPG, PNG, PDF..."
-
-✅ Pass / ❌ Fail — Notes: ___________________________
-
----
-
-## TEST 13 — Phase Detail Page
-
-**Steps:**
-1. In the sidebar, click **Phases** → **All Phases**
-2. Click on **Piling**
-3. URL: http://localhost:3000/phases/[id]
-
-**Expected result:**
-- Left side shows income collections (at least 10 rows from seed)
-- Right side shows expenses (Rod, Cement, Stone, Sand, etc.)
-- Bottom shows: Total Income / Total Expense / Phase Balance
-- Phase Balance should be approximately **−৳ 3,54,11,165** (deficit — expected from Excel)
-- Category breakdown section at bottom shows expense breakdown by type
-- Rod/Steel should be the largest expense category
-
-✅ Pass / ❌ Fail — Notes: ___________________________
-
----
-
-## TEST 14 — Due Dashboard
-
-**Steps:**
-1. In the sidebar, click **Buyers** → **Due List**
-2. URL: http://localhost:3000/buyers/dues
-
-**Expected result:**
-- Page shows total outstanding, buyers with due, overdue count, cleared count
-- Table lists all buyers with their Demand vs Paid vs Balance
-- If no demands have been issued yet, most buyers may show ৳ 0 demanded
-
-✅ Pass / ❌ Fail — Notes: ___________________________
-
----
-
-## TEST 15 — Approval Workflow
-
-**Steps:**
-1. Go to http://localhost:3000/expenses/approvals
-
-**Expected result:**
-- If no pending expenses: page shows "No pending approvals ✅"
-- If there are pending expenses: each row has **Approve** and **Reject** buttons
-
-**To create a pending expense:**
-1. You would need a non-admin user to submit an expense (site engineer role)
-2. For now, this can be verified visually — the buttons are present and functional
-   (Approve button turns green and calls the API; page refreshes)
-
-✅ Pass / ❌ Fail — Notes: ___________________________
-
----
-
-## TEST 16 — Logout
-
-**Steps:**
-1. Click your name in the top-right corner of any page
-2. Click **Sign Out**
-
-**Expected result:**
-- You are redirected to http://localhost:3000/login
-- If you try to go to http://localhost:3000/dashboard, you are redirected back to /login
-
-✅ Pass / ❌ Fail — Notes: ___________________________
-
----
-
-## Summary
+## Summary table
 
 | # | Test | Result |
 |---|------|--------|
-| 1 | Login & protected routes | |
-| 2 | Dashboard loads with correct figures | |
-| 3 | Top Sheet matches Excel exactly | |
-| 4 | Add Buyer + validation | |
-| 5 | Buyer list | |
-| 6 | Add Phase + auto-name | |
-| 7 | Record Payment + cheque fields | |
-| 8 | Add Expense + auto-calc + validation | |
-| 9 | Add Supplier | |
-| 10 | Add Supplier Bill | |
-| 11 | Supplier Payment + over-payment guard | |
-| 12 | Upload Voucher + file type check | |
-| 13 | Phase detail — income/expense ledger | |
-| 14 | Due Dashboard | |
-| 15 | Approval workflow | |
-| 16 | Logout | |
+| A-1 | Login + protected routes | |
+| B-1 | Enter project workspace | |
+| B-2 | Project overview KPIs | |
+| B-3 | Phase board (kanban cards) | |
+| B-4 | Project buyers scoped | |
+| B-5 | Project collections scoped | |
+| B-6 | Record payment inside project | |
+| B-7 | Add expense inside project | |
+| B-8 | Project expenses list | |
+| B-9 | Add supplier bill inside project | |
+| B-10 | Project payables list | |
+| B-11 | Due follow-up scoped | |
+| B-12 | Project Top Sheet (no selector) | |
+| B-13 | Navigate back to company view | |
+| C-1 | Legacy buyer list + notice | |
+| C-2 | Legacy collections + notice | |
+| C-3 | Legacy expenses + notice | |
+| C-4 | Legacy supplier bill + project selector | |
+| C-5 | Global Top Sheet still works | |
+| D-1 | Dashboard correct figures | |
+| D-2 | Add Buyer (global) | |
+| D-3 | Add Phase (global) | |
+| D-4 | Approvals workflow | |
+| D-5 | Logout | |
 
-**All 16 tests passed: YES / NO**
+**All 24 tests passed: YES / NO**
 
 ---
 
 ## If a test fails
 
-1. Write down exactly what happened
-2. Check TROUBLESHOOTING.md for a matching error
-3. Check the browser console for errors (press F12 → Console tab)
-4. Check the cmd window where `npm run dev` is running — it may show a red error
+1. Check the cmd/terminal window where `npm run dev` is running for red errors
+2. Open browser console (F12 → Console) for client-side errors
+3. Check `TROUBLESHOOTING.md` for common fixes
+4. For workspace layout issues, check that the migration ran: `npx prisma migrate dev`

@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/shared/page-header';
 import { StatCard } from '@/components/shared/stat-card';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatBDT, formatBDTCompact, formatDate, cn } from '@/lib/utils';
-import { Receipt, TrendingUp, Users, CreditCard } from 'lucide-react';
+import { Receipt, TrendingUp, Users, CreditCard, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -54,6 +54,18 @@ export default async function CollectionsPage() {
       />
 
       <div className="p-6 space-y-6">
+        {/* Legacy notice */}
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 flex items-start gap-3">
+          <Receipt className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+          <div className="text-sm text-amber-800">
+            <strong>Tip:</strong> For project-specific collections, use the{' '}
+            <strong>Project Workspace</strong>:{' '}
+            <Link href="/projects" className="underline font-medium">Projects</Link>{' '}
+            → select a project → <strong>Collections</strong> or <strong>Due Follow-up</strong>.
+            Daily payment recording should be done inside a project context.
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           <StatCard title="Total Collected" value={formatBDTCompact(total)} subtitle={formatBDT(total)} icon={TrendingUp} iconColor="text-green-600" iconBg="bg-green-50" />
           <StatCard title="Total Transactions" value={String(totalAgg._count)} subtitle="Payment records" icon={Receipt} iconColor="text-blue-600" iconBg="bg-blue-50" />

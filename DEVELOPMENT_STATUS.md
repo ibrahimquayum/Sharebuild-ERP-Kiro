@@ -10,157 +10,197 @@
 | Check | Status | Notes |
 |-------|--------|-------|
 | App runs (dev server) | ✅ Expected yes | Requires local `npm install` + PostgreSQL |
-| Build passes (`npm run build`) | ✅ Expected yes | All TypeScript clean |
-| Seed works | ✅ Fixed | Full Excel data, idempotent |
+| Build passes | ✅ Expected yes | TypeScript clean, autoprefixer now in devDeps |
+| Seed works | ✅ Fixed | Excel-accurate Top Sheet data |
 | Login / logout | ✅ Done | NextAuth credentials |
 | Protected routes | ✅ Done | Redirect to /login |
-| Top Sheet matches Excel | ✅ Fixed | Income 100,143,800 / Expense 104,659,890.40 |
+| Top Sheet matches Excel | ✅ Verified | Income 100,143,800 / Expense 104,659,890.40 |
 | All sidebar links work | ✅ Fixed | No 404 links |
-| **Add Buyer form** | ✅ Done | Saves to DB, audit log, redirects |
-| **Add Phase form** | ✅ Done | Saves to DB, audit log, auto-name, redirects |
-| **Record Payment form** | ✅ Done | Saves to DB, audit log, cheque/bank fields |
-| **Add Expense form** | ✅ Done | Saves to DB, audit log, qty/unit auto-calc |
-| **Add Supplier form** | ✅ Done | Saves to DB, audit log, redirects |
-| **Add Supplier Bill form** | ✅ Done | New API route, saves to DB, audit log |
-| **Record Supplier Payment** | ✅ Done | New API, atomic balance update, audit log |
-| **Voucher / file upload** | ✅ Done | Local disk, 10 MB, JPG/PNG/PDF |
+| **Project workspace** | ✅ Stage 1 done | `/projects/[id]/*` workspace with scoped data |
+| **Phase board (cards)** | ✅ Done | Kanban columns, financial card per phase |
+| **Project-scoped buyers** | ✅ Done | Balances scoped per project |
+| **Project-scoped collections** | ✅ Done | Record payment form scoped to project |
+| **Project-scoped expenses** | ✅ Done | Add expense form scoped to project |
+| **Project-scoped payables** | ✅ Done | Supplier bills now require projectId |
+| **Project-scoped due follow-up** | ✅ Done | Per-project buyer due dashboard |
+| **Project-scoped Top Sheet** | ✅ Done | No project selector needed inside workspace |
+| **Legacy routes** | ✅ Kept | All old routes work + amber notice banners |
 
 ---
 
-## Completed forms (Phase 1 data-entry)
+## Architecture: Project-First (Stage 1 complete)
 
-### 1. Add Buyer — `/buyers/new`
-- **API:** `POST /api/buyers`
-- **Saves:** name, Bangla name, father's name, phone (×2), email, NID, address, notes
-- **Validates:** name required, phone format, email format
-- **Audit:** ✅ writes to `audit_logs`
-- **Redirects to:** `/buyers/[id]`
+The app now follows a project-first architecture:
 
-### 2. Add Phase — `/phases/new`
-- **API:** `POST /api/phases`
-- **Saves:** project (dropdown), phase type, floor number, name (EN + BN), work description, start/end dates, status, sequence order
-- **Validates:** project required, name required, floor must be numeric
-- **Features:** Auto-fills phase name from type + floor (e.g. "3rd Floor Slab"), type-aware floor field
-- **Audit:** ✅ writes to `audit_logs`
-- **Redirects to:** `/phases/[id]`
+```
+Company Dashboard (/dashboard)
+  ↓
+Projects List (/projects)
+  ↓
+Project Workspace (/projects/[id])
+  ├── Overview          — KPIs, quick actions, phase snapshot
+  ├── Phase Board       — phase cards by status column
+  ├── Buyers            — project-specific buyers + balances
+  ├── Collections       — payments received IN this project
+  ├── Expenses          — costs incurred IN this project
+  ├── Supplier Payables — bills for this project (+ phase)
+  ├── Demands           — demand notices for this project
+  ├── Due Follow-up     — buyer dues IN this project
+  ├── Documents         — (stub — full in Stage 2)
+  └── Top Sheet         — project-scoped financial summary
 
-### 3. Record Buyer Payment — `/collections/new`
-- **API:** `POST /api/collections`
-- **Saves:** buyer (dropdown), phase (dropdown), amount, date, payment method, receipt no
-- **Conditional fields:** Cheque fields shown for CHEQUE method; bank/reference for BANK_TRANSFER / MOBILE_BANKING
-- **Validates:** buyer required, phase required, amount > 0
-- **Audit:** ✅ writes to `audit_logs`
-- **Redirects to:** `/buyers/[buyerId]` (shows updated payment history)
-- **Note:** Accepts `?buyerId=` and `?phaseId=` query params for pre-filling from context
-
-### 4. Add Daily Expense — `/expenses/new`
-- **API:** `POST /api/expenses`
-- **Saves:** phase, category (28 options with plain labels), description, amount, date, bill no, supplier, qty/unit/unit price
-- **Features:** Qty × unit price auto-calculates amount; quantity fields only shown for material categories; auto-approve for admin/manager roles
-- **Validates:** phase required, description required, amount > 0
-- **Audit:** ✅ writes to `audit_logs`
-- **Redirects to:** `/phases/[phaseId]`
-
-### 5. Add Supplier — `/suppliers/new`
-- **API:** `POST /api/suppliers`
-- **Saves:** name (EN + BN), type (5 options), phone, email, address, contact person, bank name, account number, notes
-- **Validates:** name required, phone format, email format
-- **Audit:** ✅ writes to `audit_logs`
-- **Redirects to:** `/suppliers`
-
-### 6. Add Supplier Bill — `/suppliers/payables/new`
-- **API:** `POST /api/suppliers/payables` ← new route added
-- **Saves:** supplier, bill no, bill date, total amount, due date, notes
-- **Creates:** payable with status=UNPAID, paidAmount=0, dueAmount=totalAmount
-- **Validates:** supplier required, bill date required, amount > 0
-- **Audit:** ✅ writes to `audit_logs`
-- **Redirects to:** `/suppliers/payables`
-
-### 7. Record Supplier Payment — `/suppliers/payables/[id]/pay`
-- **API:** `POST /api/suppliers/payables/[id]/payments` ← new route added
-- **Saves:** amount, payment method, cheque details, bank/reference, date, notes
-- **Features:** Shows outstanding balance, prevents over-payment, conditional cheque/bank fields
-- **Atomic update:** Payment created + payable paidAmount/dueAmount/status updated in single transaction
-- **Status logic:** UNPAID → PARTIALLY_PAID → PAID based on amounts
-- **Audit:** ✅ writes to `audit_logs`
-- **Redirects to:** `/suppliers/payables`
-- **Entry point:** "Pay Now" button on `/suppliers/payables` list
-
-### 8. Upload Voucher / Attachment — `/expenses/[id]/upload`
-- **API:** `POST /api/documents` ← new route added
-- **Saves:** file to `/public/uploads/<companyId>/`, DB record in `documents` table
-- **Accepts:** JPG, PNG, WebP, PDF · Max 10 MB
-- **Features:** Drag & drop, click to select, inline preview of uploaded files
-- **Linked to:** `expenseId` (or `buyerId` / `projectId` via query params)
-- **Entry point:** 📎 icon in `/expenses` list, or direct URL `/expenses/[id]/upload`
+Company Master Data (legacy routes, still working)
+  /buyers, /suppliers, /phases, /collections, /expenses, /reports/top-sheet
+```
 
 ---
 
-## New API routes added in this session
+## Schema changes (Stage 1)
 
-| Route | Method | Purpose |
-|-------|--------|---------|
-| `POST /api/suppliers/payables` | POST, GET | Create supplier bill / list bills |
-| `POST /api/suppliers/payables/[id]/payments` | POST, GET | Record payment against a bill |
-| `POST /api/documents` | POST, GET | Upload file attachment to disk + DB |
+| Model | Change |
+|-------|--------|
+| `SupplierPayable` | Added `projectId` (required FK) |
+| `SupplierPayable` | Added `phaseId` (optional FK) |
+| `SupplierBillItem` | New model (line items on supplier bill) |
+| `ProjectStaffRole` | New enum (7 project roles) |
+| `ProjectStaffAssignment` | New model (user→project with role) |
+| Migration | `prisma/migrations/20260517000001_project_first_refactor/migration.sql` |
 
 ---
 
-## Audit log coverage
+## Completed features
 
+### Infrastructure
+- [x] Next.js 14 App Router, TypeScript, Prisma 5, PostgreSQL, NextAuth
+- [x] Multi-tenant: Company → Project → Phase
+- [x] autoprefixer added to devDependencies (build fix)
+- [x] Bangla Unicode support (nameBn fields, bn font class)
+- [x] Tailwind CSS + Radix UI component set
+
+### Project Workspace (new in Stage 1)
+- [x] Project workspace layout with scoped sidebar + header
+- [x] Project overview: KPI cards, quick action buttons, phase snapshot
+- [x] Phase board: kanban columns, financial cards per phase
+- [x] Project buyers: scoped list with project-specific paid amount
+- [x] Project collections: filtered by projectId from URL
+- [x] Project expenses: filtered by projectId from URL
+- [x] Project payables: bills scoped to this project + phase
+- [x] Project due follow-up: buyer dues per project only
+- [x] Project demands: demand notices for this project's phases
+- [x] Project top sheet: full report, no project selector needed
+- [x] Project documents: stub page (upload works via expense 📎)
+
+### Project-scoped forms (new in Stage 1)
+- [x] `/projects/[id]/collections/new` — buyer + phase dropdowns scoped to project
+- [x] `/projects/[id]/expenses/new` — phase dropdown scoped to project
+- [x] `/projects/[id]/payables/new` — supplier from company master, phase from project
+
+### Data-entry forms (from previous work)
+- [x] Add Buyer — `/buyers/new` — saves to DB, audit log
+- [x] Add Phase — `/phases/new` — saves to DB, audit log, auto-name
+- [x] Record Payment (global) — `/collections/new` — saves to DB
+- [x] Add Expense (global) — `/expenses/new` — saves to DB, auto-calc
+- [x] Add Supplier — `/suppliers/new` — saves to DB
+- [x] Add Supplier Bill — `/suppliers/payables/new` — now requires project
+- [x] Record Supplier Payment — `/suppliers/payables/[id]/pay` — atomic balance update
+- [x] Upload Voucher — `/expenses/[id]/upload` — local disk, JPG/PNG/PDF
+
+### API routes
+- [x] `GET/POST /api/projects`
+- [x] `GET/PATCH/DELETE /api/phases/[id]`
+- [x] `GET/POST /api/phases` (accepts `?projectId=` filter)
+- [x] `GET/POST /api/collections` (accepts `?phaseId=`, `?buyerId=`)
+- [x] `GET/POST /api/expenses` (accepts `?phaseId=`, `?status=`)
+- [x] `POST /api/expenses/[id]/approve` — with audit log
+- [x] `POST /api/expenses/[id]/reject` — with audit log
+- [x] `GET/POST /api/buyers` (accepts `?projectId=` filter — **key for scoping**)
+- [x] `GET/PATCH /api/buyers/[id]`
+- [x] `GET/POST /api/suppliers`
+- [x] `GET/POST /api/suppliers/payables` — now requires `projectId` in POST
+- [x] `GET/POST /api/suppliers/payables/[id]/payments`
+- [x] `GET/POST /api/documents`
+- [x] `GET /api/reports/top-sheet`
+
+### Read-only list pages (all still working)
+- [x] `/dashboard` — company-wide KPI summary
+- [x] `/projects` — project cards
+- [x] `/phases` — global phase list with financials
+- [x] `/phases/[id]` — phase detail (income+expense ledger)
+- [x] `/buyers` — company-wide buyer list (with legacy notice)
+- [x] `/buyers/[id]` — buyer profile with payment history
+- [x] `/buyers/dues` — global due dashboard
+- [x] `/collections` — global collections list (with legacy notice)
+- [x] `/expenses` — global expense list (with legacy notice)
+- [x] `/expenses/approvals` — pending approvals with Approve/Reject
+- [x] `/suppliers` — supplier list
+- [x] `/suppliers/payables` — payables list with Pay Now
+- [x] `/reports/top-sheet` — global top sheet
+- [x] `/reports/phase-summary` — phase summary
+- [x] `/settings` — company info, team, role permissions
+- [x] `/login` — auth
+
+### Audit log coverage
 | Entity | CREATE | UPDATE | APPROVE/REJECT |
 |--------|--------|--------|----------------|
-| Buyer | ✅ | ❌ (missing) | — |
-| Phase | ✅ | ❌ (missing) | — |
+| Buyer | ✅ | ❌ | — |
+| Phase | ✅ | ❌ | — |
 | Collection | ✅ | — | — |
 | Expense | ✅ | — | ✅ |
 | Supplier | ✅ | — | — |
-| SupplierPayable | ✅ | — | — |
-| SupplierPayment | ✅ | — | — |
+| SupplierPayable | ✅ (with projectId) | — | — |
+| SupplierPayment | ✅ (with projectId) | — | — |
 
 ---
 
-## Remaining missing features (Phase 1 scope)
+## Missing features (Stage 2 scope)
 
-| Feature | Status | Priority |
-|---------|--------|----------|
-| Demand notice form `/demands/new` | Coming Soon page | High |
-| New Project form `/projects/new` | Coming Soon page | High |
-| Payment auto-allocation to demands | Missing | High |
-| Edit Buyer form | Missing | Medium |
-| Edit Phase status (quick toggle) | Missing | Medium |
-| Audit log viewer page | Missing | Medium |
-| Audit log for UPDATE actions | Missing | Medium |
-| Document upload for buyers/projects | Partial (API ready, no UI entry point) | Low |
-| PDF export (Top Sheet, buyer statement) | Missing | Medium |
-| Due reminder (email/SMS) | Missing | Low |
-| User management (invite/add users) | Missing | Medium |
-| File storage for production (S3/R2) | Missing | High (before deploy) |
+| Feature | Priority | Notes |
+|---------|----------|-------|
+| Phase detail inside project workspace | High | Currently links to global `/phases/[id]` |
+| Phase status change form (dropdown on card) | High | Cards are read-only now |
+| Project-scoped demand issuance form | High | Needs bulk issue to all project buyers |
+| SupplierBillItem UI (multi-line bills) | Medium | Model and schema ready |
+| ProjectStaffAssignment UI | Medium | Model and migration ready |
+| Audit lock enforcement | High | `isAuditLocked` check before edits |
+| Audit log viewer page | Medium | `audit_logs` table exists and is populated |
+| Documents tab full implementation | Medium | Stub page only |
+| Company accounting roll-up dashboard | Future | After all project data is correct |
+| PDF export (Top Sheet, buyer statement) | Medium | Print CSS exists |
+| User management UI | Medium | Users can be created via seed |
+| Buyer portal (read-only cross-project view) | Future | Architecture defined |
 
 ---
 
 ## Known issues
 
-1. **File upload is local disk only** — `/public/uploads/` works for local dev. In production, replace with S3 or Cloudflare R2. The `fileUrl` in the Document record stores the relative path `/uploads/...` which serves correctly from Next.js in dev.
+1. **SupplierPayable migration on existing DBs** — If any existing SupplierPayable rows exist without a projectId, the migration backfills from linked expenses or deletes them. Safe on fresh installs (no payable rows in seed).
 
-2. **No demand seeding** — Demand model exists but no demands are seeded. The Record Payment form links directly to phase (not demand). Payment-to-demand auto-allocation is not yet implemented.
+2. **Phase board is static** — Phase cards are in columns but cannot be dragged. Status change requires visiting the phase detail page.
 
-3. **Supplier payables page "Pay Now"** — The button appears on all unpaid/partial bills. Clicking navigates to `/suppliers/payables/[id]/pay`.
+3. **Project workspace demands form** — The "Issue Demand" button in `/projects/[id]/demands` links to global `/demands/new` which does not pre-fill the project. Stage 2 will add a project-scoped demand form.
 
-4. **Add Phase form auto-name** — The auto-fill only runs once when type/floor changes. If user clears the name and changes type, it re-runs correctly.
+4. **Buyer due calculation without demands** — The due follow-up page calculates due as `totalDemanded - totalPaid`. If no demands have been issued, due shows ৳ 0 even if payments are expected. Issue demands first.
+
+5. **File upload is local disk only** — `/public/uploads/[companyId]/`. Replace with S3/R2 before production deployment.
 
 ---
 
 ## How to run locally
 
-See [LOCAL_SETUP.md](./LOCAL_SETUP.md)
+See [LOCAL_TESTING_GUIDE.md](./LOCAL_TESTING_GUIDE.md)
 
 ```bash
 npm install
-cp .env.example .env   # set DATABASE_URL + NEXTAUTH_SECRET
+cp .env.example .env       # set DATABASE_URL + NEXTAUTH_SECRET
 npx prisma migrate dev --name init
 npm run db:seed
 npm run dev
 ```
 
+Open: http://localhost:3000  
 Login: `admin@relaxdevelopers.com` / `admin123`
+
+**After Stage 1 migration (if upgrading existing DB):**
+```bash
+npx prisma migrate dev --name project_first_refactor
+```

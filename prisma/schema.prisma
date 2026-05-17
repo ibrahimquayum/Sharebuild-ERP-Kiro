@@ -233,6 +233,7 @@ model User {
   approvals       Approval[]
   createdExpenses Expense[]         @relation("ExpenseCreatedBy")
   approvedExpenses Expense[]        @relation("ExpenseApprovedBy")
+  staffAssignments ProjectStaffAssignment[]
 
   @@map("users")
 }
@@ -284,6 +285,8 @@ model Project {
   userAccess      ProjectUserAccess[]
   documents       Document[]
   auditLogs       AuditLog[]
+  supplierPayables SupplierPayable[]
+  staffAssignments ProjectStaffAssignment[]
 
   @@map("projects")
 }
@@ -469,6 +472,7 @@ model Phase {
   demands       Demand[]
   materialItems MaterialItem[]
   approvals     Approval[]
+  supplierPayables SupplierPayable[]
 
   @@map("phases")
 }
@@ -601,6 +605,8 @@ model Supplier {
 model SupplierPayable {
   id           String        @id @default(cuid())
   supplierId   String
+  projectId    String        // required — every bill belongs to a project
+  phaseId      String?       // optional — bill may be project-general
   billNo       String?
   billDate     DateTime
   totalAmount  Decimal
@@ -613,10 +619,29 @@ model SupplierPayable {
   updatedAt    DateTime      @updatedAt
 
   supplier  Supplier          @relation(fields: [supplierId], references: [id])
+  project   Project           @relation(fields: [projectId], references: [id])
+  phase     Phase?            @relation(fields: [phaseId], references: [id])
   payments  SupplierPayment[]
   expenses  Expense[]
+  billItems SupplierBillItem[]
 
   @@map("supplier_payables")
+}
+
+model SupplierBillItem {
+  id          String          @id @default(cuid())
+  payableId   String
+  description String
+  category    ExpenseCategory @default(OTHER)
+  quantity    Decimal?
+  unit        String?
+  unitPrice   Decimal?
+  amount      Decimal
+  createdAt   DateTime        @default(now())
+
+  payable     SupplierPayable @relation(fields: [payableId], references: [id], onDelete: Cascade)
+
+  @@map("supplier_bill_items")
 }
 
 model SupplierPayment {
@@ -680,6 +705,40 @@ model Approval {
   reviewer   User?  @relation(fields: [reviewedBy], references: [id])
 
   @@map("approvals")
+}
+
+// ─────────────────────────────────────────────
+// PROJECT STAFF ASSIGNMENTS
+// ─────────────────────────────────────────────
+
+enum ProjectStaffRole {
+  PROJECT_MANAGER     // Full access within assigned project
+  SITE_ENGINEER       // Phases, expenses, material receipts
+  SITE_SUPERVISOR     // Expenses only, no approvals
+  ACCOUNTS_OFFICER    // Collections, expenses, suppliers, reports
+  COLLECTION_OFFICER  // Collections and due follow-up only
+  DOCUMENT_OFFICER    // Uploads and documents only
+  AUDITOR             // Read-only + audit lock ability
+}
+
+model ProjectStaffAssignment {
+  id          String           @id @default(cuid())
+  userId      String
+  projectId   String
+  projectRole ProjectStaffRole @default(SITE_ENGINEER)
+  isActive    Boolean          @default(true)
+  startDate   DateTime?
+  endDate     DateTime?
+  notes       String?
+  assignedBy  String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@map("project_staff_assignments")
 }
 
 // ─────────────────────────────────────────────
