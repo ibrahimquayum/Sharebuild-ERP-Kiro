@@ -22,6 +22,7 @@ import {
   Package,
   ClipboardList,
   Shield,
+  Settings,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -108,6 +109,11 @@ function buildNav(projectId: string): NavItem[] {
       label: 'Audit',
       href: `${base}/audit`,
       icon: Shield,
+    },
+    {
+      label: 'Settings',
+      href: `${base}/settings`,
+      icon: Settings,
     },
   ];
 }

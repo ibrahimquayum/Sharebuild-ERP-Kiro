@@ -143,9 +143,12 @@ export default async function DashboardPage() {
           <div className="lg:col-span-1 space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold">Projects</h2>
-              <Link href="/projects" className="text-xs text-primary flex items-center gap-1 hover:underline">
-                View all <ArrowRight className="h-3 w-3" />
-              </Link>
+              <div className="flex items-center gap-3">
+                <Link href="/projects/new" className="text-xs text-primary hover:underline">New Project</Link>
+                <Link href="/projects" className="text-xs text-primary flex items-center gap-1 hover:underline">
+                  View all <ArrowRight className="h-3 w-3" />
+                </Link>
+              </div>
             </div>
             {data.projects.map((project) => (
               <Link key={project.id} href={`/projects/${project.id}`}>

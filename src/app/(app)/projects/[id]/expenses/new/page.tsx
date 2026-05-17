@@ -41,6 +41,7 @@ const CATEGORIES = [
 ];
 
 const UNITS = ['kg', 'ton', 'bag', 'cft', 'sft', 'rft', 'pcs', 'truck', 'trip', 'nos', 'ls'];
+const NO_SUPPLIER = '__none';
 
 const MATERIAL_CATS = new Set(['ROD_STEEL','CEMENT','STONE_AGGREGATE','SAND','BRICK','READYMIX_CONCRETE','TIMBER_SHUTTERING','PAINT','TILES','HARDWARE','TRANSPORT']);
 
@@ -63,7 +64,7 @@ export default function ProjectExpenseNewPage() {
   const [description, setDescription] = useState('');
   const [amount,      setAmount]      = useState('');
   const [expenseDate, setExpenseDate] = useState(today());
-  const [supplierId,  setSupplierId]  = useState('');
+  const [supplierId,  setSupplierId]  = useState(NO_SUPPLIER);
   const [billNo,      setBillNo]      = useState('');
   const [quantity,    setQuantity]    = useState('');
   const [unit,        setUnit]        = useState('');
@@ -104,7 +105,7 @@ export default function ProjectExpenseNewPage() {
     setSaving(true);
     try {
       const body: Record<string, unknown> = { phaseId, category, description: description.trim(), amount: parseFloat(amount), expenseDate };
-      if (supplierId) body.supplierId = supplierId;
+      if (supplierId !== NO_SUPPLIER) body.supplierId = supplierId;
       if (billNo.trim()) body.billNo = billNo.trim();
       if (notes.trim())  body.notes  = notes.trim();
       if (quantity && !isNaN(parseFloat(quantity))) body.quantity  = parseFloat(quantity);
@@ -196,7 +197,7 @@ export default function ProjectExpenseNewPage() {
                 <Select value={supplierId} onValueChange={setSupplierId}>
                   <SelectTrigger id="supplierId"><SelectValue placeholder="Select supplier (optional)" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">— No supplier —</SelectItem>
+                    <SelectItem value={NO_SUPPLIER}>— No supplier —</SelectItem>
                     {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                   </SelectContent>
                 </Select>

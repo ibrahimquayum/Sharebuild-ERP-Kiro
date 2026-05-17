@@ -42,6 +42,7 @@ const CATEGORIES = [
 ];
 
 const UNITS = ['kg', 'ton', 'bag', 'cft', 'sft', 'rft', 'pcs', 'truck', 'trip', 'nos', 'ls'];
+const NO_SUPPLIER = '__none';
 
 export default function AddExpensePage() {
   const router       = useRouter();
@@ -60,7 +61,7 @@ export default function AddExpensePage() {
   const [description,  setDescription]  = useState('');
   const [amount,       setAmount]       = useState('');
   const [expenseDate,  setExpenseDate]  = useState(today());
-  const [supplierId,   setSupplierId]   = useState('');
+  const [supplierId,   setSupplierId]   = useState(NO_SUPPLIER);
   const [billNo,       setBillNo]       = useState('');
   const [quantity,     setQuantity]     = useState('');
   const [unit,         setUnit]         = useState('');
@@ -117,7 +118,7 @@ export default function AddExpensePage() {
         amount: parseFloat(amount),
         expenseDate,
       };
-      if (supplierId) body.supplierId = supplierId;
+      if (supplierId !== NO_SUPPLIER) body.supplierId = supplierId;
       if (billNo.trim())   body.billNo = billNo.trim();
       if (notes.trim())    body.notes  = notes.trim();
       if (quantity && !isNaN(parseFloat(quantity))) body.quantity  = parseFloat(quantity);
@@ -288,7 +289,7 @@ export default function AddExpensePage() {
                       <SelectValue placeholder="Select supplier (optional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">— No supplier —</SelectItem>
+                      <SelectItem value={NO_SUPPLIER}>— No supplier —</SelectItem>
                       {suppliers.map(s => (
                         <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                       ))}

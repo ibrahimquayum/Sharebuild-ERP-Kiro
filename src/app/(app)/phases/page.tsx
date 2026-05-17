@@ -5,6 +5,7 @@ import { Header } from '@/components/layout/header';
 import { PageHeader } from '@/components/shared/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { StatCard } from '@/components/shared/stat-card';
+import { LegacyWorkNotice } from '@/components/shared/legacy-work-notice';
 import { formatBDT, formatBDTCompact, formatDate, phaseStatusMeta, phaseTypeLabel, balanceColor, cn } from '@/lib/utils';
 import { Layers, TrendingUp, TrendingDown, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
@@ -53,6 +54,7 @@ export default async function PhasesPage() {
       />
 
       <div className="p-6 space-y-6">
+        <LegacyWorkNotice />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard title="Total Phases" value={String(phases.length)} subtitle="Piling → Finishing" icon={Layers} iconColor="text-blue-600" iconBg="bg-blue-50" />
           <StatCard title="Total Collection" value={formatBDTCompact(totalIncome)} subtitle={formatBDT(totalIncome)} icon={TrendingUp} iconColor="text-green-600" iconBg="bg-green-50" />

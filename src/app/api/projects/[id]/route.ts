@@ -4,15 +4,11 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 
-const createSchema = z.object({
+const updateSchema = z.object({
   name: z.string().min(1),
   nameBn: z.string().optional(),
   code: z.string().optional(),
   address: z.string().optional(),
-  addressBn: z.string().optional(),
-  area: z.string().optional(),
-  city: z.string().optional(),
-  postCode: z.string().optional(),
   phone: z.string().optional(),
   landSize: z.string().optional(),
   totalFloors: z.number().int().optional(),
@@ -22,44 +18,28 @@ const createSchema = z.object({
   parkingUtilityNote: z.string().optional(),
   defaultServiceChargePct: z.number().optional(),
   notes: z.string().optional(),
-  status: z.enum(['PLANNING', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'CANCELLED']).optional(),
+  status: z.enum(['PLANNING', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'CANCELLED']),
   startDate: z.string().optional(),
-  expectedEndDate: z.string().optional(),
   description: z.string().optional(),
 });
 
-export async function GET(_req: NextRequest) {
+export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   const companyId = (session.user as any).companyId;
+  const oldProject = await prisma.project.findFirst({ where: { id: params.id, companyId } });
+  if (!oldProject) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
-  const projects = await prisma.project.findMany({
-    where: { companyId },
-    include: {
-      _count: { select: { phases: true, buyers: true, units: true } },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-
-  return NextResponse.json(projects);
-}
-
-export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
-
-  const body = await req.json();
-  const parsed = createSchema.safeParse(body);
+  const parsed = updateSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const d = parsed.data;
-  const project = await prisma.project.create({
+  const project = await prisma.project.update({
+    where: { id: params.id },
     data: {
       ...d,
-      companyId,
-      startDate: d.startDate ? new Date(d.startDate) : undefined,
-      expectedEndDate: d.expectedEndDate ? new Date(d.expectedEndDate) : undefined,
+      startDate: d.startDate ? new Date(d.startDate) : null,
     },
   });
 
@@ -67,12 +47,13 @@ export async function POST(req: NextRequest) {
     data: {
       userId: (session.user as any).id,
       projectId: project.id,
-      action: 'CREATE',
+      action: 'UPDATE',
       entityType: 'project',
       entityId: project.id,
+      oldValues: oldProject as any,
       newValues: project as any,
     },
   });
 
-  return NextResponse.json(project, { status: 201 });
+  return NextResponse.json(project);
 }

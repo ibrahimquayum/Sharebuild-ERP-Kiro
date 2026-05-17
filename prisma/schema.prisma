@@ -268,7 +268,14 @@ model Project {
   city            String?       @default("Dhaka")
   postCode        String?
   phone           String?       // e.g. 01712553110
+  landSize        String?
   totalFloors     Int?
+  residentialFloors Int?
+  unitsPerFloor   Int?
+  totalPlannedUnits Int?
+  parkingUtilityNote String?
+  defaultServiceChargePct Decimal? @default(0)
+  notes           String?
   status          ProjectStatus @default(ACTIVE)
   startDate       DateTime?
   expectedEndDate DateTime?

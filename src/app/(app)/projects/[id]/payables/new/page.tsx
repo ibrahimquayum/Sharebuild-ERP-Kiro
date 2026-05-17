@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
+const NO_PHASE = '__none';
+
 export default function ProjectPayableNewPage() {
   const router    = useRouter();
   const params    = useParams<{ id: string }>();
@@ -24,7 +26,7 @@ export default function ProjectPayableNewPage() {
   const [phases,    setPhases]    = useState<{ id: string; name: string }[]>([]);
 
   const [supplierId,  setSupplierId]  = useState(searchParams.get('supplierId') ?? '');
-  const [phaseId,     setPhaseId]     = useState('');
+  const [phaseId,     setPhaseId]     = useState(NO_PHASE);
   const [billNo,      setBillNo]      = useState('');
   const [billDate,    setBillDate]    = useState(today());
   const [totalAmount, setTotalAmount] = useState('');
@@ -65,7 +67,7 @@ export default function ProjectPayableNewPage() {
         billDate,
         totalAmount: parseFloat(totalAmount),
       };
-      if (phaseId)       body.phaseId = phaseId;
+      if (phaseId !== NO_PHASE) body.phaseId = phaseId;
       if (billNo.trim()) body.billNo  = billNo.trim();
       if (dueDate)       body.dueDate = dueDate;
       if (notes.trim())  body.notes   = notes.trim();
@@ -129,7 +131,7 @@ export default function ProjectPayableNewPage() {
                     <SelectValue placeholder="Select phase (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">— Project-general (no specific phase) —</SelectItem>
+                    <SelectItem value={NO_PHASE}>— Project-general (no specific phase) —</SelectItem>
                     {phases.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                   </SelectContent>
                 </Select>

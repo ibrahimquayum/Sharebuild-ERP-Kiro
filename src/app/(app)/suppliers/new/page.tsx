@@ -74,7 +74,7 @@ export default function AddSupplierPage() {
         return;
       }
 
-      router.push('/suppliers');
+      router.push('/company/suppliers');
     } catch {
       setError('Network error. Check your connection and try again.');
     } finally {
@@ -87,7 +87,7 @@ export default function AddSupplierPage() {
       <Header title="Add Supplier" />
 
       <div className="p-6 max-w-2xl mx-auto w-full space-y-4">
-        <Link href="/suppliers" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+        <Link href="/company/suppliers" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Back to Suppliers
         </Link>
 

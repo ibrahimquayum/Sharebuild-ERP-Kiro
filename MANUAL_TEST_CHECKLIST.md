@@ -47,6 +47,52 @@ Work through this list top to bottom after running the app.
 
 ---
 
+## SECTION C — Company And Project Setup Foundation
+
+### TEST C-1 — Create a new project
+
+1. Open `/projects`
+2. Click **New Project**
+3. Fill required project name plus planning fields
+4. Click **Create Project**
+
+**Expected:** The project saves, an audit log is written, and you are redirected to `/projects/[newProjectId]`.
+
+✅ Pass / ❌ Fail — Notes: ___________________________
+
+---
+
+### TEST C-2 — Edit project settings
+
+1. Open any project workspace
+2. Click **Settings**
+3. Edit profile/planning fields
+4. Save
+
+**Expected:** Project profile updates. Financial totals are not editable manually.
+
+✅ Pass / ❌ Fail — Notes: ___________________________
+
+---
+
+### TEST C-3 — Company setup routes
+
+Open these routes:
+- `/company/settings`
+- `/company/contacts`
+- `/company/suppliers`
+- `/company/subcontractors`
+- `/company/materials`
+- `/company/users`
+- `/company/payment-methods`
+- `/company/categories`
+
+**Expected:** Each page opens without errors. Settings, contacts, suppliers, and users save real database records. Materials, categories, and payment methods clearly document current schema gaps.
+
+✅ Pass / ❌ Fail — Notes: ___________________________
+
+---
+
 ### TEST B-2 — Project overview (command center)
 
 While on `/projects/project-relax-tower`:

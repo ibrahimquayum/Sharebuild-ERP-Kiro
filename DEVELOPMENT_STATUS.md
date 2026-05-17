@@ -25,6 +25,8 @@
 | **Project-scoped due follow-up** | ✅ Done | Per-project buyer due dashboard |
 | **Project-scoped Top Sheet** | ✅ Done | No project selector needed inside workspace |
 | **Legacy routes** | ✅ Kept | All old routes work + amber notice banners |
+| **Company setup foundation** | ✅ Done | Company settings, contacts, suppliers, subcontractors, users, setup references |
+| **Project setup foundation** | ✅ Done | Real `/projects/new` and `/projects/[id]/settings` save to DB |
 
 ---
 
@@ -68,6 +70,15 @@ Company Master Data (legacy routes, still working)
 
 ---
 
+## Schema changes (Company/Project setup pass)
+
+| Model | Change |
+|-------|--------|
+| `Project` | Added setup fields: `landSize`, `residentialFloors`, `unitsPerFloor`, `totalPlannedUnits`, `parkingUtilityNote`, `defaultServiceChargePct`, `notes` |
+| Migration | `prisma/migrations/0002_project_setup_fields/migration.sql` |
+
+---
+
 ## Completed features
 
 ### Infrastructure
@@ -94,6 +105,20 @@ Company Master Data (legacy routes, still working)
 - [x] `/projects/[id]/collections/new` — buyer + phase dropdowns scoped to project
 - [x] `/projects/[id]/expenses/new` — phase dropdown scoped to project
 - [x] `/projects/[id]/payables/new` — supplier from company master, phase from project
+- [x] `/projects/new` — creates a real project and redirects to workspace
+- [x] `/projects/[id]/settings` — edits project profile/setup fields
+
+### Company setup foundation
+- [x] `/company/settings` — company profile/defaults, saves to DB
+- [x] `/company/contacts` — buyer/contact master identity list
+- [x] `/company/contacts/[id]` — identity detail + project memberships
+- [x] `/company/suppliers` — material/equipment supplier master
+- [x] `/company/suppliers/[id]` and `/edit` — supplier detail/edit
+- [x] `/company/subcontractors` — work/service providers using supplier type
+- [x] `/company/users` — create staff + basic project assignment
+- [x] `/company/materials`, `/company/categories`, `/company/payment-methods` — read-only setup references documenting schema gaps
+- [x] `/company/audit` — latest setup/project audit log
+- [x] `/company/reports` — company report entry points
 
 ### Data-entry forms (from previous work)
 - [x] Add Buyer — `/buyers/new` — saves to DB, audit log
@@ -107,6 +132,10 @@ Company Master Data (legacy routes, still working)
 
 ### API routes
 - [x] `GET/POST /api/projects`
+- [x] `PUT /api/projects/[id]`
+- [x] `PUT /api/company/settings`
+- [x] `POST /api/company/users`
+- [x] `PUT /api/suppliers/[id]`
 - [x] `GET/PATCH/DELETE /api/phases/[id]`
 - [x] `GET/POST /api/phases` (accepts `?projectId=` filter)
 - [x] `GET/POST /api/collections` (accepts `?phaseId=`, `?buyerId=`)

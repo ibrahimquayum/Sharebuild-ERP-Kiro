@@ -67,7 +67,7 @@ export default function AddBuyerPage() {
       }
 
       const buyer = await res.json();
-      router.push(`/buyers/${buyer.id}`);
+      router.push(`/company/contacts/${buyer.id}`);
     } catch {
       setError('Network error. Check your connection and try again.');
     } finally {
@@ -81,7 +81,7 @@ export default function AddBuyerPage() {
 
       <div className="p-6 max-w-2xl mx-auto w-full space-y-4">
         <Link
-          href="/buyers"
+          href="/company/contacts"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" /> Back to Buyers
