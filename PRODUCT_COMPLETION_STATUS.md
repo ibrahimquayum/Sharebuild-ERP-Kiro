@@ -104,4 +104,35 @@
 
 ## Next Safest Build Step
 
-Implement real reporting/export endpoints and finish demand-to-collection allocation before adding buyer portals, SaaS billing, SMS/WhatsApp, mobile apps, or advanced accounting.
+Build the accountant-facing reversal/adjustment UI and expand supplier/subcontractor ledgers before real PDF/Excel exports, buyer portals, SaaS billing, SMS/WhatsApp, or mobile apps.
+
+## Accounting Hardening Added
+
+- Durable collection allocation ledger exists through `CollectionAllocation`.
+- FIFO and single-demand collection allocation now write allocation rows in addition to the compatibility `Collection.demandId`.
+- API-level manual allocation is supported for collection create when callers pass allocation rows.
+- Demand paid/due calculations now prefer allocation rows and fall back to legacy collection links.
+- Collection and expense reversal APIs preserve the original record and store reversal reason, user, and timestamp.
+- Phase audit-lock fields and API foundation exist.
+- Locked phases block project accounting writes in demand, collection, expense, bulk expense, supplier bill, and supplier payment routes.
+- Project finance now separates:
+  - total demanded
+  - total collected
+  - buyer receivable
+  - buyer advance
+  - approved expense
+  - pending expense
+  - supplier payable
+  - subcontractor payable
+  - phase carry-forward
+- Top Sheet and finance totals exclude reversed records and keep Relax Tower seed totals exact.
+- Supplier bill line totals must match the bill total.
+- Supplier payments capture cheque/payment status metadata.
+
+## Accounting Gaps Remaining
+
+- Full reversal/adjustment UI is still pending.
+- Supplier/subcontractor payment reversal endpoints and UI remain pending.
+- Dedicated subcontractor accounting tables remain a future schema improvement.
+- Final project reconciliation is still a documented next step.
+- Real PDF/Excel exports remain disabled foundations.

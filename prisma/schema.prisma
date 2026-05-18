@@ -480,6 +480,7 @@ model Demand {
   buyer        Buyer        @relation(fields: [buyerId], references: [id])
   phase        Phase?       @relation(fields: [phaseId], references: [id])
   collections  Collection[]
+  allocations  CollectionAllocation[]
 
   @@map("demands")
 }
@@ -503,6 +504,9 @@ model Phase {
   endDate       DateTime?
   serviceChargePct Decimal? @default(0)  // e.g. 5%
   notes         String?
+  auditLockedAt DateTime?
+  auditLockedById String?
+  auditLockReason String?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
@@ -537,14 +541,34 @@ model Collection {
   reference       String?
   receivedDate    DateTime        @default(now())
   notes           String?
+  status          String          @default("APPROVED")
+  reversedAt      DateTime?
+  reversedById    String?
+  reversalReason  String?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
   phase   Phase   @relation(fields: [phaseId], references: [id])
   buyer   Buyer   @relation(fields: [buyerId], references: [id])
   demand  Demand? @relation(fields: [demandId], references: [id])
+  allocations CollectionAllocation[]
 
   @@map("collections")
+}
+
+model CollectionAllocation {
+  id           String     @id @default(cuid())
+  collectionId String
+  demandId     String
+  amount       Decimal
+  createdAt    DateTime   @default(now())
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  demand     Demand     @relation(fields: [demandId], references: [id], onDelete: Cascade)
+
+  @@index([collectionId])
+  @@index([demandId])
+  @@map("collection_allocations")
 }
 
 // ─────────────────────────────────────────────
@@ -574,6 +598,9 @@ model Expense {
   approvedById  String?
   approvedAt    DateTime?
   notes         String?
+  reversedAt    DateTime?
+  reversedById  String?
+  reversalReason String?
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
@@ -660,6 +687,9 @@ model SupplierPayable {
   dueDate      DateTime?
   status       PayableStatus @default(UNPAID)
   notes        String?
+  reversedAt   DateTime?
+  reversedById String?
+  reversalReason String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
@@ -701,6 +731,11 @@ model SupplierPayment {
   reference     String?
   paidAt        DateTime      @default(now())
   notes         String?
+  status        String        @default("CLEARED")
+  chequeStatus  String?
+  reversedAt    DateTime?
+  reversedById  String?
+  reversalReason String?
   createdAt     DateTime      @default(now())
 
   payable SupplierPayable @relation(fields: [payableId], references: [id])

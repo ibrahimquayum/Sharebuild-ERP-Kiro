@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { getCompanyBranding } from '@/lib/branding';
 import { ReportHeader } from '@/components/shared/report-header';
 import { ReportActions } from '@/components/shared/report-actions';
+import { FINAL_EXPENSE_STATUSES } from '@/lib/accounting';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,8 +37,8 @@ export default async function ProjectTopSheetPage({ params }: { params: { id: st
   const phaseData = await Promise.all(
     phases.map(async (ph) => {
       const [inc, exp] = await Promise.all([
-        prisma.collection.aggregate({ where: { phaseId: ph.id }, _sum: { amount: true } }),
-        prisma.expense.aggregate({ where: { phaseId: ph.id }, _sum: { amount: true } }),
+        prisma.collection.aggregate({ where: { phaseId: ph.id, status: { not: 'REVERSED' } }, _sum: { amount: true } }),
+        prisma.expense.aggregate({ where: { phaseId: ph.id, status: { in: [...FINAL_EXPENSE_STATUSES] }, reversedAt: null }, _sum: { amount: true } }),
       ]);
       return { phase: ph, income: Number(inc._sum.amount ?? 0), expense: Number(exp._sum.amount ?? 0) };
     })

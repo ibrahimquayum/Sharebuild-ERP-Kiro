@@ -40,9 +40,9 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard title="Total Demanded" value={formatBDTCompact(summary.totalDemanded)} subtitle={formatBDT(summary.totalDemanded)} icon={FileText} iconColor="text-blue-600" iconBg="bg-blue-50" />
         <StatCard title="Total Collected" value={formatBDTCompact(summary.totalCollected)} subtitle={formatBDT(summary.totalCollected)} icon={Receipt} iconColor="text-green-600" iconBg="bg-green-50" />
-        <StatCard title="Buyer Due" value={formatBDTCompact(summary.buyerDue)} subtitle={formatBDT(summary.buyerDue)} icon={AlertCircle} iconColor="text-amber-600" iconBg="bg-amber-50" />
+        <StatCard title="Buyer Receivable" value={formatBDTCompact(summary.buyerReceivable)} subtitle={`${formatBDT(summary.buyerAdvance)} advance`} icon={AlertCircle} iconColor="text-amber-600" iconBg="bg-amber-50" />
         <StatCard title="Project Balance" value={formatBDTCompact(summary.projectBalance)} subtitle={formatBDT(summary.projectBalance)} icon={summary.projectBalance >= 0 ? CheckCircle2 : TrendingDown} iconColor={summary.projectBalance >= 0 ? 'text-emerald-600' : 'text-red-600'} iconBg={summary.projectBalance >= 0 ? 'bg-emerald-50' : 'bg-red-50'} />
-        <StatCard title="Total Expense" value={formatBDTCompact(summary.totalExpense)} subtitle={formatBDT(summary.totalExpense)} icon={ShoppingCart} iconColor="text-red-500" iconBg="bg-red-50" />
+        <StatCard title="Approved Expense" value={formatBDTCompact(summary.totalExpense)} subtitle={`${formatBDT(summary.pendingExpense)} pending`} icon={ShoppingCart} iconColor="text-red-500" iconBg="bg-red-50" />
         <StatCard title="Supplier Payable" value={formatBDTCompact(summary.supplierPayable)} subtitle={formatBDT(summary.supplierPayable)} icon={Truck} iconColor="text-orange-600" iconBg="bg-orange-50" />
         <StatCard title="Subcontractor Payable" value={formatBDTCompact(summary.subcontractorPayable)} subtitle={formatBDT(summary.subcontractorPayable)} icon={Truck} iconColor="text-violet-600" iconBg="bg-violet-50" />
         <StatCard title="Missing Vouchers" value={String(summary.missingVoucherCount)} subtitle={`${summary.pendingApprovalCount} pending approvals`} icon={AlertCircle} iconColor="text-yellow-600" iconBg="bg-yellow-50" />
@@ -76,6 +76,40 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader><CardTitle className="text-sm">Phase Balance and Carry Forward</CardTitle></CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/40">
+                  <th className="px-4 py-2.5 text-left text-xs uppercase text-muted-foreground">Phase</th>
+                  <th className="px-4 py-2.5 text-right text-xs uppercase text-muted-foreground">Carry In</th>
+                  <th className="px-4 py-2.5 text-right text-xs uppercase text-muted-foreground">Collected</th>
+                  <th className="px-4 py-2.5 text-right text-xs uppercase text-muted-foreground">Approved Expense</th>
+                  <th className="px-4 py-2.5 text-right text-xs uppercase text-muted-foreground">Bills</th>
+                  <th className="px-4 py-2.5 text-right text-xs uppercase text-muted-foreground">Carry Out</th>
+                  <th className="px-4 py-2.5 text-center text-xs uppercase text-muted-foreground">Audit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {summary.phaseBalances.map((row) => (
+                  <tr key={row.phaseId} className="border-b last:border-0">
+                    <td className="px-4 py-2.5 font-medium">{row.phaseName}</td>
+                    <td className={`px-4 py-2.5 text-right ${balanceColor(row.carryIn)}`}>{formatBDT(row.carryIn)}</td>
+                    <td className="px-4 py-2.5 text-right text-green-600">{formatBDT(row.collection)}</td>
+                    <td className="px-4 py-2.5 text-right text-red-600">{formatBDT(row.expense)}</td>
+                    <td className="px-4 py-2.5 text-right">{formatBDT(row.supplierBill + row.subcontractorBill)}</td>
+                    <td className={`px-4 py-2.5 text-right font-bold ${balanceColor(row.carryOut)}`}>{formatBDT(row.carryOut)}</td>
+                    <td className="px-4 py-2.5 text-center text-xs">{row.auditLocked ? 'Locked' : 'Open'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { can } from '@/lib/permissions';
 import { safeAuditLog } from '@/lib/audit';
+import { isPhaseLocked, lockedPhaseMessage } from '@/lib/accounting';
 
 const demandSchema = z.object({
   title: z.string().min(1),
@@ -37,13 +38,15 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       phase: { select: { id: true, name: true, sequence: true } },
       unit: { select: { id: true, unitNo: true } },
       buyer: { select: { id: true, name: true } },
-      collections: { select: { amount: true } },
+      collections: { where: { status: { not: 'REVERSED' } }, select: { amount: true } },
+      allocations: { where: { collection: { status: { not: 'REVERSED' } } }, select: { amount: true } },
     },
     orderBy: [{ dueDate: 'asc' }, { createdAt: 'asc' }],
   });
 
   return NextResponse.json(demands.map((demand) => {
-    const paid = demand.collections.reduce((sum, collection) => sum + Number(collection.amount), 0);
+    const allocated = demand.allocations.reduce((sum, allocation) => sum + Number(allocation.amount), 0);
+    const paid = allocated > 0 ? allocated : demand.collections.reduce((sum, collection) => sum + Number(collection.amount), 0);
     const amount = Number(demand.amount);
     return {
       id: demand.id,
@@ -76,8 +79,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const project = await prisma.project.findFirst({ where: { id: params.id, companyId }, select: { id: true } });
   if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
-  const phase = await prisma.phase.findFirst({ where: { id: parsed.data.phaseId, projectId: project.id }, select: { id: true } });
+  const phase = await prisma.phase.findFirst({ where: { id: parsed.data.phaseId, projectId: project.id }, select: { id: true, auditLockedAt: true } });
   if (!phase) return NextResponse.json({ error: 'Phase not found in this project' }, { status: 404 });
+  if (isPhaseLocked(phase)) return NextResponse.json({ error: lockedPhaseMessage() }, { status: 423 });
 
   const allocations = await prisma.unitBuyer.findMany({
     where: {

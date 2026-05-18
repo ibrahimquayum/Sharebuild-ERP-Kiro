@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { FINAL_EXPENSE_STATUSES } from '@/lib/accounting';
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -23,8 +24,8 @@ export async function GET(req: NextRequest) {
 
   const phaseData = await Promise.all(phases.map(async (ph) => {
     const [inc, exp] = await Promise.all([
-      prisma.collection.aggregate({ where: { phaseId: ph.id }, _sum: { amount: true } }),
-      prisma.expense.aggregate({ where: { phaseId: ph.id }, _sum: { amount: true } }),
+      prisma.collection.aggregate({ where: { phaseId: ph.id, status: { not: 'REVERSED' } }, _sum: { amount: true } }),
+      prisma.expense.aggregate({ where: { phaseId: ph.id, status: { in: [...FINAL_EXPENSE_STATUSES] }, reversedAt: null }, _sum: { amount: true } }),
     ]);
     const income = Number(inc._sum.amount ?? 0);
     const expense = Number(exp._sum.amount ?? 0);

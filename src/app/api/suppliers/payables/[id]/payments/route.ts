@@ -14,6 +14,7 @@ const createSchema = z.object({
   reference:     z.string().optional(),
   paidAt:        z.string().optional(),
   notes:         z.string().optional(),
+  chequeStatus:  z.enum(['ISSUED','CLEARED','BOUNCED','CANCELLED']).optional(),
 });
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -42,8 +43,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // Verify payable belongs to company
   const payable = await prisma.supplierPayable.findFirst({
     where: { id: params.id, supplier: { companyId } },
+    include: { phase: { select: { auditLockedAt: true } } },
   });
   if (!payable) return NextResponse.json({ error: 'Payable not found' }, { status: 404 });
+  if (payable.reversedAt) return NextResponse.json({ error: 'Cannot pay a reversed bill.' }, { status: 400 });
+  if (payable.phase?.auditLockedAt) return NextResponse.json({ error: 'This phase is audit locked. Unlock with an audit reason before changing accounting records.' }, { status: 423 });
 
   const body   = await req.json();
   const parsed = createSchema.safeParse(body);
@@ -73,6 +77,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         reference:     d.reference,
         paidAt:        d.paidAt ? new Date(d.paidAt) : new Date(),
         notes:         d.notes,
+        status:        d.paymentMethod === 'CHEQUE' ? (d.chequeStatus ?? 'CLEARED') : 'CLEARED',
+        chequeStatus:  d.paymentMethod === 'CHEQUE' ? (d.chequeStatus ?? 'CLEARED') : undefined,
       },
     }),
     prisma.supplierPayable.update({

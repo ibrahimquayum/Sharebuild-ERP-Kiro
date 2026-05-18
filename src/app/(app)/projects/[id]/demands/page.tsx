@@ -34,13 +34,15 @@ export default async function ProjectDemandsPage({ params }: { params: { id: str
     include: {
       buyer:       { select: { id: true, name: true } },
       phase:       { select: { id: true, name: true } },
-      collections: { select: { amount: true } },
+      collections: { where: { status: { not: 'REVERSED' } }, select: { amount: true } },
+      allocations: { where: { collection: { status: { not: 'REVERSED' } } }, select: { amount: true } },
     },
     orderBy: { createdAt: 'desc' },
   });
 
   const rows = demands.map(d => {
-    const paid = d.collections.reduce((s, c) => s + Number(c.amount), 0);
+    const allocated = d.allocations.reduce((s, allocation) => s + Number(allocation.amount), 0);
+    const paid = allocated > 0 ? allocated : d.collections.reduce((s, c) => s + Number(c.amount), 0);
     return { demand: d, paid, balance: Number(d.amount) - paid };
   });
 

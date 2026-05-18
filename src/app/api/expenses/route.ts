@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { safeAuditLog } from '@/lib/audit';
 import { can } from '@/lib/permissions';
+import { isPhaseLocked, lockedPhaseMessage } from '@/lib/accounting';
 
 const createSchema = z.object({
   phaseId: z.string(),
@@ -74,6 +75,7 @@ export async function POST(req: NextRequest) {
 
   const phase = await prisma.phase.findFirst({ where: { id: d.phaseId, project: { companyId } } });
   if (!phase) return NextResponse.json({ error: 'Phase not found' }, { status: 404 });
+  if (isPhaseLocked(phase)) return NextResponse.json({ error: lockedPhaseMessage() }, { status: 423 });
   if (d.supplierMode === 'EXISTING_SUPPLIER' && !d.supplierId) {
     return NextResponse.json({ error: 'Select a supplier or switch supplier type.' }, { status: 400 });
   }

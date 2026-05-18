@@ -18,14 +18,24 @@ export default async function ProjectUnitDetailPage({ params }: { params: { id: 
     include: {
       project: { select: { id: true, name: true } },
       buyerAllocations: { include: { buyer: true } },
-      demands: { include: { collections: true, phase: { select: { name: true } } }, orderBy: { createdAt: 'desc' } },
+      demands: {
+        include: {
+          collections: { where: { status: { not: 'REVERSED' } } },
+          allocations: { where: { collection: { status: { not: 'REVERSED' } } }, select: { amount: true } },
+          phase: { select: { name: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      },
       documents: { orderBy: [{ sortOrder: 'asc' }, { uploadedAt: 'desc' }] },
     },
   });
   if (!unit) notFound();
 
   const totalDemand = unit.demands.reduce((sum, demand) => sum + Number(demand.amount), 0);
-  const totalPaid = unit.demands.reduce((sum, demand) => sum + demand.collections.reduce((s, c) => s + Number(c.amount), 0), 0);
+  const totalPaid = unit.demands.reduce((sum, demand) => {
+    const allocated = demand.allocations.reduce((s, allocation) => s + Number(allocation.amount), 0);
+    return sum + (allocated > 0 ? allocated : demand.collections.reduce((s, c) => s + Number(c.amount), 0));
+  }, 0);
 
   return (
     <div className="p-5 space-y-5">

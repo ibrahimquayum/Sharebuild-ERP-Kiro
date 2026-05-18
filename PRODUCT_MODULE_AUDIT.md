@@ -78,6 +78,19 @@ Current highest-risk gaps are save-flow consistency, document upload completenes
 - Bulk unit generation now shows a client-side preview before save.
 - Expense list now shows local shop context and missing voucher indicators.
 
+## Accounting Hardening Update - May 18, 2026
+
+- Added `ACCOUNTING_HARDENING_PLAN.md`.
+- Added migration `0005_accounting_hardening`.
+- Demand to collection allocation is now stored in a dedicated `CollectionAllocation` ledger table.
+- Collection create remains backwards compatible with `Collection.demandId`, but paid/due calculations now prefer allocation rows.
+- Collection and expense reversal backend routes exist and preserve original records.
+- Phase audit-lock metadata exists and write guards block key phase-scoped accounting changes.
+- Finance hub now reports buyer receivable, buyer advance, approved expense, pending expense, supplier payable, subcontractor payable, and computed phase carry-forward.
+- Supplier bill validation now requires line totals to match the bill total.
+- Supplier payment records now capture payment/cheque status metadata.
+- Remaining audit risks: reversal UI, supplier/subcontractor payment reversal, final reconciliation persistence, dynamic approval workflow, and real PDF/Excel exports.
+
 ## Schema Recommendation
 
-No schema change is required for the immediate stabilization pass. Current schema can support logo path storage, bulk unit creation, ownership validation, demand share-splitting, and multi-file document persistence. Future phases should consider dedicated tables for material masters, payment methods, dynamic permissions, local shops, subcontractor bills, and report export jobs.
+The accounting hardening pass required one clean schema migration for allocation, reversal metadata, cheque state, and phase audit locks. Future phases should consider dedicated tables for material masters, payment methods, dynamic permissions, local shops, subcontractor bills, adjustment entries, reconciliation snapshots, and report export jobs.

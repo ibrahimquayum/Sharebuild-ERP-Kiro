@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { safeAuditLog } from '@/lib/audit';
+import { isPhaseLocked, lockedPhaseMessage } from '@/lib/accounting';
 
 const createSchema = z.object({
   supplierId:  z.string().min(1),
@@ -83,10 +84,14 @@ export async function POST(req: NextRequest) {
   if (d.phaseId) {
     const phase = await prisma.phase.findFirst({ where: { id: d.phaseId, projectId: d.projectId } });
     if (!phase) return NextResponse.json({ error: 'Phase not found in this project' }, { status: 404 });
+    if (isPhaseLocked(phase)) return NextResponse.json({ error: lockedPhaseMessage() }, { status: 423 });
   }
 
   const itemTotal = d.items?.reduce((sum, item) => sum + item.amount, 0);
-  const totalAmount = itemTotal && itemTotal > 0 ? itemTotal : d.totalAmount;
+  if (itemTotal && Math.abs(itemTotal - d.totalAmount) > 0.01) {
+    return NextResponse.json({ error: 'Supplier bill line total must equal the bill total.' }, { status: 400 });
+  }
+  const totalAmount = d.totalAmount;
   const paidAmount = d.paidAmount ?? 0;
   if (paidAmount > totalAmount) return NextResponse.json({ error: 'Paid amount cannot exceed total bill amount.' }, { status: 400 });
 

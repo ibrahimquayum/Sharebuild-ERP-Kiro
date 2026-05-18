@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { formatBDT, phaseStatusMeta, cn } from '@/lib/utils';
+import { FINAL_EXPENSE_STATUSES } from '@/lib/accounting';
 import { Plus, LayoutGrid, Eye, ShoppingCart, Receipt, FileText, Pencil, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -30,12 +31,12 @@ export default async function ProjectPhasesPage({ params }: { params: { id: stri
       const [collAgg, expAgg, expTotal, expApproved, payableAgg, buyerDueAgg] = await Promise.all([
         // Collection total
         prisma.collection.aggregate({
-          where: { phaseId: ph.id },
+          where: { phaseId: ph.id, status: { not: 'REVERSED' } },
           _sum: { amount: true },
         }),
         // Expense total
         prisma.expense.aggregate({
-          where: { phaseId: ph.id },
+          where: { phaseId: ph.id, status: { in: [...FINAL_EXPENSE_STATUSES] }, reversedAt: null },
           _sum: { amount: true },
         }),
         // Total expense count (for progress denominator)
@@ -44,7 +45,7 @@ export default async function ProjectPhasesPage({ params }: { params: { id: stri
         prisma.expense.count({ where: { phaseId: ph.id, status: 'APPROVED' } }),
         // Supplier payable due
         prisma.supplierPayable.aggregate({
-          where: { phaseId: ph.id },
+          where: { phaseId: ph.id, reversedAt: null },
           _sum: { dueAmount: true },
         }),
         // Buyer due: demands not FULLY_PAID and not CANCELLED

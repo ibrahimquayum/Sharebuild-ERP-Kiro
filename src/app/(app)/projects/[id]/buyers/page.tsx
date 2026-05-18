@@ -27,8 +27,14 @@ export default async function ProjectBuyersPage({ params }: { params: { id: stri
       include: {
         buyer: {
           include: {
-            collections: { where: { phase: { projectId: project.id } }, select: { amount: true } },
-            demands: { where: { unit: { projectId: project.id } }, include: { collections: { select: { amount: true } } } },
+            collections: { where: { phase: { projectId: project.id }, status: { not: 'REVERSED' } }, select: { amount: true } },
+            demands: {
+              where: { unit: { projectId: project.id } },
+              include: {
+                collections: { where: { status: { not: 'REVERSED' } }, select: { amount: true } },
+                allocations: { where: { collection: { status: { not: 'REVERSED' } } }, select: { amount: true } },
+              },
+            },
             unitAllocations: {
               where: { unit: { projectId: project.id } },
               include: { unit: { select: { id: true, unitNo: true, floor: true, unitType: true } } },

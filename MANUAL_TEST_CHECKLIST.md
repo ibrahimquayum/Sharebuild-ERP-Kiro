@@ -107,3 +107,19 @@ Login: `admin@relaxdevelopers.com` / `admin123`
 - [ ] `npx prisma generate` passes.
 - [ ] `npm run build` passes.
 - [ ] `npm run db:seed` passes.
+
+## K. Accounting Hardening
+
+- [ ] Creating a collection with unpaid demands creates allocation rows and updates demand status.
+- [ ] Overpayment remains visible as buyer advance/credit.
+- [ ] Buyer detail ledger shows project-scoped demand, allocation/payment, due, and advance only.
+- [ ] Reversing a collection through `POST /api/collections/[id]/reverse` marks it reversed and recalculates linked demand status.
+- [ ] Reversing an expense through `POST /api/expenses/[id]/reverse` marks it cancelled/reversed and removes it from final finance totals.
+- [ ] Phase audit lock through `POST /api/phases/[id]/audit-lock` blocks new demand, collection, expense, bulk expense, supplier bill, and supplier payment writes for that phase.
+- [ ] Supplier bill line-item total must equal bill total.
+- [ ] Cheque supplier payment stores cheque/payment status.
+- [ ] `/projects/[id]/finance` shows buyer receivable, buyer advance, approved expenses, pending expenses, and phase carry-forward.
+- [ ] Top Sheet still verifies:
+  - Income: 100,143,800
+  - Expense: 104,659,890.40
+  - Balance: -4,516,090.40

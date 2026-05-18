@@ -8,6 +8,7 @@ import {
   formatBDT, formatBDTCompact, formatDate,
   phaseStatusMeta, balanceColor, cn,
 } from '@/lib/utils';
+import { FINAL_EXPENSE_STATUSES } from '@/lib/accounting';
 import {
   TrendingUp, TrendingDown, Users, Layers,
   AlertCircle, CheckCircle2, Clock, ArrowRight,
@@ -60,18 +61,19 @@ export default async function ProjectOverviewPage({ params }: { params: { id: st
   ] = await Promise.all([
     // Total collection
     prisma.collection.aggregate({
-      where: { phase: { projectId: project.id } },
+      where: { phase: { projectId: project.id }, status: { not: 'REVERSED' } },
       _sum: { amount: true },
     }),
     // Total expense
     prisma.expense.aggregate({
-      where: { phase: { projectId: project.id } },
+      where: { phase: { projectId: project.id }, status: { in: [...FINAL_EXPENSE_STATUSES] }, reversedAt: null },
       _sum: { amount: true },
     }),
     // Supplier payable (MATERIAL_SUPPLIER, EQUIPMENT_SUPPLIER, SERVICE_PROVIDER, CONSULTANT)
     prisma.supplierPayable.aggregate({
       where: {
         projectId: project.id,
+        reversedAt: null,
         supplier: {
           supplierType: { in: ['MATERIAL_SUPPLIER', 'EQUIPMENT_SUPPLIER', 'SERVICE_PROVIDER', 'CONSULTANT'] },
         },
@@ -82,13 +84,14 @@ export default async function ProjectOverviewPage({ params }: { params: { id: st
     prisma.supplierPayable.aggregate({
       where: {
         projectId: project.id,
+        reversedAt: null,
         supplier: { supplierType: 'LABOUR_CONTRACTOR' },
       },
       _sum: { dueAmount: true },
     }),
     // Pending approval count
     prisma.expense.count({
-      where: { phase: { projectId: project.id }, status: 'PENDING_APPROVAL' },
+      where: { phase: { projectId: project.id }, status: 'PENDING_APPROVAL', reversedAt: null },
     }),
     // Missing voucher count
     prisma.expense.count({
@@ -96,6 +99,7 @@ export default async function ProjectOverviewPage({ params }: { params: { id: st
         phase: { projectId: project.id },
         documents: { none: {} },
         status: { in: ['APPROVED', 'PENDING_APPROVAL'] },
+        reversedAt: null,
       },
     }),
     // Active phase count

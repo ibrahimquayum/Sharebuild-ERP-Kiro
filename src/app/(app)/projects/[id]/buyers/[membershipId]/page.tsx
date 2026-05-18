@@ -29,11 +29,16 @@ export default async function ProjectBuyerDetailPage({ params }: { params: { id:
           },
           demands: {
             where: { unit: { projectId: params.id } },
-            include: { collections: true, phase: { select: { name: true } }, unit: { select: { unitNo: true } } },
+            include: {
+              collections: { where: { status: { not: 'REVERSED' } } },
+              allocations: { where: { collection: { status: { not: 'REVERSED' } } }, select: { amount: true } },
+              phase: { select: { name: true } },
+              unit: { select: { unitNo: true } },
+            },
             orderBy: { createdAt: 'desc' },
           },
           collections: {
-            where: { phase: { projectId: params.id } },
+            where: { phase: { projectId: params.id }, status: { not: 'REVERSED' } },
             include: { phase: { select: { name: true } }, demand: { select: { title: true } } },
             orderBy: { receivedDate: 'desc' },
           },
@@ -90,7 +95,9 @@ export default async function ProjectBuyerDetailPage({ params }: { params: { id:
                       <td className="px-4 py-2 text-xs text-muted-foreground">{formatDate(demand.createdAt)}</td>
                       <td className="px-4 py-2">{demand.title}<div className="text-xs text-muted-foreground">{demand.phase?.name} · Unit {demand.unit.unitNo}</div></td>
                       <td className="px-4 py-2 text-right font-medium">{formatBDT(Number(demand.amount))}</td>
-                      <td className="px-4 py-2 text-right text-green-600">{formatBDT(demand.collections.reduce((sum, c) => sum + Number(c.amount), 0))}</td>
+                      <td className="px-4 py-2 text-right text-green-600">
+                        {formatBDT((demand.allocations.length > 0 ? demand.allocations : demand.collections).reduce((sum, c) => sum + Number(c.amount), 0))}
+                      </td>
                     </tr>
                   ))}
                   {buyer.collections.filter((c) => !c.demandId).map((collection) => (

@@ -113,4 +113,40 @@ It adds:
 
 ## Next Recommended Build Step
 
-Implement real report export endpoints and finish demand/payment allocation logic before adding advanced accounting or external portals.
+Build the accountant-facing reversal/adjustment UI and expand supplier/subcontractor ledgers before real PDF/Excel exports and SaaS onboarding.
+
+## Accounting Hardening Pass - May 18, 2026
+
+### Added
+
+- `ACCOUNTING_HARDENING_PLAN.md` documents current accounting risks, schema support, implementation priority, and remaining audit gaps.
+- One clean migration was added:
+
+```text
+prisma/migrations/0005_accounting_hardening/migration.sql
+```
+
+- Added `CollectionAllocation` for durable demand-payment allocation.
+- Added reversal metadata to collections, expenses, supplier bills, and supplier payments.
+- Added supplier payment status and cheque status metadata.
+- Added phase audit-lock metadata.
+- Added collection and expense reversal API foundations.
+- Added phase audit-lock API foundation.
+
+### Hardened
+
+- Collection creation now writes allocation ledger rows transactionally and refreshes demand status from allocation totals.
+- Manual allocation is supported by API in addition to FIFO and single-demand allocation.
+- Locked phases now block phase-scoped demand, collection, expense, bulk expense, supplier bill, and supplier payment writes.
+- Finance totals now exclude reversed collections and reversed/cancelled expenses.
+- Final expense totals use approved/paid/partially-paid expenses, with pending expense shown separately.
+- Finance hub now shows buyer receivable, buyer advance, pending expense, and phase carry-forward.
+- Supplier bills now require bill line totals to match the bill total.
+- Supplier payments capture cheque status for cheque-based payments.
+
+### Still Incomplete
+
+- Reversal UI is not complete; backend foundations exist for collection and expense reversals.
+- Supplier/subcontractor reversal UI remains a future step.
+- Dedicated subcontractor accounting tables are still a future schema improvement; current flow separates subcontractors by supplier type.
+- Final reconciliation persistence remains future; phase carry-forward is computed for display.

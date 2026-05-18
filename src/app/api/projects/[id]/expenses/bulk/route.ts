@@ -8,6 +8,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { safeAuditLog } from '@/lib/audit';
 import { can } from '@/lib/permissions';
+import { isPhaseLocked, lockedPhaseMessage } from '@/lib/accounting';
 
 export const runtime = 'nodejs';
 
@@ -104,7 +105,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const phaseIds = Array.from(new Set(parsed.data.rows.map((row) => row.phaseId)));
   const supplierIds = Array.from(new Set(parsed.data.rows.map((row) => row.supplierId).filter(Boolean))) as string[];
   const [phases, suppliers] = await Promise.all([
-    prisma.phase.findMany({ where: { id: { in: phaseIds }, projectId: project.id }, select: { id: true } }),
+    prisma.phase.findMany({ where: { id: { in: phaseIds }, projectId: project.id }, select: { id: true, auditLockedAt: true } }),
     supplierIds.length > 0 ? prisma.supplier.findMany({ where: { id: { in: supplierIds }, companyId }, select: { id: true } }) : Promise.resolve([]),
   ]);
   const validPhaseIds = new Set(phases.map((phase) => phase.id));
@@ -114,6 +115,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const row = parsed.data.rows[index];
     if (!validPhaseIds.has(row.phaseId)) return NextResponse.json({ error: `Row ${index + 1}: phase is not in this project.` }, { status: 400 });
     if (row.supplierId && !validSupplierIds.has(row.supplierId)) return NextResponse.json({ error: `Row ${index + 1}: supplier is not in this company.` }, { status: 400 });
+    const phase = phases.find((item) => item.id === row.phaseId);
+    if (phase && isPhaseLocked(phase)) return NextResponse.json({ error: `Row ${index + 1}: ${lockedPhaseMessage()}` }, { status: 423 });
   }
 
   const autoApprove = ['COMPANY_ADMIN', 'MANAGEMENT', 'MANAGER', 'ACCOUNTS', 'ACCOUNTANT'].includes(role);

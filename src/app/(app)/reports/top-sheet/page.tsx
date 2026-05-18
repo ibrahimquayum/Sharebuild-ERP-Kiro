@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { Header } from '@/components/layout/header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { formatBDT, formatDate, phaseTypeLabel, balanceColor, cn } from '@/lib/utils';
+import { FINAL_EXPENSE_STATUSES } from '@/lib/accounting';
 import { BarChart3, TrendingUp, TrendingDown, Building2, Phone, MapPin } from 'lucide-react';
 import Link from 'next/link';
 
@@ -37,8 +38,8 @@ export default async function TopSheetPage({ searchParams }: { searchParams: { p
   const phaseData = await Promise.all(
     phases.map(async (ph) => {
       const [inc, exp] = await Promise.all([
-        prisma.collection.aggregate({ where: { phaseId: ph.id }, _sum: { amount: true } }),
-        prisma.expense.aggregate({ where: { phaseId: ph.id }, _sum: { amount: true } }),
+        prisma.collection.aggregate({ where: { phaseId: ph.id, status: { not: 'REVERSED' } }, _sum: { amount: true } }),
+        prisma.expense.aggregate({ where: { phaseId: ph.id, status: { in: [...FINAL_EXPENSE_STATUSES] }, reversedAt: null }, _sum: { amount: true } }),
       ]);
       return {
         phase: ph,
