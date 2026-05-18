@@ -207,6 +207,32 @@ prisma/migrations/0005_accounting_hardening/migration.sql
 
 ### Remaining
 
-- Same-form bill upload is still not built; bill documents are attached from the saved bill detail page.
+- Same-form bill upload is now available for supplier invoices and subcontractor measurement/agreement/invoice files.
 - Dedicated subcontractor tables remain a future schema improvement.
 - Dynamic permission editing, server PDF, and XLSX workbook export remain future.
+
+## Vendor/Subcontractor Completion - May 18, 2026
+
+### Added
+
+- `VENDOR_SUBCONTRACTOR_COMPLETION_PLAN.md`.
+- Project supplier create/reuse route:
+  - `/projects/[id]/suppliers/new`
+- Project subcontractor create/reuse route:
+  - `/projects/[id]/subcontractors/new`
+- Subcontractor bill detail alias:
+  - `/projects/[id]/subcontractors/bills/[billId]`
+
+### Improved
+
+- Project Vendors page clearly separates supplier/material vendors from subcontractors/service providers and exposes add/bill/ledger actions for both.
+- Supplier bill create form can upload invoice/voucher files and links them to the created payable.
+- Subcontractor bill create form can upload measurement sheet, agreement, and invoice/voucher files and links them to the created payable.
+- Initial paid amount on a supplier/subcontractor bill now creates a payment row with method/reference metadata.
+- Finance hub quick links now include Add Supplier, Add Subcontractor, Supplier Ledger, Subcontractor Ledger, and Complete Project Report.
+
+### Remaining
+
+- Project vendor assignment is still inferred from project bills/expenses.
+- Dedicated subcontractor contract tables remain future.
+- Full ledger filtering and same-page edit workflows remain future.

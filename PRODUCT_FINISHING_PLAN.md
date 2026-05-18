@@ -40,6 +40,23 @@ No schema change is planned for this pass. Existing `Supplier`, `SupplierPayable
 ## Known Remaining Gaps After This Pass
 
 - Dedicated subcontractor accounting tables remain future work; current storage uses `Supplier`/`SupplierPayable` with contractor/service supplier types.
-- Same-form bill invoice upload is not implemented; users attach invoices from the bill detail via the project document uploader.
+- Same-form bill upload is implemented for supplier invoices and subcontractor measurement/agreement/invoice files.
 - Server-generated PDF exports are not implemented; reports are print/PDF-ready through browser print and CSV exports exist where implemented.
 - Dynamic permission management remains a future DB-backed module; current permissions are centralized in code.
+
+## Vendor/Subcontractor Completion Follow-Up
+
+- Added `VENDOR_SUBCONTRACTOR_COMPLETION_PLAN.md`.
+- Project users can now add or reuse suppliers inside a project from `/projects/[id]/suppliers/new`.
+- Project users can now add or reuse subcontractors inside a project from `/projects/[id]/subcontractors/new`.
+- Project Vendors page has explicit Add Supplier, Add Subcontractor, Add Supplier Bill, Add Subcontractor Bill, and ledger links.
+- Supplier bill creation can upload invoice/voucher files during create; files are linked to the payable as `SUPPLIER_BILL` documents.
+- Subcontractor bill creation can upload measurement sheets, agreements, and invoice/voucher files during create; files are linked as `SUBCONTRACTOR_BILL` documents.
+- Supplier payable creation now records an initial payment row when a paid amount is entered, preserving payment method/reference information.
+- Bulk expense bill/voucher number is visible in the row UI and remains submitted to the backend.
+
+## Remaining Vendor/Subcontractor Gaps
+
+- Project vendor assignment is inferred from bills/expenses; a dedicated assignment table remains future.
+- Subcontractor contract amount is stored in bill notes for now; a dedicated contract table remains future.
+- Full search/filter/sort bars for every vendor ledger remain a next UX pass.

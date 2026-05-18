@@ -23,10 +23,15 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
     { label: 'Collections', href: `/projects/${project.id}/collections`, icon: Receipt },
     { label: 'Expenses', href: `/projects/${project.id}/expenses`, icon: ShoppingCart },
     { label: 'Bulk Expense Entry', href: `/projects/${project.id}/expenses/bulk`, icon: ShoppingCart },
+    { label: 'Add Supplier', href: `/projects/${project.id}/suppliers/new`, icon: Truck },
     { label: 'Supplier Bills', href: `/projects/${project.id}/payables`, icon: Truck },
     { label: 'Supplier Payments', href: `/projects/${project.id}/payables/payments`, icon: Banknote },
+    { label: 'Add Subcontractor', href: `/projects/${project.id}/subcontractors/new`, icon: Truck },
     { label: 'Subcontractor Bills', href: `/projects/${project.id}/subcontractors/bills`, icon: Truck },
     { label: 'Subcontractor Payments', href: `/projects/${project.id}/payables/payments?type=subcontractor`, icon: Banknote },
+    { label: 'Supplier Ledger', href: `/projects/${project.id}/reports/supplier-ledger`, icon: FileText },
+    { label: 'Subcontractor Ledger', href: `/projects/${project.id}/reports/subcontractor-ledger`, icon: FileText },
+    { label: 'Complete Project Report', href: `/projects/${project.id}/reports/complete-project`, icon: FileText },
     { label: 'Project Balance', href: `/projects/${project.id}/reports/top-sheet`, icon: TrendingUp },
   ];
 

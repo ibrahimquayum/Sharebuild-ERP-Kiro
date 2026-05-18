@@ -16,6 +16,7 @@ const createSchema = z.object({
   bankName: z.string().optional(),
   bankAccount: z.string().optional(),
   notes: z.string().optional(),
+  isActive: z.boolean().optional(),
 });
 
 export async function GET(req: NextRequest) {

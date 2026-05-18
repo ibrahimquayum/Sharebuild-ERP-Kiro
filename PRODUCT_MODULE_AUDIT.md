@@ -113,7 +113,18 @@ Current highest-risk gaps are save-flow consistency, document upload completenes
 - Document upload accepts prefilled payable, expense, unit, phase, category, scope, and return URL values.
 - Bulk expense rows now include the bill/voucher number field in the visible table UI.
 - Placeholder copy was adjusted so future pages do not claim "API ready / UI pending" as a completed state.
-- Remaining module risk: dedicated subcontractor tables, same-form invoice uploads, advanced document metadata editing, server PDF, XLSX workbook export, and dynamic permissions are still future work.
+- Remaining module risk: dedicated subcontractor tables, advanced document metadata editing, server PDF, XLSX workbook export, and dynamic permissions are still future work.
+
+## Vendor/Subcontractor Completion Update - May 18, 2026
+
+- Added `VENDOR_SUBCONTRACTOR_COMPLETION_PLAN.md`.
+- Added project-local create/reuse flows for suppliers and subcontractors.
+- Project Vendors page now exposes supplier/subcontractor add, bill, and ledger actions without forcing users to leave the project workspace.
+- Supplier bill creation now supports invoice/voucher upload during create.
+- Subcontractor bill creation now supports measurement sheet, agreement, and invoice/voucher upload during create.
+- Initial paid amounts on bills now create a payment ledger row with method/reference metadata.
+- Bulk expense bill/voucher number remains visible and submitted per row.
+- Schema unchanged: current implementation uses existing supplier/payable/payment/document tables.
 
 ## Schema Recommendation
 

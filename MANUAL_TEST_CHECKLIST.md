@@ -150,3 +150,18 @@ Login: `admin@relaxdevelopers.com` / `admin123`
 - [ ] Bill detail upload action opens the document uploader with supplier/subcontractor bill scope prefilled.
 - [ ] Uploading a bill document from that flow returns to the bill detail page.
 - [ ] `/projects/[id]/expenses/bulk` exposes bill/voucher number per row and submits it with the expense rows.
+
+## N. Vendor/Subcontractor Completion
+
+- [ ] `/projects/[id]/vendors` shows separate Suppliers and Subcontractors sections.
+- [ ] `/projects/[id]/vendors` has Add Supplier and Add Subcontractor actions.
+- [ ] `/projects/[id]/suppliers/new` creates a company supplier and redirects into project supplier bill creation.
+- [ ] `/projects/[id]/suppliers/new` can reuse an existing supplier without creating a duplicate.
+- [ ] `/projects/[id]/subcontractors/new` creates a company subcontractor/service provider and redirects into project subcontractor bill creation.
+- [ ] `/projects/[id]/subcontractors/new` can reuse an existing subcontractor.
+- [ ] `/projects/[id]/payables/new?supplierId=...` preselects the supplier.
+- [ ] Supplier bill create uploads invoice/voucher and the bill detail page shows it in Documents.
+- [ ] `/projects/[id]/subcontractors/bills/new?subcontractorId=...` preselects the subcontractor.
+- [ ] Subcontractor bill create uploads measurement sheet, agreement, and invoice/voucher files.
+- [ ] Bill create with paid amount creates a payment row with payment method/reference metadata.
+- [ ] `/projects/[id]/finance` includes Add Supplier, Add Subcontractor, Supplier Ledger, Subcontractor Ledger, and Complete Project Report links.

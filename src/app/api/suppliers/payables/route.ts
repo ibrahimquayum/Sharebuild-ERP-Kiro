@@ -16,6 +16,11 @@ const createSchema = z.object({
   dueDate:     z.string().optional(),
   notes:       z.string().optional(),
   paidAmount:  z.number().min(0).optional(),
+  paymentMethod: z.enum(['CASH','CHEQUE','BANK_TRANSFER','MOBILE_BANKING','OTHER']).optional(),
+  chequeNo: z.string().optional(),
+  chequeDate: z.string().optional(),
+  bankName: z.string().optional(),
+  reference: z.string().optional(),
   items: z.array(z.object({
     description: z.string().min(1),
     category: z.enum([
@@ -108,6 +113,22 @@ export async function POST(req: NextRequest) {
       dueDate:     d.dueDate ? new Date(d.dueDate) : undefined,
       status:      paidAmount >= totalAmount ? 'PAID' : paidAmount > 0 ? 'PARTIALLY_PAID' : 'UNPAID',
       notes:       d.notes,
+      ...(paidAmount > 0 ? {
+        payments: {
+          create: {
+            amount: paidAmount,
+            paymentMethod: d.paymentMethod ?? 'BANK_TRANSFER',
+            chequeNo: d.chequeNo,
+            chequeDate: d.chequeDate ? new Date(d.chequeDate) : undefined,
+            bankName: d.bankName,
+            reference: d.reference,
+            paidAt: new Date(d.billDate),
+            notes: 'Initial payment recorded during bill entry',
+            status: d.paymentMethod === 'CHEQUE' ? 'CLEARED' : 'CLEARED',
+            chequeStatus: d.paymentMethod === 'CHEQUE' ? 'CLEARED' : undefined,
+          },
+        },
+      } : {}),
       ...(d.items?.length ? {
         billItems: {
           create: d.items.map((item) => ({

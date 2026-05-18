@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Field, FormError, FormSection, TextareaField, TextField } from '@/components/shared/form-field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -42,16 +43,18 @@ export function SubcontractorBillForm({
   projectId,
   subcontractors,
   phases,
+  initialSubcontractorId,
 }: {
   projectId: string;
   subcontractors: Option[];
   phases: Option[];
+  initialSubcontractorId?: string;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [subcontractorId, setSubcontractorId] = useState('');
+  const [subcontractorId, setSubcontractorId] = useState(initialSubcontractorId ?? '');
   const [workType, setWorkType] = useState('STRUCTURE_CIVIL');
   const [phaseId, setPhaseId] = useState(NO_PHASE);
   const [contractAmount, setContractAmount] = useState('');
@@ -62,6 +65,9 @@ export function SubcontractorBillForm({
   const [dueDate, setDueDate] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('BANK_TRANSFER');
   const [notes, setNotes] = useState('');
+  const [measurementFiles, setMeasurementFiles] = useState<File[]>([]);
+  const [agreementFiles, setAgreementFiles] = useState<File[]>([]);
+  const [invoiceFiles, setInvoiceFiles] = useState<File[]>([]);
 
   const workTypeLabel = useMemo(() => WORK_TYPES.find(([value]) => value === workType)?.[1] ?? workType, [workType]);
 
@@ -98,6 +104,7 @@ export function SubcontractorBillForm({
         billDate,
         totalAmount: Number(billAmount),
         paidAmount: paidAmount ? Number(paidAmount) : 0,
+        paymentMethod,
         phaseId: phaseId === NO_PHASE ? undefined : phaseId,
         billNo: billNo.trim() || undefined,
         dueDate: dueDate || undefined,
@@ -121,6 +128,30 @@ export function SubcontractorBillForm({
         setError(typeof data.error === 'string' ? data.error : 'Failed to save subcontractor bill.');
         return;
       }
+      const uploadGroups = [
+        { files: measurementFiles, category: 'subcontractor measurement sheet', title: 'Measurement sheet' },
+        { files: agreementFiles, category: 'subcontractor agreement', title: 'Subcontractor agreement' },
+        { files: invoiceFiles, category: 'subcontractor invoice', title: billNo.trim() ? `Subcontractor invoice ${billNo.trim()}` : 'Subcontractor invoice / voucher' },
+      ];
+      for (const group of uploadGroups) {
+        if (group.files.length === 0) continue;
+        const uploadData = new FormData();
+        group.files.forEach((file) => uploadData.append('file', file));
+        uploadData.set('projectId', projectId);
+        uploadData.set('payableId', data.id);
+        uploadData.set('scope', 'SUBCONTRACTOR_BILL');
+        uploadData.set('category', group.category);
+        uploadData.set('title', group.title);
+        uploadData.set('description', 'Uploaded during subcontractor bill entry.');
+        const uploadRes = await fetch('/api/documents', { method: 'POST', body: uploadData });
+        if (!uploadRes.ok) {
+          const uploadJson = await uploadRes.json().catch(() => ({}));
+          setError(`Bill saved, but ${group.title.toLowerCase()} upload failed: ${typeof uploadJson.error === 'string' ? uploadJson.error : 'try uploading from bill detail.'}`);
+          router.push(`/projects/${projectId}/payables/${data.id}`);
+          router.refresh();
+          return;
+        }
+      }
 
       router.push(`/projects/${projectId}/payables/${data.id}`);
       router.refresh();
@@ -136,6 +167,11 @@ export function SubcontractorBillForm({
       <FormError message={error} />
 
       <FormSection title="Subcontractor And Phase">
+        <div className="md:col-span-2 flex justify-end">
+          <Link href={`/projects/${projectId}/subcontractors/new`} className="text-xs font-medium text-primary hover:underline">
+            Add new subcontractor
+          </Link>
+        </div>
         <Field label="Subcontractor" htmlFor="subcontractorId" required error={errors.subcontractorId}>
           <Select value={subcontractorId} onValueChange={setSubcontractorId}>
             <SelectTrigger id="subcontractorId" className={errors.subcontractorId ? 'border-destructive' : ''}>
@@ -187,8 +223,19 @@ export function SubcontractorBillForm({
       </FormSection>
 
       <FormSection title="Documents">
-        <div className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
-          Save the bill first, then attach measurement sheets, agreements, invoices, or vouchers from the bill detail page. Attached files are stored in project documents and linked to this bill.
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Field label="Measurement Sheet" htmlFor="measurementFiles" hint="Optional PDF/image.">
+            <input id="measurementFiles" type="file" accept="application/pdf,image/*" multiple onChange={(event) => setMeasurementFiles(Array.from(event.target.files ?? []))} className="text-sm" />
+            {measurementFiles.length === 0 && <p className="mt-1 text-xs text-amber-600">No measurement sheet</p>}
+          </Field>
+          <Field label="Agreement" htmlFor="agreementFiles" hint="Optional PDF/image.">
+            <input id="agreementFiles" type="file" accept="application/pdf,image/*" multiple onChange={(event) => setAgreementFiles(Array.from(event.target.files ?? []))} className="text-sm" />
+            {agreementFiles.length === 0 && <p className="mt-1 text-xs text-amber-600">No agreement attached</p>}
+          </Field>
+          <Field label="Invoice / Voucher" htmlFor="invoiceFiles" hint="Optional PDF/image.">
+            <input id="invoiceFiles" type="file" accept="application/pdf,image/*" multiple onChange={(event) => setInvoiceFiles(Array.from(event.target.files ?? []))} className="text-sm" />
+            {invoiceFiles.length === 0 && <p className="mt-1 text-xs text-amber-600">Missing invoice/voucher</p>}
+          </Field>
         </div>
       </FormSection>
 

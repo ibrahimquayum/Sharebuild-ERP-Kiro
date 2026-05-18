@@ -85,21 +85,35 @@ export default async function ProjectVendorsPage({ params }: { params: { id: str
     rows,
     emptyLabel,
     newBillHref,
+    newVendorHref,
+    ledgerHref,
+    billParamName = 'supplierId',
   }: {
     rows: ReturnType<typeof aggregateBySupplier>;
     emptyLabel: string;
     newBillHref: string;
+    newVendorHref: string;
+    ledgerHref: string;
+    billParamName?: string;
   }) {
     if (rows.length === 0) {
       return (
         <div className="rounded-lg border border-dashed p-8 text-center">
           <p className="text-sm text-muted-foreground mb-3">{emptyLabel}</p>
-          <Link
-            href={newBillHref}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
-          >
-            <Plus className="h-3.5 w-3.5" /> Record First Bill
-          </Link>
+          <div className="flex justify-center gap-2">
+            <Link
+              href={newVendorHref}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-medium hover:bg-muted transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add Vendor
+            </Link>
+            <Link
+              href={newBillHref}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" /> Record First Bill
+            </Link>
+          </div>
         </div>
       );
     }
@@ -114,6 +128,7 @@ export default async function ProjectVendorsPage({ params }: { params: { id: str
               <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground">Total Billed</th>
               <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground">Paid</th>
               <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground">Outstanding Due</th>
+              <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -141,6 +156,12 @@ export default async function ProjectVendorsPage({ params }: { params: { id: str
                 )}>
                   {formatBDT(row.totalDue)}
                 </td>
+                <td className="px-4 py-3 text-right">
+                  <div className="flex justify-end gap-2 text-xs">
+                    <Link href={ledgerHref} className="text-primary hover:underline">Ledger</Link>
+                    <Link href={`${newBillHref}?${billParamName}=${row.supplier.id}`} className="text-primary hover:underline">Bill</Link>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -158,6 +179,18 @@ export default async function ProjectVendorsPage({ params }: { params: { id: str
           <p className="text-xs text-muted-foreground">{project.name}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            href={`${base}/suppliers/new`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-medium hover:bg-muted transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add Supplier
+          </Link>
+          <Link
+            href={`${base}/subcontractors/new`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-medium hover:bg-muted transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add Subcontractor
+          </Link>
           <Link
             href={`${base}/payables/new`}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-orange-600 text-white text-xs font-medium hover:bg-orange-700 transition-colors"
@@ -193,6 +226,8 @@ export default async function ProjectVendorsPage({ params }: { params: { id: str
           rows={suppliers}
           emptyLabel="No material or equipment suppliers linked to this project yet."
           newBillHref={`${base}/payables/new`}
+          newVendorHref={`${base}/suppliers/new`}
+          ledgerHref={`${base}/reports/supplier-ledger`}
         />
       </div>
 
@@ -207,6 +242,9 @@ export default async function ProjectVendorsPage({ params }: { params: { id: str
           rows={subcontractors}
           emptyLabel="No subcontractors linked to this project yet."
           newBillHref={`${base}/subcontractors/bills/new`}
+          newVendorHref={`${base}/subcontractors/new`}
+          ledgerHref={`${base}/reports/subcontractor-ledger`}
+          billParamName="subcontractorId"
         />
       </div>
     </div>

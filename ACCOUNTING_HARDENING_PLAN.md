@@ -154,4 +154,13 @@ This pass hardens the existing project-first accounting foundation without addin
 - Subcontractor bill creation captures work type, contract amount note, bill/invoice number, phase, bill amount, paid amount, due date, and payment method context.
 - Bill documents can be attached directly to payable records through the project document uploader using `payableId`.
 - Bulk expense entry visibly captures bill/voucher number alongside voucher upload and missing-voucher indicators.
-- Remaining audit gap: same-form invoice/measurement upload is not implemented; the safe workflow is record first, then attach documents from the bill detail page.
+- Remaining audit gap: document metadata verification/editing is still basic even though bill create forms can now upload invoice/measurement/agreement files.
+
+## Vendor/Subcontractor Accounting Completion
+
+- Supplier/subcontractor bill creation now supports document upload during the create flow using the existing `Document.payableId` relationship.
+- Supplier invoice/voucher files are stored as `SUPPLIER_BILL` documents.
+- Subcontractor measurement sheets, agreements, and invoices/vouchers are stored as `SUBCONTRACTOR_BILL` documents.
+- Initial paid amount during bill entry now creates a `SupplierPayment` row with payment method/reference metadata while setting payable paid/due totals.
+- Project supplier/subcontractor usage remains project-scoped through `SupplierPayable.projectId`.
+- Future audit gap: dedicated project vendor assignment and subcontractor contract tables are still recommended for richer contract lifecycle auditing.

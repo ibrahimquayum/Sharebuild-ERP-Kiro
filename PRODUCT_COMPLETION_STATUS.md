@@ -171,7 +171,21 @@ Build the accountant-facing reversal/adjustment UI and expand supplier/subcontra
 
 ## Product Finishing Gaps Remaining
 
-- Same-form bill invoice upload remains future; current workflow is save bill, then attach invoice/voucher/measurement sheet from the bill detail document action.
+- Same-form bill upload now exists for supplier invoices and subcontractor measurement/agreement/invoice files.
 - Dedicated subcontractor accounting tables remain future; current data is stored in `SupplierPayable` with subcontractor supplier types.
 - Advanced document metadata edit/detail/delete workflows remain partial.
 - Server-generated PDF and true XLSX workbook exports remain future.
+
+## Vendor/Subcontractor Completion Added
+
+- Added `VENDOR_SUBCONTRACTOR_COMPLETION_PLAN.md`.
+- Added project-scoped supplier create/reuse flow:
+  - `/projects/[id]/suppliers/new`
+- Added project-scoped subcontractor create/reuse flow:
+  - `/projects/[id]/subcontractors/new`
+- Added subcontractor bill detail alias:
+  - `/projects/[id]/subcontractors/bills/[billId]`
+- Supplier bill form now links to Add Supplier and supports invoice/voucher upload during bill creation.
+- Subcontractor bill form now links to Add Subcontractor and supports measurement sheet, agreement, and invoice/voucher uploads during bill creation.
+- Supplier bill creation records initial payment metadata when a paid amount is entered.
+- Project Vendors page now has separate supplier/subcontractor sections with add, bill, and ledger actions.

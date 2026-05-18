@@ -9,7 +9,13 @@ import { SubcontractorBillForm } from '@/components/projects/subcontractor-bill-
 
 export const dynamic = 'force-dynamic';
 
-export default async function NewSubcontractorBillPage({ params }: { params: { id: string } }) {
+export default async function NewSubcontractorBillPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams?: { subcontractorId?: string; supplierId?: string };
+}) {
   const session = await getServerSession(authOptions);
   const companyId = (session?.user as any)?.companyId ?? '';
 
@@ -50,7 +56,12 @@ export default async function NewSubcontractorBillPage({ params }: { params: { i
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <SubcontractorBillForm projectId={project.id} subcontractors={subcontractors} phases={phases} />
+          <SubcontractorBillForm
+            projectId={project.id}
+            subcontractors={subcontractors}
+            phases={phases}
+            initialSubcontractorId={searchParams?.subcontractorId ?? searchParams?.supplierId}
+          />
         </CardContent>
       </Card>
     </div>

@@ -53,9 +53,12 @@ export default function ProjectPayableNewPage() {
   const [billDate, setBillDate] = useState(today());
   const [totalAmount, setTotalAmount] = useState('');
   const [paidAmount, setPaidAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('BANK_TRANSFER');
+  const [reference, setReference] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState([emptyItem()]);
+  const [invoiceFiles, setInvoiceFiles] = useState<File[]>([]);
 
   useEffect(() => {
     Promise.all([
@@ -115,6 +118,7 @@ export default function ProjectPayableNewPage() {
         billDate,
         totalAmount: Number(totalAmount),
         ...(paidAmount ? { paidAmount: Number(paidAmount) } : {}),
+        ...(paidAmount ? { paymentMethod, reference: reference.trim() || undefined } : {}),
         ...(phaseId !== NO_PHASE ? { phaseId } : {}),
         ...(billNo.trim() ? { billNo: billNo.trim() } : {}),
         ...(dueDate ? { dueDate } : {}),
@@ -131,6 +135,24 @@ export default function ProjectPayableNewPage() {
       if (!res.ok) {
         setError(typeof data.error === 'string' ? data.error : 'Failed to save supplier bill.');
         return;
+      }
+      if (invoiceFiles.length > 0) {
+        const uploadData = new FormData();
+        invoiceFiles.forEach((file) => uploadData.append('file', file));
+        uploadData.set('projectId', projectId);
+        uploadData.set('payableId', data.id);
+        uploadData.set('scope', 'SUPPLIER_BILL');
+        uploadData.set('category', 'supplier invoice');
+        uploadData.set('title', billNo.trim() ? `Supplier invoice ${billNo.trim()}` : 'Supplier invoice / voucher');
+        uploadData.set('description', 'Uploaded during supplier bill entry.');
+        const uploadRes = await fetch('/api/documents', { method: 'POST', body: uploadData });
+        if (!uploadRes.ok) {
+          const uploadJson = await uploadRes.json().catch(() => ({}));
+          setError(`Bill saved, but invoice upload failed: ${typeof uploadJson.error === 'string' ? uploadJson.error : 'try uploading from bill detail.'}`);
+          router.push(`/projects/${projectId}/payables/${data.id}`);
+          router.refresh();
+          return;
+        }
       }
       router.push(`/projects/${projectId}/payables`);
     } catch {
@@ -156,6 +178,11 @@ export default function ProjectPayableNewPage() {
             <FormError message={error} />
 
             <FormSection title="Supplier And Phase">
+              <div className="md:col-span-2 flex justify-end">
+                <Link href={`/projects/${projectId}/suppliers/new`} className="text-xs font-medium text-primary hover:underline">
+                  Add new supplier
+                </Link>
+              </div>
               <Field label="Supplier / Vendor" htmlFor="supplierId" required error={errors.supplierId}>
                 <Select value={supplierId} onValueChange={setSupplierId}>
                   <SelectTrigger id="supplierId" className={errors.supplierId ? 'border-destructive' : ''}>
@@ -183,8 +210,39 @@ export default function ProjectPayableNewPage() {
                 <TextField label="Bill Date" id="billDate" type="date" required value={billDate} onChange={(e) => setBillDate(e.target.value)} error={errors.billDate} />
                 <TextField label="Total Bill Amount (BDT)" id="totalAmount" type="number" min={0.01} step="0.01" required value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} error={errors.totalAmount} />
                 <TextField label="Paid Amount Now" id="paidAmount" type="number" min={0} step="0.01" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} error={errors.paidAmount} />
+                <Field label="Payment Method" htmlFor="paymentMethod">
+                  <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                    <SelectTrigger id="paymentMethod"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CASH">Cash</SelectItem>
+                      <SelectItem value="CHEQUE">Cheque</SelectItem>
+                      <SelectItem value="BANK_TRANSFER">Bank transfer</SelectItem>
+                      <SelectItem value="MOBILE_BANKING">Mobile banking</SelectItem>
+                      <SelectItem value="OTHER">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <TextField label="Reference / Cheque No" id="reference" value={reference} onChange={(e) => setReference(e.target.value)} />
                 <TextField label="Payment Due By" id="dueDate" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
               </div>
+            </FormSection>
+
+            <FormSection title="Invoice / Voucher Upload">
+              <Field label="Invoice / Voucher" htmlFor="invoiceFile" hint="Optional PDF or image. Missing invoice is allowed but will remain visible for audit follow-up.">
+                <input
+                  id="invoiceFile"
+                  type="file"
+                  accept="application/pdf,image/*"
+                  multiple
+                  onChange={(e) => setInvoiceFiles(Array.from(e.target.files ?? []))}
+                  className="text-sm"
+                />
+                {invoiceFiles.length > 0 ? (
+                  <p className="mt-1 text-xs text-muted-foreground">{invoiceFiles.length} file{invoiceFiles.length === 1 ? '' : 's'} selected</p>
+                ) : (
+                  <p className="mt-1 text-xs text-amber-600">Missing Invoice/Voucher</p>
+                )}
+              </Field>
             </FormSection>
 
             <FormSection title="Bill Line Items">
