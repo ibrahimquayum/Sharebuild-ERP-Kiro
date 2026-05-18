@@ -40,6 +40,7 @@
 
 - Unit list, create, and detail/edit pages exist.
 - Bulk unit generation now persists units through `POST /api/projects/[id]/units/bulk`.
+- Bulk unit generation now includes a client-side preview before save and still rejects duplicates on the server.
 - Buyer/unit assignment persists through `ProjectBuyer` and `UnitBuyer`.
 - Ownership share, co-owner rows, payer flag, and relationship metadata are stored.
 - Ownership share validation prevents owner/co-owner rows for one unit from exceeding 100%.
@@ -56,6 +57,9 @@
 
 - Project finance overview exists.
 - Collections, expenses, supplier bills, supplier payments, subcontractor bills, subcontractor payment links, demands, due, and project balance are organized from the project finance area.
+- Bulk expense entry exists at `/projects/[id]/expenses/bulk` with local shop/cash expense support, payment method, missing voucher indicators, and optional voucher upload per row.
+- Collection creation now allocates buyer payments FIFO against unpaid project/phase demands and updates demand status.
+- Supplier bill creation supports line items using existing `SupplierBillItem` persistence.
 
 ### Reports
 
@@ -89,11 +93,13 @@
 - Real Excel export.
 - Full buyer statement/unit statement/ledger report calculations.
 - Demand payment allocation and reversal workflow.
+- Manual collection allocation and reversal workflow.
 - Dedicated subcontractor bill/payment model beyond supplier payable filtering.
 - Editable materials/categories/payment-method master tables.
 - Cloud object storage for uploads.
 - Dynamic database-backed permissions.
 - Dedicated local shop / one-time vendor purchase flow.
+- Local shop flow is implemented for expenses, but not yet for supplier payable bills.
 - Full carry-forward/final reconciliation accounting.
 
 ## Next Safest Build Step

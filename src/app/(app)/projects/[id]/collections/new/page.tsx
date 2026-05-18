@@ -31,6 +31,7 @@ export default function ProjectCollectionNewPage() {
   // Data loaded scoped to this project
   const [buyers, setBuyers] = useState<{ id: string; name: string; phone?: string }[]>([]);
   const [phases, setPhases] = useState<{ id: string; name: string }[]>([]);
+  const [demands, setDemands] = useState<{ id: string; title: string; phaseId: string | null; phaseName: string; unitNo: string; due: number; dueDate: string | null; status: string }[]>([]);
 
   const [buyerId,       setBuyerId]       = useState(searchParams.get('buyerId') ?? '');
   const [phaseId,       setPhaseId]       = useState(searchParams.get('phaseId') ?? '');
@@ -60,6 +61,17 @@ export default function ProjectCollectionNewPage() {
       .finally(() => setLoading(false));
   }, [projectId]);
 
+  useEffect(() => {
+    if (!buyerId) {
+      setDemands([]);
+      return;
+    }
+    fetch(`/api/projects/${projectId}/demands?buyerId=${buyerId}&unpaidOnly=true`)
+      .then((r) => r.json())
+      .then((data) => setDemands(Array.isArray(data) ? data : []))
+      .catch(() => setDemands([]));
+  }, [buyerId, projectId]);
+
   function validate() {
     const e: Record<string, string> = {};
     if (!buyerId) e.buyerId = 'Please select a buyer.';
@@ -76,7 +88,7 @@ export default function ProjectCollectionNewPage() {
     if (!validate()) return;
     setSaving(true);
     try {
-      const body: Record<string, unknown> = { buyerId, phaseId, amount: parseFloat(amount), paymentMethod, receivedDate };
+      const body: Record<string, unknown> = { buyerId, phaseId, amount: parseFloat(amount), paymentMethod, receivedDate, allocationMode: 'FIFO' };
       if (receiptNo) body.receiptNo = receiptNo.trim();
       if (chequeNo)  body.chequeNo  = chequeNo.trim();
       if (chequeDate) body.chequeDate = chequeDate;
@@ -165,6 +177,27 @@ export default function ProjectCollectionNewPage() {
               </Field>
               <TextField label="Receipt Number (optional)" id="receiptNo" placeholder="e.g. RCP-2024-001" value={receiptNo} onChange={e => setReceiptNo(e.target.value)} />
             </FormSection>
+
+            {buyerId && (
+              <FormSection title="Unpaid Demands">
+                <div className="rounded-md border divide-y text-sm">
+                  {demands.length === 0 ? (
+                    <div className="p-3 text-muted-foreground">No unpaid demands found for this buyer. Payment will be recorded as advance/credit for the selected phase.</div>
+                  ) : (
+                    demands.filter((demand) => !phaseId || demand.phaseId === phaseId).slice(0, 6).map((demand) => (
+                      <div key={demand.id} className="flex items-center justify-between gap-3 p-3">
+                        <div>
+                          <div className="font-medium">{demand.title} · Unit {demand.unitNo}</div>
+                          <div className="text-xs text-muted-foreground">{demand.phaseName} · {demand.status}</div>
+                        </div>
+                        <div className="font-semibold">BDT {demand.due.toLocaleString()}</div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">Allocation uses FIFO: oldest unpaid demand first. Any excess remains as advance/credit.</p>
+              </FormSection>
+            )}
 
             {showCheque && (
               <FormSection title="Cheque Details">

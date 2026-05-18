@@ -14,6 +14,22 @@ const createSchema = z.object({
   totalAmount: z.number().positive(),
   dueDate:     z.string().optional(),
   notes:       z.string().optional(),
+  paidAmount:  z.number().min(0).optional(),
+  items: z.array(z.object({
+    description: z.string().min(1),
+    category: z.enum([
+      'ROD_STEEL','CEMENT','STONE_AGGREGATE','SAND','BRICK','READYMIX_CONCRETE',
+      'TIMBER_SHUTTERING','PAINT','TILES','SANITARY_FITTINGS','ELECTRICAL_MATERIAL',
+      'HARDWARE','CHEMICAL','LABOUR_BILL','CONTRACTOR_BILL','SECURITY_SALARY',
+      'SITE_STAFF_SALARY','WATER_BILL','ELECTRICITY_BILL','SITE_FOOD_HOSPITALITY',
+      'TRANSPORT','EQUIPMENT_HIRE','SURVEY_DRAWING','LEGAL_REGISTRATION',
+      'MUNICIPALITY_FEE','BANK_CHARGE','SERVICE_CHARGE','OTHER',
+    ]).default('OTHER'),
+    quantity: z.number().positive().optional(),
+    unit: z.string().optional(),
+    unitPrice: z.number().positive().optional(),
+    amount: z.number().positive(),
+  })).optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -69,6 +85,11 @@ export async function POST(req: NextRequest) {
     if (!phase) return NextResponse.json({ error: 'Phase not found in this project' }, { status: 404 });
   }
 
+  const itemTotal = d.items?.reduce((sum, item) => sum + item.amount, 0);
+  const totalAmount = itemTotal && itemTotal > 0 ? itemTotal : d.totalAmount;
+  const paidAmount = d.paidAmount ?? 0;
+  if (paidAmount > totalAmount) return NextResponse.json({ error: 'Paid amount cannot exceed total bill amount.' }, { status: 400 });
+
   const payable = await prisma.supplierPayable.create({
     data: {
       supplierId:  d.supplierId,
@@ -76,13 +97,26 @@ export async function POST(req: NextRequest) {
       phaseId:     d.phaseId || undefined,
       billNo:      d.billNo,
       billDate:    new Date(d.billDate),
-      totalAmount: d.totalAmount,
-      paidAmount:  0,
-      dueAmount:   d.totalAmount,
+      totalAmount,
+      paidAmount,
+      dueAmount:   totalAmount - paidAmount,
       dueDate:     d.dueDate ? new Date(d.dueDate) : undefined,
-      status:      'UNPAID',
+      status:      paidAmount >= totalAmount ? 'PAID' : paidAmount > 0 ? 'PARTIALLY_PAID' : 'UNPAID',
       notes:       d.notes,
+      ...(d.items?.length ? {
+        billItems: {
+          create: d.items.map((item) => ({
+            description: item.description,
+            category: item.category,
+            quantity: item.quantity,
+            unit: item.unit,
+            unitPrice: item.unitPrice,
+            amount: item.amount,
+          })),
+        },
+      } : {}),
     },
+    include: { billItems: true },
   });
 
   await safeAuditLog({

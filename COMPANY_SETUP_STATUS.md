@@ -51,6 +51,7 @@ Yes:
 - Editable payment-method settings table.
 - Dynamic database-backed role/permission editor.
 - Cloud object storage for company logos and documents. Current upload storage is local disk.
+- Local shop/person metadata is supported on project expenses, but local shops are not company-level supplier masters unless entered as suppliers.
 
 ## Recommended Next Step
 

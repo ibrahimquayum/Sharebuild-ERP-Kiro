@@ -20,6 +20,7 @@ This pass added the required `PRODUCT_MODULE_AUDIT.md` and tightened the foundat
 | Project create/edit save | Pass | Authenticated API create returned 201 and update returned 200 |
 | Top Sheet totals | Pass | Income 100,143,800 / Expense 104,659,890.40 / Balance -4,516,090.40 |
 | Product foundation build | Pass | `npm run build` after save-flow and bulk/document fixes |
+| Module completion build | Pass | `npm run build` after bulk expense, FIFO allocation, and supplier line-item changes |
 
 ## Implemented In This Pass
 
@@ -49,10 +50,15 @@ This pass added the required `PRODUCT_MODULE_AUDIT.md` and tightened the foundat
 - Finance foundation:
   - `/projects/[id]/finance`
   - Project-scoped finance summary and links to daily money pages.
+  - `/projects/[id]/expenses/bulk`
+  - `POST /api/projects/[id]/expenses/bulk`
+  - Bulk field expense entry with local shop, payment method, pending approval status, vouchers, and missing voucher tracking.
 - Demand foundation:
   - `/projects/[id]/demands/new`
   - `POST /api/projects/[id]/demands`
   - Equal amount demand generation for selected buyer/unit ownership rows.
+  - `GET /api/projects/[id]/demands`
+  - FIFO collection allocation updates demand status to partially/fully paid.
 - Reports foundation:
   - Branded report header.
   - Print action.
@@ -68,18 +74,26 @@ This pass added the required `PRODUCT_MODULE_AUDIT.md` and tightened the foundat
 
 ## Schema Changes
 
-No new schema change was added in the May 18 stabilization pass.
+Yes. One migration was added in the module completion pass:
+
+```text
+prisma/migrations/0004_expense_field_entry/migration.sql
+```
+
+It adds expense payment/local-shop metadata for field engineer bulk entry.
 
 Existing schema changes remain:
 
 ```text
 prisma/migrations/0002_project_setup_fields/migration.sql
 prisma/migrations/0003_product_foundation/migration.sql
+prisma/migrations/0004_expense_field_entry/migration.sql
 ```
 
 It adds:
 
 - Project setup fields and company branding fields used by the settings form.
+- Expense payment method, supplier mode, local shop name, and local shop phone.
 - New user roles for the permission foundation.
 - Additional unit type/status values.
 - `DocumentScope` and `DocumentStatus`.
@@ -93,9 +107,9 @@ It adds:
 - Materials, categories, and payment methods are still documented schema gaps.
 - Full dynamic permission editing UI/database tables are not built; permissions are code-configured.
 - Subcontractor bill creation is still not fully separated from supplier payable internals.
-- Payment allocation against demands is basic; deeper allocation/reversal logic is a future accounting step.
+- Payment allocation against demands is FIFO; manual allocation and reversal logic are future accounting steps.
 - File upload remains local disk under `public/uploads/[companyId]`.
-- Local shop / one-time vendor purchasing is not modeled as a dedicated flow yet.
+- Local shop / one-time vendor purchasing is implemented for expenses, not supplier bills.
 
 ## Next Recommended Build Step
 

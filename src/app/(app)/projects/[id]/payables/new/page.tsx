@@ -1,56 +1,93 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { TextField, TextareaField, FormError, FormSection, Field } from '@/components/shared/form-field';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { ArrowLeft, Loader2, Plus, Trash2 } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Field, FormError, FormSection, TextareaField, TextField } from '@/components/shared/form-field';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const NO_PHASE = '__none';
 
+const CATEGORIES = [
+  ['ROD_STEEL', 'Rod / Steel'],
+  ['CEMENT', 'Cement'],
+  ['STONE_AGGREGATE', 'Stone / Aggregate'],
+  ['SAND', 'Sand'],
+  ['BRICK', 'Brick'],
+  ['TILES', 'Tiles'],
+  ['SANITARY_FITTINGS', 'Sanitary'],
+  ['ELECTRICAL_MATERIAL', 'Electrical'],
+  ['PAINT', 'Paint'],
+  ['TRANSPORT', 'Transport'],
+  ['OTHER', 'Other'],
+] as const;
+
+function today() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function emptyItem() {
+  return { description: '', category: 'OTHER', quantity: '', unit: '', unitPrice: '', amount: '' };
+}
+
 export default function ProjectPayableNewPage() {
-  const router    = useRouter();
-  const params    = useParams<{ id: string }>();
+  const router = useRouter();
+  const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const projectId = params.id;
 
   const [saving, setSaving] = useState(false);
-  const [error, setError]   = useState('');
+  const [error, setError] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
-  const [phases,    setPhases]    = useState<{ id: string; name: string }[]>([]);
+  const [phases, setPhases] = useState<{ id: string; name: string }[]>([]);
 
-  const [supplierId,  setSupplierId]  = useState(searchParams.get('supplierId') ?? '');
-  const [phaseId,     setPhaseId]     = useState(NO_PHASE);
-  const [billNo,      setBillNo]      = useState('');
-  const [billDate,    setBillDate]    = useState(today());
+  const [supplierId, setSupplierId] = useState(searchParams.get('supplierId') ?? '');
+  const [phaseId, setPhaseId] = useState(NO_PHASE);
+  const [billNo, setBillNo] = useState('');
+  const [billDate, setBillDate] = useState(today());
   const [totalAmount, setTotalAmount] = useState('');
-  const [dueDate,     setDueDate]     = useState('');
-  const [notes,       setNotes]       = useState('');
-
-  function today() { return new Date().toISOString().split('T')[0]; }
+  const [paidAmount, setPaidAmount] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [notes, setNotes] = useState('');
+  const [items, setItems] = useState([emptyItem()]);
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/suppliers').then(r => r.json()),
-      fetch(`/api/phases?projectId=${projectId}`).then(r => r.json()),
+      fetch('/api/suppliers').then((r) => r.json()),
+      fetch(`/api/phases?projectId=${projectId}`).then((r) => r.json()),
     ])
-      .then(([s, p]) => { setSuppliers(Array.isArray(s) ? s : []); setPhases(Array.isArray(p) ? p : []); })
+      .then(([s, p]) => {
+        setSuppliers(Array.isArray(s) ? s : []);
+        setPhases(Array.isArray(p) ? p : []);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [projectId]);
 
+  function updateItem(index: number, patch: Partial<ReturnType<typeof emptyItem>>) {
+    setItems((current) => current.map((row, i) => i === index ? { ...row, ...patch } : row));
+  }
+
   function validate() {
     const e: Record<string, string> = {};
-    if (!supplierId)  e.supplierId  = 'Please select a supplier.';
-    if (!billDate)    e.billDate    = 'Bill date is required.';
-    const amt = parseFloat(totalAmount);
-    if (!totalAmount || isNaN(amt) || amt <= 0) e.totalAmount = 'Enter a valid bill amount.';
+    if (!supplierId) e.supplierId = 'Please select a supplier.';
+    if (!billDate) e.billDate = 'Bill date is required.';
+    const amount = Number(totalAmount);
+    if (!totalAmount || Number.isNaN(amount) || amount <= 0) e.totalAmount = 'Enter a valid bill amount.';
+    const paid = Number(paidAmount || 0);
+    if (paid < 0 || paid > amount) e.paidAmount = 'Paid amount cannot exceed total bill amount.';
+    items.forEach((item, index) => {
+      const hasAny = item.description || item.amount || item.quantity || item.unitPrice;
+      if (!hasAny) return;
+      if (!item.description.trim()) e[`item-${index}`] = `Line ${index + 1}: description is required.`;
+      if (!item.amount || Number(item.amount) <= 0) e[`item-${index}`] = `Line ${index + 1}: amount is required.`;
+    });
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -61,26 +98,38 @@ export default function ProjectPayableNewPage() {
     if (!validate()) return;
     setSaving(true);
     try {
+      const validItems = items
+        .filter((item) => item.description.trim() && Number(item.amount) > 0)
+        .map((item) => ({
+          description: item.description.trim(),
+          category: item.category,
+          quantity: item.quantity ? Number(item.quantity) : undefined,
+          unit: item.unit.trim() || undefined,
+          unitPrice: item.unitPrice ? Number(item.unitPrice) : undefined,
+          amount: Number(item.amount),
+        }));
+
       const body: Record<string, unknown> = {
         supplierId,
         projectId,
         billDate,
-        totalAmount: parseFloat(totalAmount),
+        totalAmount: Number(totalAmount),
+        ...(paidAmount ? { paidAmount: Number(paidAmount) } : {}),
+        ...(phaseId !== NO_PHASE ? { phaseId } : {}),
+        ...(billNo.trim() ? { billNo: billNo.trim() } : {}),
+        ...(dueDate ? { dueDate } : {}),
+        ...(notes.trim() ? { notes: notes.trim() } : {}),
+        ...(validItems.length > 0 ? { items: validItems } : {}),
       };
-      if (phaseId !== NO_PHASE) body.phaseId = phaseId;
-      if (billNo.trim()) body.billNo  = billNo.trim();
-      if (dueDate)       body.dueDate = dueDate;
-      if (notes.trim())  body.notes   = notes.trim();
 
       const res = await fetch('/api/suppliers/payables', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data?.error?.message ?? data?.error ?? 'Failed to save.');
+        setError(typeof data.error === 'string' ? data.error : 'Failed to save supplier bill.');
         return;
       }
       router.push(`/projects/${projectId}/payables`);
@@ -92,67 +141,90 @@ export default function ProjectPayableNewPage() {
   }
 
   return (
-    <div className="p-5 max-w-2xl mx-auto space-y-4">
+    <div className="p-5 max-w-5xl mx-auto space-y-4">
       <Link href={`/projects/${projectId}/payables`} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> Back to Payables
       </Link>
 
       <Card>
-        <CardHeader className="pb-4">
+        <CardHeader>
           <CardTitle className="text-lg">Record Supplier Bill</CardTitle>
-          <CardDescription>Bill is linked to this project. Phase is optional.</CardDescription>
+          <CardDescription>Use line items for material bills. Company material master remains a documented future schema step.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} noValidate className="space-y-5">
             <FormError message={error} />
 
-            <FormSection title="Supplier">
+            <FormSection title="Supplier And Phase">
               <Field label="Supplier / Vendor" htmlFor="supplierId" required error={errors.supplierId}>
                 <Select value={supplierId} onValueChange={setSupplierId}>
                   <SelectTrigger id="supplierId" className={errors.supplierId ? 'border-destructive' : ''}>
-                    <SelectValue placeholder={loading ? 'Loading…' : suppliers.length === 0 ? 'No suppliers — add one first' : 'Select supplier'} />
+                    <SelectValue placeholder={loading ? 'Loading...' : suppliers.length === 0 ? 'No suppliers - add one first' : 'Select supplier'} />
                   </SelectTrigger>
                   <SelectContent>
-                    {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                    {suppliers.map((supplier) => <SelectItem key={supplier.id} value={supplier.id}>{supplier.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </Field>
-              {!loading && suppliers.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  <Link href="/suppliers/new" className="text-primary underline">Add a supplier first</Link>
-                </p>
-              )}
-            </FormSection>
-
-            <FormSection title="Phase (optional)">
               <Field label="Construction Phase" htmlFor="phaseId">
                 <Select value={phaseId} onValueChange={setPhaseId}>
-                  <SelectTrigger id="phaseId">
-                    <SelectValue placeholder="Select phase (optional)" />
-                  </SelectTrigger>
+                  <SelectTrigger id="phaseId"><SelectValue placeholder="Select phase (optional)" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NO_PHASE}>— Project-general (no specific phase) —</SelectItem>
-                    {phases.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                    <SelectItem value={NO_PHASE}>Project-general (no specific phase)</SelectItem>
+                    {phases.map((phase) => <SelectItem key={phase.id} value={phase.id}>{phase.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </Field>
-              <p className="text-xs text-muted-foreground">Link this bill to a phase if it belongs to specific construction work.</p>
             </FormSection>
 
             <FormSection title="Bill Details">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <TextField label="Bill / Invoice Number" id="billNo" placeholder="e.g. INV-2024-001" value={billNo} onChange={e => setBillNo(e.target.value)} />
-                <TextField label="Bill Date" id="billDate" type="date" required value={billDate} onChange={e => setBillDate(e.target.value)} error={errors.billDate} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <TextField label="Bill / Invoice Number" id="billNo" value={billNo} onChange={(e) => setBillNo(e.target.value)} />
+                <TextField label="Bill Date" id="billDate" type="date" required value={billDate} onChange={(e) => setBillDate(e.target.value)} error={errors.billDate} />
+                <TextField label="Total Bill Amount (BDT)" id="totalAmount" type="number" min={0.01} step="0.01" required value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} error={errors.totalAmount} />
+                <TextField label="Paid Amount Now" id="paidAmount" type="number" min={0} step="0.01" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} error={errors.paidAmount} />
+                <TextField label="Payment Due By" id="dueDate" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
               </div>
-              <TextField label="Total Bill Amount (৳)" id="totalAmount" type="number" min={0.01} step="0.01" required placeholder="e.g. 250000" value={totalAmount} onChange={e => setTotalAmount(e.target.value)} error={errors.totalAmount} />
-              <TextField label="Payment Due By (optional)" id="dueDate" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} hint="Leave blank if no fixed due date" />
             </FormSection>
 
-            <TextareaField label="Notes (optional)" id="notes" placeholder="What this bill is for, delivery details, etc." value={notes} onChange={e => setNotes(e.target.value)} rows={2} />
+            <FormSection title="Bill Line Items">
+              <div className="space-y-3">
+                {items.map((item, index) => (
+                  <div key={index} className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_0.7fr_0.7fr_0.8fr_0.9fr_auto] gap-2 rounded-md border p-3">
+                    <TextField label="Material / Line" id={`itemDesc${index}`} value={item.description} onChange={(e) => updateItem(index, { description: e.target.value })} error={errors[`item-${index}`]} />
+                    <Field label="Category" htmlFor={`itemCat${index}`}>
+                      <Select value={item.category} onValueChange={(value) => updateItem(index, { category: value })}>
+                        <SelectTrigger id={`itemCat${index}`}><SelectValue /></SelectTrigger>
+                        <SelectContent>{CATEGORIES.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </Field>
+                    <TextField label="Qty" id={`itemQty${index}`} type="number" min={0} step="0.001" value={item.quantity} onChange={(e) => updateItem(index, { quantity: e.target.value, amount: e.target.value && item.unitPrice ? (Number(e.target.value) * Number(item.unitPrice)).toFixed(2) : item.amount })} />
+                    <TextField label="Unit" id={`itemUnit${index}`} value={item.unit} onChange={(e) => updateItem(index, { unit: e.target.value })} />
+                    <TextField label="Rate" id={`itemRate${index}`} type="number" min={0} step="0.01" value={item.unitPrice} onChange={(e) => updateItem(index, { unitPrice: e.target.value, amount: item.quantity && e.target.value ? (Number(item.quantity) * Number(e.target.value)).toFixed(2) : item.amount })} />
+                    <TextField label="Amount" id={`itemAmount${index}`} type="number" min={0} step="0.01" value={item.amount} onChange={(e) => updateItem(index, { amount: e.target.value })} />
+                    <div className="flex items-end">
+                      <Button type="button" variant="ghost" size="sm" disabled={items.length === 1} onClick={() => setItems((current) => current.filter((_, i) => i !== index))}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <Button type="button" variant="outline" onClick={() => setItems((current) => [...current, emptyItem()])}>
+                  <Plus className="mr-2 h-4 w-4" /> Add Line
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => setTotalAmount(items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0).toFixed(2))}>
+                  Use line total
+                </Button>
+              </div>
+            </FormSection>
+
+            <TextareaField label="Notes" id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
 
             <div className="flex items-center gap-3 pt-2">
               <Button type="submit" disabled={saving} className="min-w-[130px]">
-                {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</> : 'Record Bill'}
+                {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Record Bill'}
               </Button>
               <Button type="button" variant="ghost" onClick={() => router.back()}>Cancel</Button>
             </div>

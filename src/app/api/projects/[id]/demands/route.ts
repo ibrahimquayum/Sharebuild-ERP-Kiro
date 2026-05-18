@@ -15,6 +15,54 @@ const demandSchema = z.object({
   notes: z.string().optional(),
 });
 
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const companyId = (session.user as any).companyId;
+  const { searchParams } = new URL(req.url);
+  const buyerId = searchParams.get('buyerId');
+  const unpaidOnly = searchParams.get('unpaidOnly') === 'true';
+
+  const project = await prisma.project.findFirst({ where: { id: params.id, companyId }, select: { id: true } });
+  if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+
+  const demands = await prisma.demand.findMany({
+    where: {
+      unit: { projectId: project.id },
+      ...(buyerId ? { buyerId } : {}),
+      ...(unpaidOnly ? { status: { in: ['ISSUED', 'PARTIALLY_PAID', 'OVERDUE'] } } : {}),
+    },
+    include: {
+      phase: { select: { id: true, name: true, sequence: true } },
+      unit: { select: { id: true, unitNo: true } },
+      buyer: { select: { id: true, name: true } },
+      collections: { select: { amount: true } },
+    },
+    orderBy: [{ dueDate: 'asc' }, { createdAt: 'asc' }],
+  });
+
+  return NextResponse.json(demands.map((demand) => {
+    const paid = demand.collections.reduce((sum, collection) => sum + Number(collection.amount), 0);
+    const amount = Number(demand.amount);
+    return {
+      id: demand.id,
+      demandNo: demand.demandNo,
+      title: demand.title,
+      phaseId: demand.phaseId,
+      phaseName: demand.phase?.name ?? 'No phase',
+      unitNo: demand.unit.unitNo,
+      buyerId: demand.buyerId,
+      buyerName: demand.buyer.name,
+      amount,
+      paid,
+      due: amount - paid,
+      dueDate: demand.dueDate,
+      status: demand.status,
+    };
+  }));
+}
+
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

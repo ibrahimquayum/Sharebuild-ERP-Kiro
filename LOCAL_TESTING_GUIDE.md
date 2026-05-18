@@ -201,7 +201,7 @@ This creates all the tables in your PostgreSQL database.
    ```
    npx prisma migrate dev
    ```
-2. Prisma will apply the committed migrations (`0001_init`, `0002_project_setup_fields`, then `0003_product_foundation`) automatically.
+2. Prisma will apply the committed migrations (`0001_init`, `0002_project_setup_fields`, `0003_product_foundation`, then `0004_expense_field_entry`) automatically.
 3. Wait for it to finish. You should see:
    ```
    The following migration(s) have been applied:
@@ -210,7 +210,9 @@ This creates all the tables in your PostgreSQL database.
      │  └─ migration.sql
     ├─ 0002_project_setup_fields/
     │  └─ migration.sql
-    └─ 0003_product_foundation/
+    ├─ 0003_product_foundation/
+    │  └─ migration.sql
+    └─ 0004_expense_field_entry/
        └─ migration.sql
 
    Your database is now in sync with your schema.

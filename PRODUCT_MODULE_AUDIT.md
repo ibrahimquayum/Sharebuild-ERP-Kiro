@@ -67,6 +67,17 @@ Current highest-risk gaps are save-flow consistency, document upload completenes
 - Document upload now supports multiple files in one submission and saves every document record.
 - No new Prisma migration was required for these corrections.
 
+## Corrections Applied In Module Completion Pass
+
+- Added bulk field expense entry at `/projects/[id]/expenses/bulk`.
+- Added `POST /api/projects/[id]/expenses/bulk` with transaction-based row creation, optional voucher documents, local shop/person metadata, payment method, and best-effort audit logging.
+- Added migration `0004_expense_field_entry` for expense payment/local shop fields.
+- Collection creation now supports FIFO demand allocation and updates demand status to partially/fully paid.
+- Added `GET /api/projects/[id]/demands` for project-scoped demand lookup and unpaid demand display.
+- Supplier bill creation now supports multiple `SupplierBillItem` rows and optional paid amount.
+- Bulk unit generation now shows a client-side preview before save.
+- Expense list now shows local shop context and missing voucher indicators.
+
 ## Schema Recommendation
 
 No schema change is required for the immediate stabilization pass. Current schema can support logo path storage, bulk unit creation, ownership validation, demand share-splitting, and multi-file document persistence. Future phases should consider dedicated tables for material masters, payment methods, dynamic permissions, local shops, subcontractor bills, and report export jobs.

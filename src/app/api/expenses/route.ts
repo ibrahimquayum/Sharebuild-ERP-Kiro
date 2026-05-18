@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { safeAuditLog } from '@/lib/audit';
+import { can } from '@/lib/permissions';
 
 const createSchema = z.object({
   phaseId: z.string(),
@@ -19,6 +20,10 @@ const createSchema = z.object({
   description: z.string().min(1),
   descriptionBn: z.string().optional(),
   amount: z.number().positive(),
+  paymentMethod: z.enum(['CASH','CHEQUE','BANK_TRANSFER','MOBILE_BANKING','OTHER']).default('CASH'),
+  supplierMode: z.enum(['EXISTING_SUPPLIER','LOCAL_SHOP','NO_SUPPLIER']).default('NO_SUPPLIER'),
+  localShopName: z.string().optional(),
+  localShopPhone: z.string().optional(),
   quantity: z.number().optional(),
   unit: z.string().optional(),
   unitPrice: z.number().optional(),
@@ -59,6 +64,7 @@ export async function POST(req: NextRequest) {
   const companyId = (session.user as any).companyId;
   const userId = (session.user as any).id;
   const userRole = (session.user as any).role;
+  if (!can(userRole, 'expenses', 'create')) return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
 
   const body = await req.json();
   const parsed = createSchema.safeParse(body);
@@ -68,6 +74,12 @@ export async function POST(req: NextRequest) {
 
   const phase = await prisma.phase.findFirst({ where: { id: d.phaseId, project: { companyId } } });
   if (!phase) return NextResponse.json({ error: 'Phase not found' }, { status: 404 });
+  if (d.supplierMode === 'EXISTING_SUPPLIER' && !d.supplierId) {
+    return NextResponse.json({ error: 'Select a supplier or switch supplier type.' }, { status: 400 });
+  }
+  if (d.supplierMode === 'LOCAL_SHOP' && !d.localShopName?.trim()) {
+    return NextResponse.json({ error: 'Local shop/person name is required for local shop expenses.' }, { status: 400 });
+  }
 
   // Auto-approve for admins/managers
   const autoApprove = ['COMPANY_ADMIN', 'MANAGER'].includes(userRole);
@@ -80,6 +92,10 @@ export async function POST(req: NextRequest) {
       description: d.description,
       descriptionBn: d.descriptionBn,
       amount: d.amount,
+      paymentMethod: d.paymentMethod,
+      supplierMode: d.supplierMode,
+      localShopName: d.localShopName,
+      localShopPhone: d.localShopPhone,
       quantity: d.quantity,
       unit: d.unit,
       unitPrice: d.unitPrice,

@@ -62,7 +62,13 @@ Login: `admin@relaxdevelopers.com` / `admin123`
 - [ ] `/projects/[id]/demands` shows created demands.
 - [ ] `/projects/[id]/collections` remains project-scoped.
 - [ ] `/projects/[id]/expenses` remains project-scoped.
+- [ ] `/projects/[id]/expenses/bulk` creates multiple pending/approved field expenses.
+- [ ] Bulk expense rows support existing supplier, local shop, and no supplier/cash modes.
+- [ ] Bulk expense voucher upload creates linked expense documents.
+- [ ] Expenses without voucher show Missing indicator.
 - [ ] `/projects/[id]/payables` remains project-scoped.
+- [ ] Supplier bill creation accepts multiple line items and paid amount.
+- [ ] Collection creation allocates FIFO to unpaid demands and updates demand status.
 
 ## G. Reports
 

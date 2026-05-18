@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { formatBDT, formatBDTCompact, formatDate, expenseCategoryLabel, cn } from '@/lib/utils';
-import { ShoppingCart, TrendingDown, Clock, CheckCircle2, Plus } from 'lucide-react';
+import { ShoppingCart, TrendingDown, Clock, CheckCircle2, Plus, Rows3 } from 'lucide-react';
 import Link from 'next/link';
 import { StatCard } from '@/components/shared/stat-card';
 import { Card, CardContent } from '@/components/ui/card';
@@ -36,6 +36,7 @@ export default async function ProjectExpensesPage({ params }: { params: { id: st
         phase:     { select: { id: true, name: true } },
         supplier:  { select: { id: true, name: true } },
         createdBy: { select: { name: true } },
+        _count: { select: { documents: true } },
       },
       orderBy: { expenseDate: 'desc' },
       take: 200,
@@ -68,6 +69,12 @@ export default async function ProjectExpensesPage({ params }: { params: { id: st
               <Clock className="h-3.5 w-3.5" /> {pending} pending
             </Link>
           )}
+          <Link
+            href={`/projects/${project.id}/expenses/bulk`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-medium hover:bg-muted transition-colors"
+          >
+            <Rows3 className="h-3.5 w-3.5" /> Bulk Entry
+          </Link>
           <Link
             href={`/projects/${project.id}/expenses/new`}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 transition-colors"
@@ -119,6 +126,7 @@ export default async function ProjectExpensesPage({ params }: { params: { id: st
                           <div className="font-medium">{e.description}</div>
                           {e.billNo && <div className="text-xs font-mono text-muted-foreground">Bill# {e.billNo}</div>}
                           {e.supplier && <div className="text-xs text-muted-foreground">{e.supplier.name}</div>}
+                          {e.localShopName && <div className="text-xs text-muted-foreground">Local shop: {e.localShopName}{e.localShopPhone ? ` · ${e.localShopPhone}` : ''}</div>}
                         </td>
                         <td className="px-4 py-3 text-xs">
                           <Link href={`/phases/${e.phase.id}`} className="hover:text-primary hover:underline text-muted-foreground">{e.phase.name}</Link>
@@ -129,7 +137,9 @@ export default async function ProjectExpensesPage({ params }: { params: { id: st
                           <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', sm.color)}>{sm.label}</span>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <Link href={`/expenses/${e.id}/upload`} className="text-xs text-muted-foreground hover:text-primary" title="Upload voucher">📎</Link>
+                          <Link href={`/expenses/${e.id}/upload`} className={cn('text-xs hover:text-primary', e._count.documents === 0 ? 'text-amber-600 font-medium' : 'text-muted-foreground')} title="Upload voucher">
+                            {e._count.documents === 0 ? 'Missing' : `${e._count.documents} file${e._count.documents === 1 ? '' : 's'}`}
+                          </Link>
                         </td>
                       </tr>
                     );

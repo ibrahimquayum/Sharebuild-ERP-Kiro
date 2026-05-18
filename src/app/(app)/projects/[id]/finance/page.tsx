@@ -22,6 +22,7 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
     { label: 'Demands & Due', href: `/projects/${project.id}/demands`, icon: FileText },
     { label: 'Collections', href: `/projects/${project.id}/collections`, icon: Receipt },
     { label: 'Expenses', href: `/projects/${project.id}/expenses`, icon: ShoppingCart },
+    { label: 'Bulk Expense Entry', href: `/projects/${project.id}/expenses/bulk`, icon: ShoppingCart },
     { label: 'Supplier Bills', href: `/projects/${project.id}/payables`, icon: Truck },
     { label: 'Supplier Payments', href: `/projects/${project.id}/payables/payments`, icon: Banknote },
     { label: 'Subcontractor Bills', href: `/projects/${project.id}/subcontractors/bills`, icon: Truck },

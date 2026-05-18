@@ -7,6 +7,16 @@ import { Button } from '@/components/ui/button';
 import { Field, FormError, FormSuccess, TextareaField, TextField } from '@/components/shared/form-field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+function letterFor(index: number) {
+  let value = index;
+  let label = '';
+  while (value >= 0) {
+    label = String.fromCharCode(65 + (value % 26)) + label;
+    value = Math.floor(value / 26) - 1;
+  }
+  return label;
+}
+
 export function BulkUnitForm({
   projectId,
   defaultFloors,
@@ -29,6 +39,20 @@ export function BulkUnitForm({
   const [unitType, setUnitType] = useState('FLAT');
   const [status, setStatus] = useState('AVAILABLE');
   const [notes, setNotes] = useState('');
+  const preview = (() => {
+    const start = Number(startFloor);
+    const floors = Number(floorCount);
+    const perFloor = Number(unitsPerFloor);
+    if (!Number.isInteger(start) || !Number.isInteger(floors) || !Number.isInteger(perFloor) || floors < 1 || perFloor < 1) return [];
+    const units: string[] = [];
+    for (let floorIndex = 0; floorIndex < Math.min(floors, 20); floorIndex += 1) {
+      const floor = start + floorIndex;
+      for (let unitIndex = 1; unitIndex <= Math.min(perFloor, 12); unitIndex += 1) {
+        units.push(namingPattern === 'LETTER_UNIT' ? `${prefix}${letterFor(floorIndex)}${unitIndex}` : `${prefix}${floor}-${unitIndex}`);
+      }
+    }
+    return units;
+  })();
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -116,6 +140,16 @@ export function BulkUnitForm({
         </Field>
       </div>
       <TextareaField label="Notes" id="bulkNotes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+      <div className="rounded-md border bg-muted/20 p-3">
+        <div className="text-xs font-semibold text-muted-foreground uppercase">Preview</div>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {preview.slice(0, 36).map((unitNo) => (
+            <span key={unitNo} className="rounded border bg-background px-2 py-1 text-xs">{unitNo}</span>
+          ))}
+          {preview.length > 36 && <span className="px-2 py-1 text-xs text-muted-foreground">+{preview.length - 36} more</span>}
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">Duplicates are rejected by the server before any units are created.</p>
+      </div>
       <Button type="submit" disabled={saving}>
         {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</> : 'Generate Units'}
       </Button>

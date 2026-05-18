@@ -19,6 +19,7 @@ const createSchema = z.object({
   receiptNo: z.string().optional(),
   receivedDate: z.string().optional(),
   notes: z.string().optional(),
+  allocationMode: z.enum(['FIFO', 'SINGLE']).default('FIFO'),
 });
 
 export async function GET(req: NextRequest) {
@@ -64,23 +65,88 @@ export async function POST(req: NextRequest) {
   // Verify buyer belongs to company
   const buyer = await prisma.buyer.findFirst({ where: { id: d.buyerId, companyId } });
   if (!buyer) return NextResponse.json({ error: 'Buyer not found' }, { status: 404 });
+  if (d.demandId) {
+    const demand = await prisma.demand.findFirst({ where: { id: d.demandId, buyerId: d.buyerId, phaseId: d.phaseId, unit: { projectId: phase.projectId } } });
+    if (!demand) return NextResponse.json({ error: 'Demand not found for this buyer, phase, and project.' }, { status: 404 });
+  }
 
-  const collection = await prisma.collection.create({
-    data: {
-      phaseId: d.phaseId,
-      buyerId: d.buyerId,
-      demandId: d.demandId,
-      amount: d.amount,
-      paymentMethod: d.paymentMethod,
-      transactionType: d.transactionType,
-      chequeNo: d.chequeNo,
-      chequeDate: d.chequeDate ? new Date(d.chequeDate) : undefined,
-      bankName: d.bankName,
-      reference: d.reference,
-      receiptNo: d.receiptNo,
-      receivedDate: d.receivedDate ? new Date(d.receivedDate) : new Date(),
-      notes: d.notes,
-    },
+  const receivedDate = d.receivedDate ? new Date(d.receivedDate) : new Date();
+  const baseCollectionData = {
+    buyerId: d.buyerId,
+    paymentMethod: d.paymentMethod,
+    transactionType: d.transactionType,
+    chequeNo: d.chequeNo,
+    chequeDate: d.chequeDate ? new Date(d.chequeDate) : undefined,
+    bankName: d.bankName,
+    reference: d.reference,
+    receiptNo: d.receiptNo,
+    receivedDate,
+    notes: d.notes,
+  };
+
+  const collections = await prisma.$transaction(async (tx) => {
+    if (d.demandId || d.allocationMode === 'SINGLE') {
+      const collection = await tx.collection.create({
+        data: { ...baseCollectionData, phaseId: d.phaseId, demandId: d.demandId, amount: d.amount },
+      });
+      if (d.demandId) {
+        const demand = await tx.demand.findUnique({
+          where: { id: d.demandId },
+          include: { collections: { select: { amount: true } } },
+        });
+        if (demand) {
+          const paid = demand.collections.reduce((sum, item) => sum + Number(item.amount), 0);
+          const amount = Number(demand.amount);
+          await tx.demand.update({
+            where: { id: demand.id },
+            data: { status: paid >= amount ? 'FULLY_PAID' : paid > 0 ? 'PARTIALLY_PAID' : demand.status },
+          });
+        }
+      }
+      return [collection];
+    }
+
+    let remaining = d.amount;
+    const created = [];
+    const demands = await tx.demand.findMany({
+      where: {
+        buyerId: d.buyerId,
+        phaseId: d.phaseId,
+        status: { in: ['ISSUED', 'PARTIALLY_PAID', 'OVERDUE'] },
+      },
+      include: { collections: { select: { amount: true } } },
+      orderBy: [{ dueDate: 'asc' }, { createdAt: 'asc' }],
+    });
+
+    for (const demand of demands) {
+      if (remaining <= 0) break;
+      const paid = demand.collections.reduce((sum, item) => sum + Number(item.amount), 0);
+      const due = Math.max(Number(demand.amount) - paid, 0);
+      if (due <= 0) continue;
+      const allocated = Math.min(remaining, due);
+      created.push(await tx.collection.create({
+        data: { ...baseCollectionData, phaseId: d.phaseId, demandId: demand.id, amount: allocated },
+      }));
+      remaining -= allocated;
+      const newPaid = paid + allocated;
+      await tx.demand.update({
+        where: { id: demand.id },
+        data: { status: newPaid >= Number(demand.amount) ? 'FULLY_PAID' : 'PARTIALLY_PAID' },
+      });
+    }
+
+    if (remaining > 0 || created.length === 0) {
+      created.push(await tx.collection.create({
+        data: {
+          ...baseCollectionData,
+          phaseId: d.phaseId,
+          amount: remaining > 0 ? remaining : d.amount,
+          notes: [d.notes, remaining > 0 ? 'Advance/credit after FIFO demand allocation.' : 'Unallocated collection.'].filter(Boolean).join(' '),
+        },
+      }));
+    }
+
+    return created;
   });
 
   await safeAuditLog({
@@ -88,10 +154,10 @@ export async function POST(req: NextRequest) {
     projectId: phase.projectId,
     action: 'CREATE',
     entityType: 'collection',
-    entityId: collection.id,
-    newValues: collection,
+    entityId: collections[0]?.id,
+    newValues: { count: collections.length, amount: d.amount, buyerId: d.buyerId, phaseId: d.phaseId, allocationMode: d.allocationMode },
     context: 'collection create',
   });
 
-  return NextResponse.json(collection, { status: 201 });
+  return NextResponse.json(collections.length === 1 ? collections[0] : { count: collections.length, collections }, { status: 201 });
 }
