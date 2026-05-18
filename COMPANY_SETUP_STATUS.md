@@ -7,6 +7,7 @@
 | Area | Route | Persistence |
 | --- | --- | --- |
 | Company profile and branding | `/company/settings` | `Company`, `CompanySetting`, audit log |
+| Company logo upload | `/company/settings` | Local file under `public/uploads/[companyId]/branding`, `Company.logoUrl` |
 | Report footer note | `/company/settings` | `CompanySetting.reportFooterNote` |
 | Contacts / Buyers master | `/company/contacts`, `/company/contacts/[id]`, `/company/contacts/new` | `Buyer` |
 | Suppliers master | `/company/suppliers`, `/company/suppliers/[id]`, `/company/suppliers/[id]/edit`, `/company/suppliers/new` | `Supplier` |
@@ -49,7 +50,7 @@ Yes:
 - Editable category master tables.
 - Editable payment-method settings table.
 - Dynamic database-backed role/permission editor.
-- Logo upload pipeline; company settings currently accepts a logo URL/path.
+- Cloud object storage for company logos and documents. Current upload storage is local disk.
 
 ## Recommended Next Step
 

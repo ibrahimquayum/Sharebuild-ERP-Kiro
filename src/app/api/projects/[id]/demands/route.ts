@@ -4,13 +4,14 @@ import { z } from 'zod';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { can } from '@/lib/permissions';
+import { safeAuditLog } from '@/lib/audit';
 
 const demandSchema = z.object({
   title: z.string().min(1),
   phaseId: z.string().min(1),
   allocationIds: z.array(z.string().min(1)).min(1),
   amount: z.number().positive(),
-  dueDate: z.string().optional(),
+  dueDate: z.string().optional().refine((value) => !value || !Number.isNaN(new Date(value).getTime()), 'Invalid due date.'),
   notes: z.string().optional(),
 });
 
@@ -40,9 +41,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (allocations.length !== parsed.data.allocationIds.length) {
     return NextResponse.json({ error: 'One or more buyer/unit allocations were not found in this project.' }, { status: 400 });
   }
+  const payerOnly = allocations.find((allocation) => allocation.relationship === 'PAYER_ONLY');
+  if (payerOnly) {
+    return NextResponse.json({ error: 'Payer-only rows cannot receive ownership demands. Select owner or co-owner rows.' }, { status: 400 });
+  }
 
   const sequenceStart = await prisma.demand.count({ where: { unit: { projectId: project.id } } });
   const dueDate = parsed.data.dueDate ? new Date(parsed.data.dueDate) : undefined;
+  const perUnitAmount = parsed.data.amount;
 
   const demands = await prisma.$transaction(
     allocations.map((allocation, index) => prisma.demand.create({
@@ -51,26 +57,25 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         buyerId: allocation.buyerId,
         phaseId: phase.id,
         title: parsed.data.title,
-        amount: parsed.data.amount,
+        amount: perUnitAmount * (Number(allocation.sharePercent) / 100),
         dueDate,
         status: 'ISSUED',
         issuedAt: new Date(),
-        notes: parsed.data.notes,
+        notes: parsed.data.notes ?? `Generated from per-unit amount ${perUnitAmount} and ${Number(allocation.sharePercent)}% ownership share.`,
         demandNo: `DN-${String(sequenceStart + index + 1).padStart(4, '0')}`,
       },
     }))
   );
 
-  await prisma.auditLog.create({
-    data: {
-      userId: (session.user as any).id,
-      projectId: project.id,
-      action: 'CREATE',
-      entityType: 'demand',
-      entityId: demands[0]?.id,
-      newValues: { count: demands.length, ...parsed.data } as any,
-    },
+  await safeAuditLog({
+    userId: (session.user as any).id,
+    projectId: project.id,
+    action: 'CREATE',
+    entityType: 'demand',
+    entityId: demands[0]?.id,
+    newValues: { count: demands.length, perUnitAmount, ...parsed.data },
+    context: 'demand create',
   });
 
-  return NextResponse.json({ count: demands.length }, { status: 201 });
+  return NextResponse.json({ count: demands.length, totalAmount: demands.reduce((sum, demand) => sum + Number(demand.amount), 0) }, { status: 201 });
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { safeAuditLog } from '@/lib/audit';
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -20,6 +21,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const expense = await prisma.expense.findFirst({
     where: { id: params.id, phase: { project: { companyId } } },
+    include: { phase: { select: { projectId: true } } },
   });
   if (!expense) return NextResponse.json({ error: 'Expense not found' }, { status: 404 });
 
@@ -28,15 +30,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     data: { status: 'DISPUTED', notes: reason ? `Rejected: ${reason}` : 'Rejected by reviewer' },
   });
 
-  await prisma.auditLog.create({
-    data: {
-      userId,
-      action: 'REJECT',
-      entityType: 'expense',
-      entityId: params.id,
-      oldValues: { status: expense.status } as any,
-      newValues: { status: 'DISPUTED', reason } as any,
-    },
+  await safeAuditLog({
+    userId,
+    projectId: expense.phase.projectId,
+    action: 'REJECT',
+    entityType: 'expense',
+    entityId: params.id,
+    oldValues: { status: expense.status },
+    newValues: { status: 'DISPUTED', reason },
+    context: 'expense reject',
   });
 
   return NextResponse.json(updated);

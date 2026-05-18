@@ -1,11 +1,13 @@
 # Development Status - Sharebuild ERP
 
-**Last updated:** May 17, 2026  
+**Last updated:** May 18, 2026
 **Branch:** `feat/erp-v1`
 
 ## Current State
 
 Sharebuild ERP now has a buildable project-first foundation. Sharebuild remains the platform brand, while tenant company branding is loaded from Company Settings for report/print surfaces.
+
+This pass added the required `PRODUCT_MODULE_AUDIT.md` and tightened the foundation without changing schema or seed totals.
 
 ## Verified
 
@@ -17,6 +19,7 @@ Sharebuild ERP now has a buildable project-first foundation. Sharebuild remains 
 | Seed | Pass | `npm run db:seed` |
 | Project create/edit save | Pass | Authenticated API create returned 201 and update returned 200 |
 | Top Sheet totals | Pass | Income 100,143,800 / Expense 104,659,890.40 / Balance -4,516,090.40 |
+| Product foundation build | Pass | `npm run build` after save-flow and bulk/document fixes |
 
 ## Implemented In This Pass
 
@@ -28,17 +31,21 @@ Sharebuild ERP now has a buildable project-first foundation. Sharebuild remains 
   - `/projects/[id]/units/[unitId]`
   - `POST /api/projects/[id]/units`
   - `PUT /api/projects/[id]/units/[unitId]`
+  - `POST /api/projects/[id]/units/bulk`
+  - Bulk generation from floor/unit plan using existing `Unit` persistence.
 - Buyer ownership foundation:
   - Project-scoped Buyers & Ownership page.
   - Unit ownership share.
   - Co-owner support through multiple `UnitBuyer` rows.
   - Payer flag for payer-vs-owner foundation.
   - Project buyer detail/ledger route.
+  - Ownership share validation now prevents a unit from exceeding 100% owner share.
 - Document foundation:
   - Project document library.
   - Project document upload route.
   - Document scope/category/title/sort/status metadata.
   - Project, buyer, unit, phase, expense, and bill document relations.
+  - Multi-file upload now saves every selected PDF/image/document with sort order.
 - Finance foundation:
   - `/projects/[id]/finance`
   - Project-scoped finance summary and links to daily money pages.
@@ -56,17 +63,23 @@ Sharebuild ERP now has a buildable project-first foundation. Sharebuild remains 
   - Practical guards added to new project/unit/buyer/document/demand APIs.
 - Project audit page now reads `AuditLog`.
 - Company settings now includes report footer note.
+- Company settings now supports local logo upload, preview, remove, registration/trade license, and TIN/VAT fields using existing company columns.
+- Audit logging is best-effort on common save flows, so an audit failure no longer falsely marks the main save as failed.
 
 ## Schema Changes
 
-Yes. One migration was added:
+No new schema change was added in the May 18 stabilization pass.
+
+Existing schema changes remain:
 
 ```text
+prisma/migrations/0002_project_setup_fields/migration.sql
 prisma/migrations/0003_product_foundation/migration.sql
 ```
 
 It adds:
 
+- Project setup fields and company branding fields used by the settings form.
 - New user roles for the permission foundation.
 - Additional unit type/status values.
 - `DocumentScope` and `DocumentStatus`.
@@ -82,6 +95,7 @@ It adds:
 - Subcontractor bill creation is still not fully separated from supplier payable internals.
 - Payment allocation against demands is basic; deeper allocation/reversal logic is a future accounting step.
 - File upload remains local disk under `public/uploads/[companyId]`.
+- Local shop / one-time vendor purchasing is not modeled as a dedicated flow yet.
 
 ## Next Recommended Build Step
 

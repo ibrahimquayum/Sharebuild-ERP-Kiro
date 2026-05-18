@@ -75,10 +75,10 @@ export function DemandForm({ projectId, phases, allocations }: { projectId: stri
             </SelectContent>
           </Select>
         </Field>
-        <TextField label="Equal Amount Per Selected Buyer/Unit" id="amount" required type="number" min={0.01} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <TextField label="Equal Amount Per Unit" id="amount" required type="number" min={0.01} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
         <TextField label="Due Date" id="dueDate" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
       </div>
-      <Field label="Buyer / Unit Allocations" htmlFor="allocations" required hint="For this pass, the same amount is issued to each selected buyer/unit row.">
+      <Field label="Buyer / Unit Allocations" htmlFor="allocations" required hint="Amount is calculated per unit, then split by ownership share. A buyer with two full units receives two unit demands.">
         <div id="allocations" className="max-h-72 overflow-y-auto rounded-md border divide-y">
           {allocations.length === 0 ? (
             <div className="p-4 text-sm text-muted-foreground">No buyer/unit allocations yet. Add units and assign buyers first.</div>

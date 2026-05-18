@@ -6,6 +6,7 @@ import { writeFile, mkdir } from 'fs/promises';
 import { join, extname } from 'path';
 import { randomUUID } from 'crypto';
 import { can } from '@/lib/permissions';
+import { safeAuditLog } from '@/lib/audit';
 
 // Max 10 MB
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -90,7 +91,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid form data' }, { status: 400 });
   }
 
-  const file        = formData.get('file') as File | null;
+  const files       = formData.getAll('file').filter((item): item is File => item instanceof File && item.size > 0);
   const expenseId   = formData.get('expenseId')   as string | null;
   const buyerId     = formData.get('buyerId')     as string | null;
   const projectId   = formData.get('projectId')   as string | null;
@@ -103,18 +104,20 @@ export async function POST(req: NextRequest) {
   const sortOrder   = formData.get('sortOrder')   as string | null;
   const description = formData.get('description') as string | null;
 
-  if (!file) return NextResponse.json({ error: 'No file uploaded.' }, { status: 400 });
+  if (files.length === 0) return NextResponse.json({ error: 'No file uploaded.' }, { status: 400 });
   if (!projectId && !buyerId && !expenseId && !unitId && !phaseId && !payableId) {
     return NextResponse.json({ error: 'Choose at least one document scope or linked record.' }, { status: 400 });
   }
-  if (!ALLOWED_TYPES.has(file.type)) {
-    return NextResponse.json(
-      { error: 'File type not allowed. Use JPG, PNG, PDF, Excel, or Word documents.' },
-      { status: 400 }
-    );
-  }
-  if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: 'File is too large. Maximum allowed size is 10 MB.' }, { status: 400 });
+  for (const file of files) {
+    if (!ALLOWED_TYPES.has(file.type)) {
+      return NextResponse.json(
+        { error: `${file.name} is not allowed. Use JPG, PNG, PDF, Excel, or Word documents.` },
+        { status: 400 }
+      );
+    }
+    if (file.size > MAX_BYTES) {
+      return NextResponse.json({ error: `${file.name} is too large. Maximum allowed size is 10 MB.` }, { status: 400 });
+    }
   }
 
   const [project, buyer, unit, phase, expense, payable] = await Promise.all([
@@ -134,45 +137,51 @@ export async function POST(req: NextRequest) {
   const uploadDir = join(process.cwd(), 'public', 'uploads', companyId);
   await mkdir(uploadDir, { recursive: true });
 
-  const ext      = extname(file.name) || '.bin';
-  const fileName = `${randomUUID()}${ext}`;
-  const filePath = join(uploadDir, fileName);
-  const buffer   = Buffer.from(await file.arrayBuffer());
-  await writeFile(filePath, buffer);
+  const documents = [];
+  for (let index = 0; index < files.length; index += 1) {
+    const file = files[index];
+    const ext      = extname(file.name) || '.bin';
+    const fileName = `${randomUUID()}${ext}`;
+    const filePath = join(uploadDir, fileName);
+    const buffer   = Buffer.from(await file.arrayBuffer());
+    await writeFile(filePath, buffer);
 
-  const fileUrl = `/uploads/${companyId}/${fileName}`;
+    const fileUrl = `/uploads/${companyId}/${fileName}`;
+    const baseTitle = title?.trim();
 
-  const document = await prisma.document.create({
-    data: {
-      fileName:    file.name,
-      fileUrl,
-      fileType:    file.type,
-      fileSize:    file.size,
-      title:       title?.trim() || file.name,
-      category:    category?.trim() || 'other',
-      scope:       (scope || (expenseId ? 'EXPENSE' : buyerId ? 'BUYER' : unitId ? 'UNIT' : phaseId ? 'PHASE' : payableId ? 'SUPPLIER_BILL' : 'PROJECT')) as any,
-      sortOrder:   sortOrder ? Number(sortOrder) || 0 : 0,
-      description: description?.trim() ?? undefined,
-      expenseId:   expenseId   ?? undefined,
-      buyerId:     buyerId     ?? undefined,
-      projectId:   projectId   ?? undefined,
-      unitId:      unitId      ?? undefined,
-      phaseId:     phaseId     ?? undefined,
-      payableId:   payableId   ?? undefined,
-      uploadedById: (session.user as any).id,
-    },
+    const document = await prisma.document.create({
+      data: {
+        fileName:    file.name,
+        fileUrl,
+        fileType:    file.type,
+        fileSize:    file.size,
+        title:       files.length === 1 ? (baseTitle || file.name) : `${baseTitle || 'Document'} - ${file.name}`,
+        category:    category?.trim() || 'other',
+        scope:       (scope || (expenseId ? 'EXPENSE' : buyerId ? 'BUYER' : unitId ? 'UNIT' : phaseId ? 'PHASE' : payableId ? 'SUPPLIER_BILL' : 'PROJECT')) as any,
+        sortOrder:   (sortOrder ? Number(sortOrder) || 0 : 0) + index,
+        description: description?.trim() ?? undefined,
+        expenseId:   expenseId   ?? undefined,
+        buyerId:     buyerId     ?? undefined,
+        projectId:   projectId   ?? undefined,
+        unitId:      unitId      ?? undefined,
+        phaseId:     phaseId     ?? undefined,
+        payableId:   payableId   ?? undefined,
+        uploadedById: (session.user as any).id,
+      },
+    });
+
+    documents.push(document);
+  }
+
+  await safeAuditLog({
+    userId: (session.user as any).id,
+    projectId: projectId ?? unit?.projectId ?? phase?.projectId ?? expense?.phase.projectId ?? payable?.projectId,
+    action: 'CREATE',
+    entityType: 'document',
+    entityId: documents[0]?.id,
+    newValues: { count: documents.length, documentIds: documents.map((document) => document.id), scope, category },
+    context: 'document upload',
   });
 
-  await prisma.auditLog.create({
-    data: {
-      userId: (session.user as any).id,
-      projectId: projectId ?? unit?.projectId ?? phase?.projectId ?? expense?.phase.projectId ?? payable?.projectId,
-      action: 'CREATE',
-      entityType: 'document',
-      entityId: document.id,
-      newValues: document as any,
-    },
-  });
-
-  return NextResponse.json(document, { status: 201 });
+  return NextResponse.json(files.length === 1 ? documents[0] : { count: documents.length, documents }, { status: 201 });
 }

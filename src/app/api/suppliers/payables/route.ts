@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { safeAuditLog } from '@/lib/audit';
 
 const createSchema = z.object({
   supplierId:  z.string().min(1),
@@ -84,15 +85,14 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  await prisma.auditLog.create({
-    data: {
-      userId,
-      projectId:  d.projectId,
-      action:     'CREATE',
-      entityType: 'supplier_payable',
-      entityId:   payable.id,
-      newValues:  payable as any,
-    },
+  await safeAuditLog({
+    userId,
+    projectId:  d.projectId,
+    action:     'CREATE',
+    entityType: 'supplier_payable',
+    entityId:   payable.id,
+    newValues:  payable,
+    context: 'supplier payable create',
   });
 
   return NextResponse.json(payable, { status: 201 });

@@ -201,15 +201,17 @@ This creates all the tables in your PostgreSQL database.
    ```
    npx prisma migrate dev
    ```
-2. Prisma will apply the committed migrations (`0001_init`, then `0002_project_setup_fields`) automatically.
+2. Prisma will apply the committed migrations (`0001_init`, `0002_project_setup_fields`, then `0003_product_foundation`) automatically.
 3. Wait for it to finish. You should see:
    ```
    The following migration(s) have been applied:
    migrations/
      ├─ 0001_init/
      │  └─ migration.sql
-     └─ 0002_project_setup_fields/
-        └─ migration.sql
+    ├─ 0002_project_setup_fields/
+    │  └─ migration.sql
+    └─ 0003_product_foundation/
+       └─ migration.sql
 
    Your database is now in sync with your schema.
    ```
@@ -283,6 +285,14 @@ You should see the dashboard with:
 - Total Collection: ৳ 10.01 Cr
 - Total Expense: ৳ 10.47 Cr
 - Balance: −৳ 45.16 L
+
+Uploaded company logos and project documents are stored locally under:
+
+```text
+public/uploads/[companyId]/
+```
+
+For production, move uploads to managed object storage before opening the system to external companies.
 
 ---
 

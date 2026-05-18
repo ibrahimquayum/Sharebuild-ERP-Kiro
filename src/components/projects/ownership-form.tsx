@@ -87,7 +87,7 @@ export function OwnershipForm({ projectId, buyers, units }: { projectId: string;
             </SelectContent>
           </Select>
         </Field>
-        <Field label="Payment Role" htmlFor="isPayer">
+        <Field label="Payment Role" htmlFor="isPayer" hint="Most buyers pay by ownership share. Use payer-only only when a payer is different from the owner.">
           <Select value={isPayer} onValueChange={setIsPayer}>
             <SelectTrigger id="isPayer"><SelectValue /></SelectTrigger>
             <SelectContent>

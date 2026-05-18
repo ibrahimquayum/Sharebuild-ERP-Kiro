@@ -13,6 +13,10 @@
 
 ## Completed Foundation
 
+### Product Audit
+
+- `PRODUCT_MODULE_AUDIT.md` now records the current state of 30 product modules, including real persistence, UI-only areas, missing schema pieces, report/export gaps, and fix priority.
+
 ### Project Save Stability
 
 - `/projects/new` create API now returns useful validation/server errors.
@@ -35,8 +39,10 @@
 ### Units And Ownership
 
 - Unit list, create, and detail/edit pages exist.
+- Bulk unit generation now persists units through `POST /api/projects/[id]/units/bulk`.
 - Buyer/unit assignment persists through `ProjectBuyer` and `UnitBuyer`.
 - Ownership share, co-owner rows, payer flag, and relationship metadata are stored.
+- Ownership share validation prevents owner/co-owner rows for one unit from exceeding 100%.
 - Buyer financials are shown in project context only.
 
 ### Documents
@@ -44,6 +50,7 @@
 - Document scope/category/title/sort/status fields exist.
 - Documents can link to project, buyer, unit, phase, expense, and supplier/subcontractor bill records.
 - Project document library and upload page exist.
+- Upload now accepts multiple files in one submission and saves each file to local storage and the database.
 
 ### Finance
 
@@ -60,6 +67,7 @@
 ### Branding
 
 - Company Settings stores tenant branding and report footer note.
+- Company Settings supports local logo upload, logo preview, logo removal, registration/trade license, and TIN/VAT fields.
 - Project report header displays tenant/company identity.
 - Sharebuild remains the system/platform identity.
 
@@ -68,6 +76,12 @@
 - Central code-level permission matrix exists.
 - New product APIs apply basic permission guards.
 - Future dynamic permission editing remains a schema/UI gap.
+
+### Save Stability
+
+- Common create/update flows use best-effort audit logging, so a failed audit entry does not turn a successful business save into a false UI failure.
+- Company settings returns a consistent success envelope and clearer validation/server messages.
+- Demand creation calculates demand from a per-unit amount and splits by ownership share.
 
 ## Known Incomplete Areas
 
@@ -79,6 +93,8 @@
 - Editable materials/categories/payment-method master tables.
 - Cloud object storage for uploads.
 - Dynamic database-backed permissions.
+- Dedicated local shop / one-time vendor purchase flow.
+- Full carry-forward/final reconciliation accounting.
 
 ## Next Safest Build Step
 

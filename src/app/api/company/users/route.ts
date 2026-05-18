@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { safeAuditLog } from '@/lib/audit';
 
 const userSchema = z.object({
   name: z.string().min(1),
@@ -50,14 +51,13 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  await prisma.auditLog.create({
-    data: {
-      userId: (session.user as any).id,
-      action: 'CREATE',
-      entityType: 'user',
-      entityId: user.id,
-      newValues: { id: user.id, email: user.email, role: user.role },
-    },
+  await safeAuditLog({
+    userId: (session.user as any).id,
+    action: 'CREATE',
+    entityType: 'user',
+    entityId: user.id,
+    newValues: { id: user.id, email: user.email, role: user.role },
+    context: 'user create',
   });
 
   return NextResponse.json({

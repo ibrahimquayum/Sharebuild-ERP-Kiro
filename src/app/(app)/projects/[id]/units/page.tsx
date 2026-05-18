@@ -5,8 +5,9 @@ import { Building2, Plus, Users } from 'lucide-react';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { formatBDT, cn } from '@/lib/utils';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatCard } from '@/components/shared/stat-card';
+import { BulkUnitForm } from '@/components/projects/bulk-unit-form';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +25,7 @@ export default async function ProjectUnitsPage({ params }: { params: { id: strin
   const companyId = (session?.user as any)?.companyId ?? '';
   const project = await prisma.project.findFirst({
     where: { id: params.id, companyId },
-    select: { id: true, name: true, totalPlannedUnits: true },
+    select: { id: true, name: true, totalPlannedUnits: true, residentialFloors: true, unitsPerFloor: true },
   });
   if (!project) notFound();
 
@@ -61,6 +62,16 @@ export default async function ProjectUnitsPage({ params }: { params: { id: strin
         <StatCard title="With Buyers" value={String(allocated)} subtitle="Has owner/payer rows" icon={Users} iconColor="text-violet-600" iconBg="bg-violet-50" />
         <StatCard title="Sale Value" value={formatBDT(saleValue)} subtitle="From agreed price" icon={Building2} iconColor="text-amber-600" iconBg="bg-amber-50" />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Bulk Unit Generation</CardTitle>
+          <CardDescription>Generate apartment, parking, shop, common, or utility units from the project plan.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <BulkUnitForm projectId={project.id} defaultFloors={project.residentialFloors} defaultUnitsPerFloor={project.unitsPerFloor} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="p-0">

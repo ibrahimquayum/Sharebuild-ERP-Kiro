@@ -37,6 +37,8 @@ export default async function CompanySettingsPage() {
                 phone: company.phone,
                 email: company.email,
                 website: company.website,
+                registrationNo: company.registrationNo,
+                taxId: company.taxId,
                 defaultCurrency: settingMap.defaultCurrency ?? 'BDT',
                 receiptPrefix: settingMap.receiptPrefix ?? 'RCP',
                 defaultServiceChargePct: settingMap.defaultServiceChargePct ?? '',

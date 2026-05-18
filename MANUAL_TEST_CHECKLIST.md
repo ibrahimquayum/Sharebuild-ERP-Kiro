@@ -37,10 +37,12 @@ Login: `admin@relaxdevelopers.com` / `admin123`
 
 - [ ] `/projects/[id]/units` opens.
 - [ ] `/projects/[id]/units/new` creates a unit.
+- [ ] Bulk unit generation creates many units and rejects duplicate unit numbers.
 - [ ] `/projects/[id]/units/[unitId]` opens and edits unit fields.
 - [ ] `/projects/[id]/buyers` assigns an existing contact to a unit.
 - [ ] Ownership share is displayed.
 - [ ] Co-owners can be represented by multiple buyer rows on one unit.
+- [ ] Ownership share validation prevents total owner share above 100%.
 - [ ] Payer-differs flag displays clearly.
 - [ ] Buyer balances are project-scoped only.
 
@@ -48,7 +50,7 @@ Login: `admin@relaxdevelopers.com` / `admin123`
 
 - [ ] `/projects/[id]/documents` opens.
 - [ ] Search and scope filter do not crash.
-- [ ] `/projects/[id]/documents/upload` uploads a PDF/image.
+- [ ] `/projects/[id]/documents/upload` uploads one or more PDF/image files.
 - [ ] Document title, category, scope, linked buyer/unit/phase, sort order, uploader, and date display.
 - [ ] Uploaded file opens from the document table.
 
@@ -56,7 +58,7 @@ Login: `admin@relaxdevelopers.com` / `admin123`
 
 - [ ] `/projects/[id]/finance` opens.
 - [ ] Finance overview shows demanded, collected, due, expense, supplier payable, subcontractor payable, project balance, missing vouchers, and pending approvals.
-- [ ] `/projects/[id]/demands/new` creates demand records for selected buyer/unit rows.
+- [ ] `/projects/[id]/demands/new` creates demand records from per-unit amount and ownership share.
 - [ ] `/projects/[id]/demands` shows created demands.
 - [ ] `/projects/[id]/collections` remains project-scoped.
 - [ ] `/projects/[id]/expenses` remains project-scoped.
@@ -74,7 +76,8 @@ Login: `admin@relaxdevelopers.com` / `admin123`
 
 ## H. Company Setup
 
-- [ ] `/company/settings` saves company profile and report footer note.
+- [ ] `/company/settings` saves company profile, logo, registration/TIN, and report footer note.
+- [ ] Logo preview appears after upload and report headers use tenant logo.
 - [ ] `/company/contacts` opens.
 - [ ] `/company/suppliers` opens.
 - [ ] `/company/subcontractors` opens.

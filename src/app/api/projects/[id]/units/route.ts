@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { can } from '@/lib/permissions';
+import { safeAuditLog } from '@/lib/audit';
 
 const unitSchema = z.object({
   unitNo: z.string().min(1, 'Unit number is required.'),
@@ -34,15 +35,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     },
   });
 
-  await prisma.auditLog.create({
-    data: {
-      userId: (session.user as any).id,
-      projectId: project.id,
-      action: 'CREATE',
-      entityType: 'unit',
-      entityId: unit.id,
-      newValues: unit as any,
-    },
+  await safeAuditLog({
+    userId: (session.user as any).id,
+    projectId: project.id,
+    action: 'CREATE',
+    entityType: 'unit',
+    entityId: unit.id,
+    newValues: unit,
+    context: 'unit create',
   });
 
   return NextResponse.json(unit, { status: 201 });

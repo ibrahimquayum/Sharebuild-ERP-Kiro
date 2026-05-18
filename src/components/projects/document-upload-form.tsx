@@ -64,15 +64,15 @@ export function DocumentUploadForm({
   const [phaseId, setPhaseId] = useState('');
   const [sortOrder, setSortOrder] = useState('0');
   const [description, setDescription] = useState('');
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError('');
-    if (!file) {
-      setError('Choose a PDF or image to upload.');
+    if (files.length === 0) {
+      setError('Choose at least one PDF or image to upload.');
       return;
     }
     if (!title.trim()) {
@@ -81,7 +81,7 @@ export function DocumentUploadForm({
     }
 
     const data = new FormData();
-    data.set('file', file);
+    files.forEach((file) => data.append('file', file));
     data.set('projectId', projectId);
     data.set('title', title.trim());
     data.set('category', category);
@@ -159,8 +159,9 @@ export function DocumentUploadForm({
           </Select>
         </Field>
         <Field label="File" htmlFor="file" required hint="PDF, JPG, PNG, or WebP up to 10 MB.">
-          <input id="file" type="file" accept="application/pdf,image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm" />
-        </Field>
+              <input id="file" type="file" accept="application/pdf,image/*" multiple onChange={(e) => setFiles(Array.from(e.target.files ?? []))} className="text-sm" />
+              {files.length > 0 && <p className="mt-1 text-xs text-muted-foreground">{files.length} file{files.length === 1 ? '' : 's'} selected</p>}
+            </Field>
       </div>
       <TextareaField label="Notes" id="description" value={description} onChange={(e) => setDescription(e.target.value)} />
       <Button type="submit" disabled={saving}>
