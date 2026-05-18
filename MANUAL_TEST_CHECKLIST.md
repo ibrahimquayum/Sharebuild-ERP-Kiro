@@ -138,3 +138,15 @@ Login: `admin@relaxdevelopers.com` / `admin123`
 - [ ] `/api/projects/[id]/reports/complete-project/excel` downloads populated CSV data.
 - [ ] `/api/projects/[id]/reports/top-sheet/excel` downloads populated CSV data.
 - [ ] `/api/projects/[id]/reports/expenses/excel` downloads populated CSV data.
+
+## M. Product Finishing
+
+- [ ] `/projects/[id]/payables` shows supplier/vendor bills only, not labour contractors or service providers.
+- [ ] `/projects/[id]/payables/new` supplier dropdown excludes labour contractors and service providers.
+- [ ] `/projects/[id]/subcontractors` opens without placeholder/workaround language.
+- [ ] `/projects/[id]/subcontractors/bills` lists subcontractor bills and links to detail.
+- [ ] `/projects/[id]/subcontractors/bills/new` creates a subcontractor bill through the existing payable backend.
+- [ ] `/projects/[id]/payables/payments?type=subcontractor` shows subcontractor payments separately from supplier payments.
+- [ ] Bill detail upload action opens the document uploader with supplier/subcontractor bill scope prefilled.
+- [ ] Uploading a bill document from that flow returns to the bill detail page.
+- [ ] `/projects/[id]/expenses/bulk` exposes bill/voucher number per row and submits it with the expense rows.

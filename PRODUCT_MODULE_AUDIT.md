@@ -101,6 +101,20 @@ Current highest-risk gaps are save-flow consistency, document upload completenes
 - CSV export endpoints now provide real Excel-compatible data for Complete Project Report, Top Sheet, and Expense Report.
 - PDF remains print/save-as-PDF from print-ready HTML; no fake server PDF endpoint was added.
 
+## Product Finishing Update - May 18, 2026
+
+- Added `PRODUCT_FINISHING_PLAN.md` with module-by-module current status, gaps, and fix priority.
+- Supplier and subcontractor UX is now separated more clearly:
+  - supplier bill list/new/payment pages exclude labour contractors and service providers.
+  - subcontractor bill list/new/payment pages focus on labour contractors and service providers.
+- `/projects/[id]/subcontractors/bills/new` is now a real create form backed by `SupplierPayable`.
+- Subcontractor pages no longer describe Supplier Bills as a temporary workaround.
+- Payable detail pages now route document uploads with `payableId` and `SUPPLIER_BILL` or `SUBCONTRACTOR_BILL` scope.
+- Document upload accepts prefilled payable, expense, unit, phase, category, scope, and return URL values.
+- Bulk expense rows now include the bill/voucher number field in the visible table UI.
+- Placeholder copy was adjusted so future pages do not claim "API ready / UI pending" as a completed state.
+- Remaining module risk: dedicated subcontractor tables, same-form invoice uploads, advanced document metadata editing, server PDF, XLSX workbook export, and dynamic permissions are still future work.
+
 ## Schema Recommendation
 
 The accounting hardening pass required one clean schema migration for allocation, reversal metadata, cheque state, and phase audit locks. Future phases should consider dedicated tables for material masters, payment methods, dynamic permissions, local shops, subcontractor bills, adjustment entries, reconciliation snapshots, and report export jobs.

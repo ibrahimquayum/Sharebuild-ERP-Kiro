@@ -33,6 +33,11 @@ const CATEGORIES = [
   'photo',
   'agreement',
   'payment proof',
+  'expense voucher',
+  'supplier invoice',
+  'supplier payment proof',
+  'subcontractor measurement sheet',
+  'subcontractor invoice',
   'registration paper',
   'other',
 ];
@@ -48,20 +53,35 @@ export function DocumentUploadForm({
   units,
   phases,
   initialBuyerId,
+  initialUnitId,
+  initialPhaseId,
+  initialExpenseId,
+  initialPayableId,
+  initialScope,
+  initialCategory,
+  returnTo,
 }: {
   projectId: string;
   buyers: Option[];
   units: Option[];
   phases: Option[];
   initialBuyerId?: string;
+  initialUnitId?: string;
+  initialPhaseId?: string;
+  initialExpenseId?: string;
+  initialPayableId?: string;
+  initialScope?: string;
+  initialCategory?: string;
+  returnTo?: string;
 }) {
   const router = useRouter();
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('other');
-  const [scope, setScope] = useState(initialBuyerId ? 'BUYER' : 'PROJECT');
+  const safeInitialScope = initialScope && SCOPES.includes(initialScope) ? initialScope : initialBuyerId ? 'BUYER' : initialPayableId ? 'SUPPLIER_BILL' : 'PROJECT';
+  const [category, setCategory] = useState(initialCategory || 'other');
+  const [scope, setScope] = useState(safeInitialScope);
   const [buyerId, setBuyerId] = useState(initialBuyerId ?? '');
-  const [unitId, setUnitId] = useState('');
-  const [phaseId, setPhaseId] = useState('');
+  const [unitId, setUnitId] = useState(initialUnitId ?? '');
+  const [phaseId, setPhaseId] = useState(initialPhaseId ?? '');
   const [sortOrder, setSortOrder] = useState('0');
   const [description, setDescription] = useState('');
   const [files, setFiles] = useState<File[]>([]);
@@ -91,6 +111,8 @@ export function DocumentUploadForm({
     if (buyerId) data.set('buyerId', buyerId);
     if (unitId) data.set('unitId', unitId);
     if (phaseId) data.set('phaseId', phaseId);
+    if (initialExpenseId) data.set('expenseId', initialExpenseId);
+    if (initialPayableId) data.set('payableId', initialPayableId);
 
     setSaving(true);
     try {
@@ -100,7 +122,7 @@ export function DocumentUploadForm({
         setError(typeof json.error === 'string' ? json.error : 'Failed to upload document.');
         return;
       }
-      router.push(initialBuyerId ? `/projects/${projectId}/buyers/${initialBuyerId}` : `/projects/${projectId}/documents`);
+      router.push(returnTo || (initialBuyerId ? `/projects/${projectId}/buyers/${initialBuyerId}` : `/projects/${projectId}/documents`));
       router.refresh();
     } catch {
       setError('Network error. Check your connection and try again.');
@@ -130,6 +152,11 @@ export function DocumentUploadForm({
             </SelectContent>
           </Select>
         </Field>
+        {(initialExpenseId || initialPayableId) && (
+          <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground md:col-span-2">
+            This upload will be linked directly to the selected {initialExpenseId ? 'expense' : 'bill/payable'} record.
+          </div>
+        )}
         <TextField label="Manual Sort Order" id="sortOrder" type="number" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} />
         <Field label="Linked Buyer" htmlFor="buyerId">
           <Select value={buyerId || 'none'} onValueChange={(value) => setBuyerId(value === 'none' ? '' : value)}>

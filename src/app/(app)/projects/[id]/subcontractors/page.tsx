@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { formatBDT, cn } from '@/lib/utils';
-import { Building2, Construction, Plus } from 'lucide-react';
+import { ArrowRight, Building2, Plus } from 'lucide-react';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -90,6 +90,7 @@ export default async function ProjectSubcontractorsPage({ params }: { params: { 
                 <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground">Bill Amount</th>
                 <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground">Paid</th>
                 <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground">Due</th>
+                <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -123,27 +124,17 @@ export default async function ProjectSubcontractorsPage({ params }: { params: { 
                   )}>
                     {formatBDT(Number(p.dueAmount))}
                   </td>
+                  <td className="px-4 py-3 text-right">
+                    <Link href={`${base}/payables/${p.id}`} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                      View <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
-
-      {/* Coming next notice */}
-      <div className="rounded-lg border border-dashed border-purple-200 bg-purple-50 p-4 text-xs text-purple-700 space-y-1">
-        <p className="font-semibold flex items-center gap-1.5">
-          <Construction className="h-3.5 w-3.5" /> Coming Next: Full Subcontractor Module
-        </p>
-        <p>Planned fields per subcontractor contract:</p>
-        <ul className="list-disc list-inside space-y-0.5 text-purple-600 ml-2">
-          <li>Subcontractor name &amp; work type</li>
-          <li>Phase &amp; contract amount</li>
-          <li>Bill amount, paid, and due</li>
-          <li>Measurement sheet upload</li>
-          <li>Agreement file upload</li>
-        </ul>
-      </div>
     </div>
   );
 }

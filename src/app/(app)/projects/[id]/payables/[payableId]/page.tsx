@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getServerSession } from 'next-auth';
-import { ArrowLeft, RotateCcw } from 'lucide-react';
+import { ArrowLeft, FileUp, RotateCcw } from 'lucide-react';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { can } from '@/lib/permissions';
@@ -26,14 +26,16 @@ export default async function PayableDetailPage({ params }: { params: { id: stri
     },
   });
   if (!payable) notFound();
-  const isSubcontractor = payable.supplier.supplierType === 'LABOUR_CONTRACTOR';
+  const isSubcontractor = ['LABOUR_CONTRACTOR', 'SERVICE_PROVIDER'].includes(payable.supplier.supplierType);
   const module = isSubcontractor ? 'subcontractors' : 'suppliers';
   const canReverse = can(role, module, 'reverseAdjust') && !payable.reversedAt && payable.status !== 'WRITTEN_OFF' && !payable.phase?.auditLockedAt;
+  const backHref = isSubcontractor ? `/projects/${params.id}/subcontractors/bills` : `/projects/${params.id}/payables`;
+  const uploadHref = `/projects/${params.id}/documents/upload?payableId=${payable.id}&scope=${isSubcontractor ? 'SUBCONTRACTOR_BILL' : 'SUPPLIER_BILL'}&category=${encodeURIComponent(isSubcontractor ? 'subcontractor invoice' : 'supplier invoice')}&returnTo=${encodeURIComponent(`/projects/${params.id}/payables/${payable.id}`)}`;
 
   return (
     <div className="p-5 space-y-5">
-      <Link href={`/projects/${params.id}/payables`} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> Back to Payables
+      <Link href={backHref} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="h-4 w-4" /> Back to {isSubcontractor ? 'Subcontractor Bills' : 'Payables'}
       </Link>
       <div className="flex items-start justify-between gap-3">
         <div>
@@ -51,7 +53,7 @@ export default async function PayableDetailPage({ params }: { params: { id: stri
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle className="text-sm">Bill Summary</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div><span className="text-muted-foreground">Vendor</span><div className="font-medium">{payable.supplier.name}</div></div>
+            <div><span className="text-muted-foreground">{isSubcontractor ? 'Subcontractor' : 'Vendor'}</span><div className="font-medium">{payable.supplier.name}</div></div>
             <div><span className="text-muted-foreground">Phase</span><div className="font-medium">{payable.phase?.name ?? 'Project general'}</div></div>
             <div><span className="text-muted-foreground">Bill Date</span><div className="font-medium">{formatDate(payable.billDate)}</div></div>
             <div><span className="text-muted-foreground">Status</span><div><StatusBadge status={payable.status} tone={payable.status === 'WRITTEN_OFF' ? 'danger' : payable.status === 'PAID' ? 'success' : 'warning'} /></div></div>
@@ -64,7 +66,14 @@ export default async function PayableDetailPage({ params }: { params: { id: stri
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle className="text-sm">Documents</CardTitle></CardHeader>
+          <CardHeader className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle className="text-sm">Documents</CardTitle>
+              <Link href={uploadHref} className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium hover:bg-muted">
+                <FileUp className="h-3.5 w-3.5" /> Upload
+              </Link>
+            </div>
+          </CardHeader>
           <CardContent className="space-y-2 text-sm">
             {payable.documents.length === 0 ? <p className="text-muted-foreground">No bill documents attached.</p> : payable.documents.map((doc) => (
               <a key={doc.id} href={doc.fileUrl} target="_blank" rel="noreferrer" className="block rounded-md border p-2 hover:bg-muted/40">{doc.title ?? doc.fileName}</a>

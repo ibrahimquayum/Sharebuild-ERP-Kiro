@@ -146,3 +146,12 @@ This pass hardens the existing project-first accounting foundation without addin
 - Supplier bill and supplier payment reversal routes now complete the backend reversal foundation for payable records.
 - Complete Project Report and CSV export routes make audit review practical without adding a PDF/XLSX dependency.
 - Adjustment remains a future dedicated ledger model; current safe correction pattern is reversal with reason followed by corrected entry.
+
+## Product Finishing Follow-Up
+
+- Supplier bills/payments and subcontractor bills/payments are now separated in project UX even though the short-term persistence model still uses `SupplierPayable`.
+- Supplier payable lists filter out `LABOUR_CONTRACTOR` and `SERVICE_PROVIDER` supplier types.
+- Subcontractor bill creation captures work type, contract amount note, bill/invoice number, phase, bill amount, paid amount, due date, and payment method context.
+- Bill documents can be attached directly to payable records through the project document uploader using `payableId`.
+- Bulk expense entry visibly captures bill/voucher number alongside voucher upload and missing-voucher indicators.
+- Remaining audit gap: same-form invoice/measurement upload is not implemented; the safe workflow is record first, then attach documents from the bill detail page.

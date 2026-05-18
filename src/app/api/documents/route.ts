@@ -132,6 +132,17 @@ export async function POST(req: NextRequest) {
   if ((projectId && !project) || (buyerId && !buyer) || (unitId && !unit) || (phaseId && !phase) || (expenseId && !expense) || (payableId && !payable)) {
     return NextResponse.json({ error: 'One or more linked records were not found for this company.' }, { status: 404 });
   }
+  if (projectId) {
+    const linkedProjectIds = [
+      unit?.projectId,
+      phase?.projectId,
+      expense?.phase.projectId,
+      payable?.projectId,
+    ].filter(Boolean);
+    if (linkedProjectIds.some((linkedProjectId) => linkedProjectId !== projectId)) {
+      return NextResponse.json({ error: 'Linked record does not belong to the selected project.' }, { status: 400 });
+    }
+  }
 
   // Save to /public/uploads/<companyId>/
   const uploadDir = join(process.cwd(), 'public', 'uploads', companyId);

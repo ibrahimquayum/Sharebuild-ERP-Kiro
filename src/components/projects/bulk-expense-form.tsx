@@ -157,6 +157,7 @@ export function BulkExpenseForm({ projectId, phases, suppliers }: { projectId: s
               <th className="px-3 py-2 text-left">Supplier / Shop</th>
               <th className="px-3 py-2 text-left">Amount</th>
               <th className="px-3 py-2 text-left">Payment</th>
+              <th className="px-3 py-2 text-left">Bill / Voucher No</th>
               <th className="px-3 py-2 text-left">Voucher</th>
               <th className="px-3 py-2" />
             </tr>
@@ -209,6 +210,14 @@ export function BulkExpenseForm({ projectId, phases, suppliers }: { projectId: s
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{PAYMENT_METHODS.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
                   </Select>
+                </td>
+                <td className="px-3 py-2">
+                  <input
+                    value={row.billNo}
+                    onChange={(e) => updateRow(index, { billNo: e.target.value })}
+                    className="h-9 w-36 rounded-md border px-2"
+                    placeholder="Bill / voucher"
+                  />
                 </td>
                 <td className="px-3 py-2">
                   <input type="file" accept="application/pdf,image/*" onChange={(e) => updateRow(index, { voucher: e.target.files?.[0] ?? null })} className="w-40 text-xs" />

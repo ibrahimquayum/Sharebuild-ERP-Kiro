@@ -29,7 +29,10 @@ export default async function ProjectPayablesPage({ params }: { params: { id: st
   if (!project) notFound();
 
   const payables = await prisma.supplierPayable.findMany({
-    where: { projectId: project.id },
+    where: {
+      projectId: project.id,
+      supplier: { supplierType: { notIn: ['LABOUR_CONTRACTOR', 'SERVICE_PROVIDER'] } },
+    },
     include: {
       supplier: { select: { id: true, name: true, supplierType: true } },
       phase:    { select: { id: true, name: true } },

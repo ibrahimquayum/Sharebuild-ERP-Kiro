@@ -184,3 +184,29 @@ prisma/migrations/0005_accounting_hardening/migration.sql
 - Dedicated adjustment-entry schema and UI are still future. Current correction workflow is reverse-with-reason, then enter a corrected record.
 - Server-side PDF generation remains future.
 - True multi-sheet XLSX remains future.
+
+## Product Finishing Pass - May 18, 2026
+
+### Added
+
+- `PRODUCT_FINISHING_PLAN.md`.
+- Real subcontractor bill entry page:
+  - `/projects/[id]/subcontractors/bills/new`
+- Bill-linked document upload prefill through:
+  - `/projects/[id]/documents/upload?payableId=...&scope=SUPPLIER_BILL`
+  - `/projects/[id]/documents/upload?payableId=...&scope=SUBCONTRACTOR_BILL`
+
+### Improved
+
+- Supplier bills and supplier payments now exclude labour contractors and service providers.
+- Subcontractor bills and subcontractor payments have separate project navigation and labels.
+- Subcontractor overview/list pages now link to bill detail instead of presenting the module as a future workaround.
+- Bulk expense entry now shows the bill/voucher number field in the row UI.
+- Bill detail pages include an upload action for invoices, vouchers, measurement sheets, and agreements.
+- Generic placeholder copy now marks future workflows honestly without implying completion.
+
+### Remaining
+
+- Same-form bill upload is still not built; bill documents are attached from the saved bill detail page.
+- Dedicated subcontractor tables remain a future schema improvement.
+- Dynamic permission editing, server PDF, and XLSX workbook export remain future.

@@ -14,10 +14,10 @@ export function ComingSoon({ title, description }: ComingSoonProps) {
         <Construction className="h-12 w-12 mb-4 opacity-30" />
         <h2 className="text-lg font-semibold text-foreground">{title}</h2>
         <p className="mt-2 text-sm max-w-sm">
-          {description ?? 'This form is part of Phase 1 scope and will be built next. The database schema and API routes are already in place.'}
+          {description ?? 'This page is reserved for a future workflow and is not part of the current daily project workspace.'}
         </p>
         <p className="mt-4 text-xs font-mono bg-muted px-3 py-1 rounded">
-          Status: API ready · UI form pending
+          Status: documented future workflow
         </p>
       </div>
     </div>

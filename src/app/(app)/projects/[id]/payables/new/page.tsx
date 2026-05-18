@@ -44,7 +44,7 @@ export default function ProjectPayableNewPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
-  const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
+  const [suppliers, setSuppliers] = useState<{ id: string; name: string; supplierType?: string }[]>([]);
   const [phases, setPhases] = useState<{ id: string; name: string }[]>([]);
 
   const [supplierId, setSupplierId] = useState(searchParams.get('supplierId') ?? '');
@@ -63,7 +63,7 @@ export default function ProjectPayableNewPage() {
       fetch(`/api/phases?projectId=${projectId}`).then((r) => r.json()),
     ])
       .then(([s, p]) => {
-        setSuppliers(Array.isArray(s) ? s : []);
+        setSuppliers(Array.isArray(s) ? s.filter((supplier) => !['LABOUR_CONTRACTOR', 'SERVICE_PROVIDER'].includes(supplier.supplierType)) : []);
         setPhases(Array.isArray(p) ? p : []);
       })
       .catch(() => {})
@@ -149,7 +149,7 @@ export default function ProjectPayableNewPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Record Supplier Bill</CardTitle>
-          <CardDescription>Use line items for material bills. Company material master remains a documented future schema step.</CardDescription>
+          <CardDescription>Use line items for material and vendor bills. Labour contractors and service providers are recorded from the Subcontractor Bills area.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} noValidate className="space-y-5">

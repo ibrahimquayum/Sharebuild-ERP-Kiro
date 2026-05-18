@@ -156,3 +156,22 @@ Build the accountant-facing reversal/adjustment UI and expand supplier/subcontra
   - `/api/projects/[id]/reports/expenses/excel`
 - PDF status: browser Print / Save as PDF is supported through print-ready report HTML. Server-generated PDF remains future.
 - Excel status: real CSV exports with data are implemented. True multi-sheet XLSX remains future because no XLSX dependency is installed.
+
+## Product Finishing Pass Added
+
+- Added `PRODUCT_FINISHING_PLAN.md`.
+- Supplier payables now exclude labour contractors and service providers, so material/vendor bills no longer mix with subcontractor work bills.
+- Subcontractor bills now have a real project-scoped create form at `/projects/[id]/subcontractors/bills/new`.
+- Subcontractor bills use the existing payable backend, but the UX labels, routes, and summaries are separated from supplier bills.
+- Subcontractor bill list and overview pages link to the financial detail page and no longer present the module as a temporary workaround.
+- Supplier/subcontractor payment lists can be separated with `/projects/[id]/payables/payments` and `/projects/[id]/payables/payments?type=subcontractor`.
+- Bill detail pages now send users to the project document uploader with `payableId` and the proper bill scope prefilled.
+- Bulk expense rows now expose the bill/voucher number field that was already stored by the backend.
+- Generic placeholder pages no longer claim "API ready / UI pending" as a finished product state.
+
+## Product Finishing Gaps Remaining
+
+- Same-form bill invoice upload remains future; current workflow is save bill, then attach invoice/voucher/measurement sheet from the bill detail document action.
+- Dedicated subcontractor accounting tables remain future; current data is stored in `SupplierPayable` with subcontractor supplier types.
+- Advanced document metadata edit/detail/delete workflows remain partial.
+- Server-generated PDF and true XLSX workbook exports remain future.
