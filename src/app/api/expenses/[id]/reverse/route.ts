@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { safeAuditLog } from '@/lib/audit';
+import { can } from '@/lib/permissions';
 
 const reverseSchema = z.object({
   reason: z.string().trim().min(3, 'A reversal reason is required.'),
@@ -15,6 +16,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const companyId = (session.user as any).companyId;
   const userId = (session.user as any).id;
+  const role = (session.user as any).role;
+  if (!can(role, 'expenses', 'reverseAdjust')) return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
   const parsed = reverseSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 });
 

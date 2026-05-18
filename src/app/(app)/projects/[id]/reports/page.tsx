@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 export const dynamic = 'force-dynamic';
 
 const reports = [
+  { title: 'Complete Project Report', href: 'complete-project', status: 'Ready' },
   { title: 'Top Sheet', href: 'top-sheet', status: 'Ready' },
   { title: 'Buyer Statement', href: 'buyer-statement', status: 'Foundation' },
   { title: 'Unit Statement', href: 'unit-statement', status: 'Foundation' },
@@ -43,7 +44,7 @@ export default async function ProjectReportsPage({ params }: { params: { id: str
                 </div>
                 <div>
                   <div className="font-semibold">{report.title}</div>
-                  <div className="text-xs text-muted-foreground">{report.status === 'Ready' ? 'Live report' : 'Print-ready foundation, export coming next'}</div>
+                  <div className="text-xs text-muted-foreground">{report.status === 'Ready' ? 'Live report with export' : 'Print-ready foundation, export coming next'}</div>
                 </div>
               </Link>
             </CardContent>

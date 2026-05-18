@@ -139,3 +139,10 @@ This pass hardens the existing project-first accounting foundation without addin
 4. Harden expense/supplier/payable validation and lock checks.
 5. Update finance helper, finance hub, buyer ledger, and Top Sheet filters.
 6. Update documentation and run generate, build, seed, migrate reset, seed.
+
+## Reversal And Export Follow-Up
+
+- Accountant-facing reversal pages now exist for collection, expense, supplier/subcontractor bill, and supplier/subcontractor payment records.
+- Supplier bill and supplier payment reversal routes now complete the backend reversal foundation for payable records.
+- Complete Project Report and CSV export routes make audit review practical without adding a PDF/XLSX dependency.
+- Adjustment remains a future dedicated ledger model; current safe correction pattern is reversal with reason followed by corrected entry.

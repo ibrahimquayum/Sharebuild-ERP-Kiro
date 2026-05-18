@@ -123,3 +123,18 @@ Login: `admin@relaxdevelopers.com` / `admin123`
   - Income: 100,143,800
   - Expense: 104,659,890.40
   - Balance: -4,516,090.40
+
+## L. Reversal And Export
+
+- [ ] `/projects/[id]/collections/[collectionId]` opens and shows allocation/advance effect.
+- [ ] `/projects/[id]/collections/[collectionId]/reverse` requires a reason and reverses the collection.
+- [ ] `/projects/[id]/expenses/[expenseId]` opens and shows voucher/status/audit context.
+- [ ] `/projects/[id]/expenses/[expenseId]/reverse` requires a reason and reverses/cancels the expense.
+- [ ] `/projects/[id]/payables/[payableId]` opens and shows bill lines, payments, documents, and status.
+- [ ] `/projects/[id]/payables/[payableId]/reverse` reverses supplier/subcontractor bill with reason.
+- [ ] `/projects/[id]/payables/[payableId]/payments/[paymentId]/reverse` reverses payment and restores bill due.
+- [ ] `/projects/[id]/reports/complete-project` opens with tenant branding and signature section.
+- [ ] Complete Project Report browser Print / Save as PDF works cleanly.
+- [ ] `/api/projects/[id]/reports/complete-project/excel` downloads populated CSV data.
+- [ ] `/api/projects/[id]/reports/top-sheet/excel` downloads populated CSV data.
+- [ ] `/api/projects/[id]/reports/expenses/excel` downloads populated CSV data.

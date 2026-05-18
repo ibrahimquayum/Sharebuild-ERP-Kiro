@@ -150,3 +150,37 @@ prisma/migrations/0005_accounting_hardening/migration.sql
 - Supplier/subcontractor reversal UI remains a future step.
 - Dedicated subcontractor accounting tables are still a future schema improvement; current flow separates subcontractors by supplier type.
 - Final reconciliation persistence remains future; phase carry-forward is computed for display.
+
+## Reversal And Export Pass - May 18, 2026
+
+### Added
+
+- `REVERSAL_AND_EXPORT_PLAN.md`.
+- Collection detail and reversal pages:
+  - `/projects/[id]/collections/[collectionId]`
+  - `/projects/[id]/collections/[collectionId]/reverse`
+- Expense detail and reversal pages:
+  - `/projects/[id]/expenses/[expenseId]`
+  - `/projects/[id]/expenses/[expenseId]/reverse`
+- Supplier/subcontractor bill detail and reversal pages:
+  - `/projects/[id]/payables/[payableId]`
+  - `/projects/[id]/payables/[payableId]/reverse`
+  - `/projects/[id]/payables/[payableId]/payments/[paymentId]/reverse`
+- Backend routes for supplier bill reversal and supplier payment reversal.
+- Complete Project Report:
+  - `/projects/[id]/reports/complete-project`
+- Excel-compatible CSV exports:
+  - `/api/projects/[id]/reports/complete-project/excel`
+  - `/api/projects/[id]/reports/top-sheet/excel`
+  - `/api/projects/[id]/reports/expenses/excel`
+
+### Export Status
+
+- PDF: print-ready HTML with browser Print / Save as PDF. No fake server PDF export.
+- Excel: real CSV downloads containing report data. True XLSX workbook remains future.
+
+### Remaining
+
+- Dedicated adjustment-entry schema and UI are still future. Current correction workflow is reverse-with-reason, then enter a corrected record.
+- Server-side PDF generation remains future.
+- True multi-sheet XLSX remains future.

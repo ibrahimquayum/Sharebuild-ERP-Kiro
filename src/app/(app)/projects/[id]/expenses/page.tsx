@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { formatBDT, formatBDTCompact, formatDate, expenseCategoryLabel, cn } from '@/lib/utils';
-import { ShoppingCart, TrendingDown, Clock, CheckCircle2, Plus, Rows3 } from 'lucide-react';
+import { ArrowRight, ShoppingCart, TrendingDown, Clock, CheckCircle2, Plus, Rows3 } from 'lucide-react';
 import Link from 'next/link';
 import { StatCard } from '@/components/shared/stat-card';
 import { Card, CardContent } from '@/components/ui/card';
@@ -105,12 +105,13 @@ export default async function ProjectExpensesPage({ params }: { params: { id: st
                   <th className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Amount</th>
                   <th className="px-4 py-2.5 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
                   <th className="px-4 py-2.5 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Docs</th>
+                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {expenses.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
+                    <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
                       No expenses yet.{' '}
                       <Link href={`/projects/${project.id}/expenses/new`} className="text-primary hover:underline">Add an expense</Link>
                     </td>
@@ -141,6 +142,11 @@ export default async function ProjectExpensesPage({ params }: { params: { id: st
                             {e._count.documents === 0 ? 'Missing' : `${e._count.documents} file${e._count.documents === 1 ? '' : 's'}`}
                           </Link>
                         </td>
+                        <td className="px-4 py-3 text-right">
+                          <Link href={`/projects/${project.id}/expenses/${e.id}`} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                            View <ArrowRight className="h-3 w-3" />
+                          </Link>
+                        </td>
                       </tr>
                     );
                   })
@@ -151,7 +157,7 @@ export default async function ProjectExpensesPage({ params }: { params: { id: st
                   <tr className="bg-muted/60 font-bold border-t-2">
                     <td colSpan={5} className="px-4 py-3">Total</td>
                     <td className="px-4 py-3 text-right text-red-500">{formatBDT(total)}</td>
-                    <td colSpan={2} />
+                    <td colSpan={3} />
                   </tr>
                 </tfoot>
               )}

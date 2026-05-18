@@ -1,0 +1,167 @@
+import { notFound } from 'next/navigation';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { getCompleteProjectReportData } from '@/lib/complete-project-report';
+import { balanceColor, cn, expenseCategoryLabel, formatBDT, formatDate } from '@/lib/utils';
+import { ReportActions } from '@/components/shared/report-actions';
+import { ReportHeader } from '@/components/shared/report-header';
+import { ReportFooter } from '@/components/shared/report-footer';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+export const dynamic = 'force-dynamic';
+
+function ReportSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-3 print:break-inside-avoid">
+      <h3 className="border-b pb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+function MiniStat({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="rounded-md border p-3">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className={cn('mt-1 text-lg font-bold', tone)}>{value}</div>
+    </div>
+  );
+}
+
+export default async function CompleteProjectReportPage({ params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  const companyId = (session?.user as any)?.companyId ?? '';
+  const data = await getCompleteProjectReportData(companyId, params.id);
+  if (!data) notFound();
+
+  const groupedExpenses = data.expenses.reduce<Record<string, typeof data.expenses>>((groups, expense) => {
+    const key = expense.phase.name;
+    groups[key] = groups[key] ?? [];
+    groups[key].push(expense);
+    return groups;
+  }, {});
+
+  return (
+    <div className="p-5 space-y-6 print:p-0 print:text-black">
+      <div className="flex justify-end">
+        <ReportActions pdfReady excelHref={`/api/projects/${data.project.id}/reports/complete-project/excel`} />
+      </div>
+      <ReportHeader
+        branding={data.branding}
+        project={data.project}
+        title="Complete Project Report"
+        subtitle="Executive summary, Top Sheet, phase balances, expenses, payables, buyer due, and audit summary"
+      />
+
+      <ReportSection title="Executive Summary">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <MiniStat label="Total Demand" value={formatBDT(data.summary.totalDemanded)} />
+          <MiniStat label="Total Collection" value={formatBDT(data.summary.totalCollected)} tone="text-green-600" />
+          <MiniStat label="Buyer Due" value={formatBDT(data.summary.buyerReceivable)} tone="text-red-600" />
+          <MiniStat label="Buyer Advance" value={formatBDT(data.summary.buyerAdvance)} tone="text-blue-600" />
+          <MiniStat label="Approved Expense" value={formatBDT(data.summary.totalExpense)} tone="text-red-600" />
+          <MiniStat label="Supplier Payable" value={formatBDT(data.summary.supplierPayable)} />
+          <MiniStat label="Subcontractor Payable" value={formatBDT(data.summary.subcontractorPayable)} />
+          <MiniStat label="Project Balance" value={formatBDT(data.summary.projectBalance)} tone={balanceColor(data.summary.projectBalance)} />
+          <MiniStat label="Missing Vouchers" value={String(data.auditSummary.missingVoucher.length)} tone="text-amber-600" />
+          <MiniStat label="Pending Approvals" value={String(data.auditSummary.pendingApprovals.length)} tone="text-amber-600" />
+          <MiniStat label="Audit Locked Phases" value={String(data.auditSummary.lockedPhases.length)} />
+          <MiniStat label="Surplus / Deficit" value={formatBDT(data.summary.surplusDeficit)} tone={balanceColor(data.summary.surplusDeficit)} />
+        </div>
+      </ReportSection>
+
+      <ReportSection title="Top Sheet">
+        <Card>
+          <CardContent className="p-0 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="border-b bg-muted/40"><th className="px-3 py-2 text-left">Phase</th><th className="px-3 py-2 text-left">Type</th><th className="px-3 py-2 text-right">Income</th><th className="px-3 py-2 text-right">Expense</th><th className="px-3 py-2 text-right">Balance</th></tr></thead>
+              <tbody>
+                {data.topSheet.map((row) => (
+                  <tr key={row.phaseId} className="border-b">
+                    <td className="px-3 py-2 font-medium">{row.phaseName}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{row.phaseType}</td>
+                    <td className="px-3 py-2 text-right text-green-600">{formatBDT(row.income)}</td>
+                    <td className="px-3 py-2 text-right text-red-600">{formatBDT(row.expense)}</td>
+                    <td className={cn('px-3 py-2 text-right font-bold', balanceColor(row.balance))}>{formatBDT(row.balance)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot><tr className="bg-muted/60 font-bold"><td colSpan={2} className="px-3 py-2">Grand Total</td><td className="px-3 py-2 text-right text-green-600">{formatBDT(data.summary.totalCollected)}</td><td className="px-3 py-2 text-right text-red-600">{formatBDT(data.summary.totalExpense)}</td><td className={cn('px-3 py-2 text-right', balanceColor(data.summary.projectBalance))}>{formatBDT(data.summary.projectBalance)}</td></tr></tfoot>
+            </table>
+          </CardContent>
+        </Card>
+      </ReportSection>
+
+      <ReportSection title="Phase Summary">
+        <Card>
+          <CardContent className="p-0 overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead><tr className="border-b bg-muted/40"><th className="px-3 py-2 text-left">Phase</th><th>Status</th><th className="text-right">Demand</th><th className="text-right">Collection</th><th className="text-right">Expense</th><th className="text-right">Supplier</th><th className="text-right">Subcontractor</th><th className="text-right">Carry Out</th><th>Audit</th></tr></thead>
+              <tbody>
+                {data.phaseSummary.map((row) => (
+                  <tr key={row.phaseId} className="border-b">
+                    <td className="px-3 py-2 font-medium">{row.phaseName}</td><td>{row.status}</td><td className="text-right">{formatBDT(row.demand)}</td><td className="text-right">{formatBDT(row.collection)}</td><td className="text-right">{formatBDT(row.expense)}</td><td className="text-right">{formatBDT(row.supplierBill)}</td><td className="text-right">{formatBDT(row.subcontractorBill)}</td><td className={cn('text-right font-bold', balanceColor(row.carryOut))}>{formatBDT(row.carryOut)}</td><td>{row.auditLocked ? 'Locked' : 'Open'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      </ReportSection>
+
+      <ReportSection title="Daily Expenses By Phase">
+        {Object.entries(groupedExpenses).map(([phaseName, expenses]) => (
+          <Card key={phaseName} className="print:break-inside-avoid">
+            <CardHeader><CardTitle className="text-sm">{phaseName}</CardTitle></CardHeader>
+            <CardContent className="p-0 overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead><tr className="border-b bg-muted/40"><th className="px-3 py-2 text-left">Date</th><th className="text-left">Category</th><th className="text-left">Description</th><th className="text-left">Supplier / Local Shop</th><th className="text-right">Amount</th><th>Status</th><th>Voucher</th></tr></thead>
+                <tbody>
+                  {expenses.map((expense) => (
+                    <tr key={expense.id} className="border-b"><td className="px-3 py-2">{formatDate(expense.expenseDate)}</td><td>{expenseCategoryLabel(expense.category)}</td><td>{expense.description}</td><td>{expense.supplier?.name ?? expense.localShopName ?? 'Cash / no supplier'}</td><td className="text-right">{formatBDT(Number(expense.amount))}</td><td>{expense.status}</td><td>{expense.documents.length > 0 ? 'Attached' : 'Missing'}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        ))}
+      </ReportSection>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        <ReportSection title="Supplier / Vendor Summary">
+          <Card><CardContent className="p-0 overflow-x-auto"><table className="w-full text-xs"><thead><tr className="border-b bg-muted/40"><th className="px-3 py-2 text-left">Supplier</th><th>Phase</th><th className="text-right">Bill</th><th className="text-right">Paid</th><th className="text-right">Payable</th></tr></thead><tbody>{data.supplierSummary.map((p) => <tr key={p.id} className="border-b"><td className="px-3 py-2">{p.supplier.name}</td><td>{p.phase?.name ?? '-'}</td><td className="text-right">{formatBDT(Number(p.totalAmount))}</td><td className="text-right">{formatBDT(p.validPaid)}</td><td className="text-right">{formatBDT(Number(p.dueAmount))}</td></tr>)}</tbody></table></CardContent></Card>
+        </ReportSection>
+        <ReportSection title="Subcontractor Summary">
+          <Card><CardContent className="p-0 overflow-x-auto"><table className="w-full text-xs"><thead><tr className="border-b bg-muted/40"><th className="px-3 py-2 text-left">Subcontractor</th><th>Phase</th><th className="text-right">Bill</th><th className="text-right">Paid</th><th className="text-right">Due</th></tr></thead><tbody>{data.subcontractorSummary.map((p) => <tr key={p.id} className="border-b"><td className="px-3 py-2">{p.supplier.name}</td><td>{p.phase?.name ?? '-'}</td><td className="text-right">{formatBDT(Number(p.totalAmount))}</td><td className="text-right">{formatBDT(p.validPaid)}</td><td className="text-right">{formatBDT(Number(p.dueAmount))}</td></tr>)}</tbody></table></CardContent></Card>
+        </ReportSection>
+      </div>
+
+      <ReportSection title="Buyer Due Summary">
+        <Card><CardContent className="p-0 overflow-x-auto"><table className="w-full text-xs"><thead><tr className="border-b bg-muted/40"><th className="px-3 py-2 text-left">Buyer</th><th>Units</th><th className="text-right">Demanded</th><th className="text-right">Paid</th><th className="text-right">Due</th><th className="text-right">Advance</th><th>Oldest Due</th></tr></thead><tbody>{data.buyerDue.map((row) => <tr key={row.buyerId} className="border-b"><td className="px-3 py-2">{row.buyerName}</td><td>{row.units || '-'}</td><td className="text-right">{formatBDT(row.demanded)}</td><td className="text-right">{formatBDT(row.paid)}</td><td className="text-right">{formatBDT(row.due)}</td><td className="text-right">{formatBDT(row.advance)}</td><td>{formatDate(row.oldestDue)}</td></tr>)}</tbody></table></CardContent></Card>
+      </ReportSection>
+
+      <ReportSection title="Audit Summary">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <MiniStat label="Reversed Records" value={String(data.auditSummary.reversedRecords.length)} />
+          <MiniStat label="Missing Vouchers" value={String(data.auditSummary.missingVoucher.length)} tone="text-amber-600" />
+          <MiniStat label="Pending Approvals" value={String(data.auditSummary.pendingApprovals.length)} tone="text-amber-600" />
+        </div>
+        <Card>
+          <CardContent className="p-0 overflow-x-auto">
+            <table className="w-full text-xs"><thead><tr className="border-b bg-muted/40"><th className="px-3 py-2 text-left">Type</th><th className="text-left">Record</th><th className="text-right">Amount</th><th className="text-left">Reason</th></tr></thead><tbody>{data.auditSummary.reversedRecords.length === 0 ? <tr><td colSpan={4} className="px-3 py-8 text-center text-muted-foreground">No reversed records.</td></tr> : data.auditSummary.reversedRecords.map((row, index) => <tr key={`${row.type}-${index}`} className="border-b"><td className="px-3 py-2">{row.type}</td><td>{row.label}</td><td className="text-right">{formatBDT(row.amount)}</td><td>{row.reason}</td></tr>)}</tbody></table>
+          </CardContent>
+        </Card>
+      </ReportSection>
+
+      <ReportSection title="Signature">
+        <div className="grid grid-cols-3 gap-6 pt-10 text-center text-sm">
+          <div className="border-t pt-2">Prepared by</div>
+          <div className="border-t pt-2">Checked by</div>
+          <div className="border-t pt-2">Approved by / Seal</div>
+        </div>
+      </ReportSection>
+
+      <ReportFooter note={data.branding.reportFooterNote} />
+    </div>
+  );
+}

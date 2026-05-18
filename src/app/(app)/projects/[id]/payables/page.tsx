@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { formatBDT, formatBDTCompact, formatDate, cn } from '@/lib/utils';
-import { Receipt, TrendingDown, AlertCircle, CheckCircle2, Plus } from 'lucide-react';
+import { ArrowRight, Receipt, TrendingDown, AlertCircle, CheckCircle2, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { StatCard } from '@/components/shared/stat-card';
 import { Card, CardContent } from '@/components/ui/card';
@@ -124,6 +124,9 @@ export default async function ProjectPayablesPage({ params }: { params: { id: st
                               Pay
                             </Link>
                           )}
+                          <Link href={`/projects/${project.id}/payables/${p.id}`} className="ml-2 inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                            View <ArrowRight className="h-3 w-3" />
+                          </Link>
                         </td>
                       </tr>
                     );

@@ -91,6 +91,16 @@ Current highest-risk gaps are save-flow consistency, document upload completenes
 - Supplier payment records now capture payment/cheque status metadata.
 - Remaining audit risks: reversal UI, supplier/subcontractor payment reversal, final reconciliation persistence, dynamic approval workflow, and real PDF/Excel exports.
 
+## Reversal And Export Update - May 18, 2026
+
+- Reversal UI now exists for collections, expenses, supplier/subcontractor bills, and supplier/subcontractor payments.
+- Supplier bill and supplier payment reversal backend routes now exist.
+- Reversal routes preserve original records, require reason, enforce permissions, respect audit locks, and write best-effort audit logs.
+- Adjustment is still modeled as reverse-with-reason plus corrected re-entry; a dedicated adjustment ledger remains future.
+- Complete Project Report now exists with tenant branding, executive summary, Top Sheet, phase summary, phase-grouped daily expenses, supplier/subcontractor summaries, buyer due summary, audit summary, and signatures.
+- CSV export endpoints now provide real Excel-compatible data for Complete Project Report, Top Sheet, and Expense Report.
+- PDF remains print/save-as-PDF from print-ready HTML; no fake server PDF endpoint was added.
+
 ## Schema Recommendation
 
 The accounting hardening pass required one clean schema migration for allocation, reversal metadata, cheque state, and phase audit locks. Future phases should consider dedicated tables for material masters, payment methods, dynamic permissions, local shops, subcontractor bills, adjustment entries, reconciliation snapshots, and report export jobs.

@@ -58,7 +58,7 @@ export default async function ProjectTopSheetPage({ params }: { params: { id: st
   return (
     <div className="p-5 space-y-5 print:p-0">
       <div className="flex justify-end">
-        <ReportActions />
+        <ReportActions pdfReady excelHref={`/api/projects/${project.id}/reports/top-sheet/excel`} />
       </div>
       <ReportHeader
         branding={branding}

@@ -8,17 +8,19 @@ export function ReportFoundationPage({
   branding,
   project,
   rows,
+  excelHref,
 }: {
   title: string;
   subtitle: string;
   branding: any;
   project: any;
   rows: { label: string; value: string }[];
+  excelHref?: string;
 }) {
   return (
     <div className="p-5 space-y-4 print:p-0">
       <div className="flex justify-end">
-        <ReportActions />
+        <ReportActions excelHref={excelHref} />
       </div>
       <ReportHeader branding={branding} project={project} title={title} subtitle={subtitle} />
       <Card>
@@ -41,7 +43,9 @@ export function ReportFoundationPage({
           </table>
         </CardContent>
       </Card>
-      <p className="text-xs text-muted-foreground print:hidden">PDF and Excel export buttons are intentionally disabled until real export endpoints are implemented.</p>
+      <p className="text-xs text-muted-foreground print:hidden">
+        PDF uses browser Print / Save as PDF. {excelHref ? 'Excel-compatible CSV export is available for this report.' : 'Excel export is intentionally disabled until a real endpoint is implemented.'}
+      </p>
     </div>
   );
 }

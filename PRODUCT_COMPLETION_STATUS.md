@@ -136,3 +136,23 @@ Build the accountant-facing reversal/adjustment UI and expand supplier/subcontra
 - Dedicated subcontractor accounting tables remain a future schema improvement.
 - Final project reconciliation is still a documented next step.
 - Real PDF/Excel exports remain disabled foundations.
+
+## Reversal And Export Pass Added
+
+- Added `REVERSAL_AND_EXPORT_PLAN.md`.
+- Added project-scoped detail and reversal pages for:
+  - collections
+  - expenses
+  - supplier/subcontractor bills
+  - supplier/subcontractor bill payments
+- Added supplier bill reversal backend route.
+- Added supplier payment reversal backend route that restores payable paid/due amounts.
+- Collection and expense reversal routes now enforce `reverseAdjust` permissions.
+- Added Complete Project Report at `/projects/[id]/reports/complete-project`.
+- Complete Project Report includes executive summary, Top Sheet, phase summary, phase-grouped expenses, supplier summary, subcontractor summary, buyer due, audit summary, and signature area.
+- Added Excel-compatible CSV exports:
+  - `/api/projects/[id]/reports/complete-project/excel`
+  - `/api/projects/[id]/reports/top-sheet/excel`
+  - `/api/projects/[id]/reports/expenses/excel`
+- PDF status: browser Print / Save as PDF is supported through print-ready report HTML. Server-generated PDF remains future.
+- Excel status: real CSV exports with data are implemented. True multi-sheet XLSX remains future because no XLSX dependency is installed.

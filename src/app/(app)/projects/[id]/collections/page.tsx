@@ -39,7 +39,7 @@ export default async function ProjectCollectionsPage({ params }: { params: { id:
       take: 200,
     }),
     prisma.collection.aggregate({
-      where: { phase: { projectId: project.id } },
+      where: { phase: { projectId: project.id }, status: { not: 'REVERSED' } },
       _sum: { amount: true },
       _count: true,
     }),
@@ -80,12 +80,13 @@ export default async function ProjectCollectionsPage({ params }: { params: { id:
                   <th className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Amount</th>
                   <th className="px-4 py-2.5 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Method</th>
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Receipt</th>
+                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {collections.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
+                    <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
                       No collections yet.{' '}
                       <Link href={`/projects/${project.id}/collections/new`} className="text-primary hover:underline">Record a payment</Link>
                     </td>
@@ -109,6 +110,11 @@ export default async function ProjectCollectionsPage({ params }: { params: { id:
                         </span>
                       </td>
                       <td className="px-4 py-3 text-xs font-mono text-muted-foreground">{c.receiptNo ?? '—'}</td>
+                      <td className="px-4 py-3 text-right">
+                        <Link href={`/projects/${project.id}/collections/${c.id}`} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                          View <ArrowRight className="h-3 w-3" />
+                        </Link>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -118,7 +124,7 @@ export default async function ProjectCollectionsPage({ params }: { params: { id:
                   <tr className="bg-muted/60 font-bold border-t-2">
                     <td colSpan={4} className="px-4 py-3">Total</td>
                     <td className="px-4 py-3 text-right text-green-600">{formatBDT(total)}</td>
-                    <td colSpan={2} />
+                    <td colSpan={3} />
                   </tr>
                 </tfoot>
               )}
