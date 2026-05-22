@@ -20,6 +20,8 @@ export default async function ProjectDocumentUploadPage({
     phaseId?: string;
     expenseId?: string;
     payableId?: string;
+    projectSupplierId?: string;
+    projectSubcontractorId?: string;
     scope?: string;
     category?: string;
     returnTo?: string;
@@ -69,6 +71,8 @@ export default async function ProjectDocumentUploadPage({
             initialPhaseId={searchParams?.phaseId}
             initialExpenseId={searchParams?.expenseId}
             initialPayableId={searchParams?.payableId}
+            initialProjectSupplierId={searchParams?.projectSupplierId}
+            initialProjectSubcontractorId={searchParams?.projectSubcontractorId}
             initialScope={searchParams?.scope}
             initialCategory={searchParams?.category}
             returnTo={searchParams?.returnTo}

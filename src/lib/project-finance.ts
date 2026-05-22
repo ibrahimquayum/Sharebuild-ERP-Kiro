@@ -7,6 +7,8 @@ export async function getProjectFinanceSummary(projectId: string) {
     collectionAgg,
     approvedExpenseAgg,
     pendingExpenseAgg,
+    assignedSupplierCount,
+    assignedSubcontractorCount,
     supplierPayableAgg,
     subcontractorPayableAgg,
     allocationAgg,
@@ -28,6 +30,12 @@ export async function getProjectFinanceSummary(projectId: string) {
     prisma.expense.aggregate({
       where: { phase: { projectId }, status: 'PENDING_APPROVAL', reversedAt: null },
       _sum: { amount: true },
+    }),
+    prisma.projectSupplier.count({
+      where: { projectId, status: { not: 'CANCELLED' } },
+    }),
+    prisma.projectSubcontractor.count({
+      where: { projectId, status: { not: 'CANCELLED' } },
     }),
     prisma.supplierPayable.aggregate({
       where: {
@@ -64,14 +72,20 @@ export async function getProjectFinanceSummary(projectId: string) {
 
   const totalDemanded = Number(demandAgg._sum.amount ?? 0);
   const totalCollected = Number(collectionAgg._sum.amount ?? 0);
-  const totalExpense = Number(approvedExpenseAgg._sum.amount ?? 0);
+  const directExpenseTotal = Number(approvedExpenseAgg._sum.amount ?? 0);
   const pendingExpense = Number(pendingExpenseAgg._sum.amount ?? 0);
   const supplierPayable = Number(supplierPayableAgg._sum.dueAmount ?? 0);
   const subcontractorPayable = Number(subcontractorPayableAgg._sum.dueAmount ?? 0);
+  const supplierBillCost = Number(supplierPayableAgg._sum.totalAmount ?? 0);
+  const subcontractorBillCost = Number(subcontractorPayableAgg._sum.totalAmount ?? 0);
+  const projectCostTotal = directExpenseTotal + supplierBillCost + subcontractorBillCost;
+  const supplierPaid = Number(supplierPayableAgg._sum.paidAmount ?? 0);
+  const subcontractorPaid = Number(subcontractorPayableAgg._sum.paidAmount ?? 0);
   const allocatedToDemand = Number(allocationAgg._sum.amount ?? 0);
   const buyerReceivable = Math.max(totalDemanded - allocatedToDemand, 0);
   const buyerAdvance = Math.max(totalCollected - allocatedToDemand, 0);
   const phaseBalances = await getProjectPhaseBalances(projectId);
+  const cashPosition = totalCollected - directExpenseTotal - supplierPaid - subcontractorPaid;
 
   return {
     totalDemanded,
@@ -79,18 +93,25 @@ export async function getProjectFinanceSummary(projectId: string) {
     buyerDue: buyerReceivable,
     buyerReceivable,
     buyerAdvance,
-    totalExpense,
+    totalExpense: projectCostTotal,
+    directExpenseTotal,
     pendingExpense,
     supplierPayable,
     subcontractorPayable,
-    projectBalance: totalCollected - totalExpense,
-    surplusDeficit: totalCollected - totalExpense - supplierPayable - subcontractorPayable,
+    projectBalance: totalCollected - projectCostTotal,
+    surplusDeficit: totalCollected - projectCostTotal,
+    cashPosition,
     missingVoucherCount,
     pendingApprovalCount,
-    supplierBilled: Number(supplierPayableAgg._sum.totalAmount ?? 0),
-    supplierPaid: Number(supplierPayableAgg._sum.paidAmount ?? 0),
-    subcontractorBilled: Number(subcontractorPayableAgg._sum.totalAmount ?? 0),
-    subcontractorPaid: Number(subcontractorPayableAgg._sum.paidAmount ?? 0),
+    assignedSupplierCount,
+    assignedSubcontractorCount,
+    supplierBilled: supplierBillCost,
+    supplierBillCost,
+    supplierPaid,
+    subcontractorBilled: subcontractorBillCost,
+    subcontractorBillCost,
+    subcontractorPaid,
+    projectCostTotal,
     phaseBalances,
   };
 }

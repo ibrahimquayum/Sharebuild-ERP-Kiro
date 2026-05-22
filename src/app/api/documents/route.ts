@@ -30,6 +30,8 @@ export async function GET(req: NextRequest) {
   const expenseId = searchParams.get('expenseId');
   const buyerId   = searchParams.get('buyerId');
   const projectId = searchParams.get('projectId');
+  const projectSupplierId = searchParams.get('projectSupplierId');
+  const projectSubcontractorId = searchParams.get('projectSubcontractorId');
   const scope = searchParams.get('scope');
   const q = searchParams.get('q')?.trim();
 
@@ -62,6 +64,8 @@ export async function GET(req: NextRequest) {
       ...(expenseId ? { expenseId } : {}),
       ...(buyerId   ? { buyerId }   : {}),
       ...(projectId ? { projectId } : {}),
+      ...(projectSupplierId ? { projectSupplierId } : {}),
+      ...(projectSubcontractorId ? { projectSubcontractorId } : {}),
       ...(scope ? { scope: scope as any } : {}),
       ...(andFilters.length > 0 ? { AND: andFilters } : {}),
     },
@@ -98,6 +102,8 @@ export async function POST(req: NextRequest) {
   const unitId      = formData.get('unitId')      as string | null;
   const phaseId     = formData.get('phaseId')     as string | null;
   const payableId   = formData.get('payableId')   as string | null;
+  const projectSupplierId = formData.get('projectSupplierId') as string | null;
+  const projectSubcontractorId = formData.get('projectSubcontractorId') as string | null;
   const title       = formData.get('title')       as string | null;
   const category    = formData.get('category')    as string | null;
   const scope       = formData.get('scope')       as string | null;
@@ -105,7 +111,7 @@ export async function POST(req: NextRequest) {
   const description = formData.get('description') as string | null;
 
   if (files.length === 0) return NextResponse.json({ error: 'No file uploaded.' }, { status: 400 });
-  if (!projectId && !buyerId && !expenseId && !unitId && !phaseId && !payableId) {
+  if (!projectId && !buyerId && !expenseId && !unitId && !phaseId && !payableId && !projectSupplierId && !projectSubcontractorId) {
     return NextResponse.json({ error: 'Choose at least one document scope or linked record.' }, { status: 400 });
   }
   for (const file of files) {
@@ -120,16 +126,18 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const [project, buyer, unit, phase, expense, payable] = await Promise.all([
+  const [project, buyer, unit, phase, expense, payable, projectSupplier, projectSubcontractor] = await Promise.all([
     projectId ? prisma.project.findFirst({ where: { id: projectId, companyId }, select: { id: true } }) : null,
     buyerId ? prisma.buyer.findFirst({ where: { id: buyerId, companyId }, select: { id: true } }) : null,
     unitId ? prisma.unit.findFirst({ where: { id: unitId, project: { companyId } }, select: { id: true, projectId: true } }) : null,
     phaseId ? prisma.phase.findFirst({ where: { id: phaseId, project: { companyId } }, select: { id: true, projectId: true } }) : null,
     expenseId ? prisma.expense.findFirst({ where: { id: expenseId, phase: { project: { companyId } } }, select: { id: true, phase: { select: { projectId: true } } } }) : null,
     payableId ? prisma.supplierPayable.findFirst({ where: { id: payableId, project: { companyId } }, select: { id: true, projectId: true } }) : null,
+    projectSupplierId ? prisma.projectSupplier.findFirst({ where: { id: projectSupplierId, companyId }, select: { id: true, projectId: true } }) : null,
+    projectSubcontractorId ? prisma.projectSubcontractor.findFirst({ where: { id: projectSubcontractorId, companyId }, select: { id: true, projectId: true } }) : null,
   ]);
 
-  if ((projectId && !project) || (buyerId && !buyer) || (unitId && !unit) || (phaseId && !phase) || (expenseId && !expense) || (payableId && !payable)) {
+  if ((projectId && !project) || (buyerId && !buyer) || (unitId && !unit) || (phaseId && !phase) || (expenseId && !expense) || (payableId && !payable) || (projectSupplierId && !projectSupplier) || (projectSubcontractorId && !projectSubcontractor)) {
     return NextResponse.json({ error: 'One or more linked records were not found for this company.' }, { status: 404 });
   }
   if (projectId) {
@@ -138,6 +146,8 @@ export async function POST(req: NextRequest) {
       phase?.projectId,
       expense?.phase.projectId,
       payable?.projectId,
+      projectSupplier?.projectId,
+      projectSubcontractor?.projectId,
     ].filter(Boolean);
     if (linkedProjectIds.some((linkedProjectId) => linkedProjectId !== projectId)) {
       return NextResponse.json({ error: 'Linked record does not belong to the selected project.' }, { status: 400 });
@@ -177,6 +187,8 @@ export async function POST(req: NextRequest) {
         unitId:      unitId      ?? undefined,
         phaseId:     phaseId     ?? undefined,
         payableId:   payableId   ?? undefined,
+        projectSupplierId: projectSupplierId ?? undefined,
+        projectSubcontractorId: projectSubcontractorId ?? undefined,
         uploadedById: (session.user as any).id,
       },
     });
@@ -186,7 +198,7 @@ export async function POST(req: NextRequest) {
 
   await safeAuditLog({
     userId: (session.user as any).id,
-    projectId: projectId ?? unit?.projectId ?? phase?.projectId ?? expense?.phase.projectId ?? payable?.projectId,
+    projectId: projectId ?? unit?.projectId ?? phase?.projectId ?? expense?.phase.projectId ?? payable?.projectId ?? projectSupplier?.projectId ?? projectSubcontractor?.projectId,
     action: 'CREATE',
     entityType: 'document',
     entityId: documents[0]?.id,

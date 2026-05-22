@@ -14,7 +14,7 @@ export default async function NewSubcontractorBillPage({
   searchParams,
 }: {
   params: { id: string };
-  searchParams?: { subcontractorId?: string; supplierId?: string };
+  searchParams?: { subcontractorId?: string; supplierId?: string; projectSubcontractorId?: string };
 }) {
   const session = await getServerSession(authOptions);
   const companyId = (session?.user as any)?.companyId ?? '';
@@ -26,14 +26,18 @@ export default async function NewSubcontractorBillPage({
   if (!project) notFound();
 
   const [subcontractors, phases] = await Promise.all([
-    prisma.supplier.findMany({
+    prisma.projectSubcontractor.findMany({
       where: {
         companyId,
-        isActive: true,
-        supplierType: { in: ['LABOUR_CONTRACTOR', 'SERVICE_PROVIDER'] },
+        projectId: project.id,
+        status: { not: 'CANCELLED' },
       },
-      select: { id: true, name: true },
-      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        workType: true,
+        supplier: { select: { id: true, name: true } },
+      },
+      orderBy: [{ supplier: { name: 'asc' } }, { createdAt: 'asc' }],
     }),
     prisma.phase.findMany({
       where: { projectId: project.id },
@@ -60,6 +64,7 @@ export default async function NewSubcontractorBillPage({
             projectId={project.id}
             subcontractors={subcontractors}
             phases={phases}
+            initialProjectSubcontractorId={searchParams?.projectSubcontractorId}
             initialSubcontractorId={searchParams?.subcontractorId ?? searchParams?.supplierId}
           />
         </CardContent>

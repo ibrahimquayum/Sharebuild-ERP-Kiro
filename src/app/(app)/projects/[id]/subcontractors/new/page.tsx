@@ -5,40 +5,42 @@ import { ArrowLeft } from 'lucide-react';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ProjectVendorCreateForm } from '@/components/projects/project-vendor-create-form';
+import { ProjectSubcontractorAssignmentForm } from '@/components/projects/project-subcontractor-assignment-form';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ProjectSubcontractorNewPage({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   const companyId = (session?.user as any)?.companyId ?? '';
-  const project = await prisma.project.findFirst({ where: { id: params.id, companyId }, select: { id: true, name: true } });
+
+  const [project, existingSubcontractors, phases] = await Promise.all([
+    prisma.project.findFirst({ where: { id: params.id, companyId }, select: { id: true, name: true } }),
+    prisma.supplier.findMany({
+      where: { companyId, isActive: true, supplierType: { in: ['LABOUR_CONTRACTOR', 'SERVICE_PROVIDER'] } },
+      select: { id: true, name: true, phone: true, supplierType: true },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.phase.findMany({
+      where: { projectId: params.id },
+      select: { id: true, name: true },
+      orderBy: [{ sequence: 'asc' }, { createdAt: 'asc' }],
+    }),
+  ]);
+
   if (!project) notFound();
 
-  const existingVendors = await prisma.supplier.findMany({
-    where: {
-      companyId,
-      isActive: true,
-      supplierType: { in: ['LABOUR_CONTRACTOR', 'SERVICE_PROVIDER'] },
-    },
-    select: { id: true, name: true, phone: true, supplierType: true },
-    orderBy: { name: 'asc' },
-  });
-
   return (
-    <div className="p-5 max-w-4xl mx-auto space-y-4">
-      <Link href={`/projects/${project.id}/vendors`} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> Back to Project Vendors
+    <div className="p-5 max-w-5xl mx-auto space-y-4">
+      <Link href={`/projects/${project.id}/subcontractors`} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="h-4 w-4" /> Back to Project Subcontractors
       </Link>
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Add Subcontractor To Project</CardTitle>
-          <CardDescription>
-            Create a labour or service subcontractor, or select an existing one, then continue directly to a project subcontractor bill for {project.name}.
-          </CardDescription>
+          <CardTitle className="text-lg">Assign Subcontractor To Project</CardTitle>
+          <CardDescription>Create or select a company subcontractor, set project contract terms, and attach agreement or measurement documents for {project.name}.</CardDescription>
         </CardHeader>
         <CardContent>
-          <ProjectVendorCreateForm projectId={project.id} mode="subcontractor" existingVendors={existingVendors} />
+          <ProjectSubcontractorAssignmentForm projectId={project.id} existingSubcontractors={existingSubcontractors} phases={phases} />
         </CardContent>
       </Card>
     </div>

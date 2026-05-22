@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
@@ -33,7 +33,8 @@ const PAYMENT_METHODS = [
   ['OTHER', 'Other'],
 ] as const;
 
-type Option = { id: string; name: string };
+type AssignmentOption = { id: string; workType: string; supplier: { id: string; name: string } };
+type PhaseOption = { id: string; name: string };
 
 function today() {
   return new Date().toISOString().split('T')[0];
@@ -43,18 +44,20 @@ export function SubcontractorBillForm({
   projectId,
   subcontractors,
   phases,
+  initialProjectSubcontractorId,
   initialSubcontractorId,
 }: {
   projectId: string;
-  subcontractors: Option[];
-  phases: Option[];
+  subcontractors: AssignmentOption[];
+  phases: PhaseOption[];
+  initialProjectSubcontractorId?: string;
   initialSubcontractorId?: string;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [subcontractorId, setSubcontractorId] = useState(initialSubcontractorId ?? '');
+  const [projectSubcontractorId, setProjectSubcontractorId] = useState(initialProjectSubcontractorId ?? '');
   const [workType, setWorkType] = useState('STRUCTURE_CIVIL');
   const [phaseId, setPhaseId] = useState(NO_PHASE);
   const [contractAmount, setContractAmount] = useState('');
@@ -69,13 +72,23 @@ export function SubcontractorBillForm({
   const [agreementFiles, setAgreementFiles] = useState<File[]>([]);
   const [invoiceFiles, setInvoiceFiles] = useState<File[]>([]);
 
+  const selectedAssignment = subcontractors.find((assignment) => assignment.id === projectSubcontractorId)
+    ?? subcontractors.find((assignment) => assignment.supplier.id === initialSubcontractorId)
+    ?? null;
+
+  useEffect(() => {
+    if (selectedAssignment) {
+      setWorkType(selectedAssignment.workType);
+    }
+  }, [selectedAssignment]);
+
   const workTypeLabel = useMemo(() => WORK_TYPES.find(([value]) => value === workType)?.[1] ?? workType, [workType]);
 
   function validate() {
     const nextErrors: Record<string, string> = {};
     const total = Number(billAmount);
     const paid = Number(paidAmount || 0);
-    if (!subcontractorId) nextErrors.subcontractorId = 'Select a subcontractor.';
+    if (!projectSubcontractorId && !selectedAssignment) nextErrors.subcontractorId = 'Select a project subcontractor.';
     if (!billDate) nextErrors.billDate = 'Bill date is required.';
     if (!billAmount || Number.isNaN(total) || total <= 0) nextErrors.billAmount = 'Enter a valid bill amount.';
     if (paid < 0 || paid > total) nextErrors.paidAmount = 'Paid amount cannot exceed bill amount.';
@@ -99,7 +112,8 @@ export function SubcontractorBillForm({
       ].filter(Boolean);
 
       const body: Record<string, unknown> = {
-        supplierId: subcontractorId,
+        projectSubcontractorId: selectedAssignment?.id,
+        supplierId: selectedAssignment?.supplier.id,
         projectId,
         billDate,
         totalAmount: Number(billAmount),
@@ -172,17 +186,20 @@ export function SubcontractorBillForm({
             Add new subcontractor
           </Link>
         </div>
-        <Field label="Subcontractor" htmlFor="subcontractorId" required error={errors.subcontractorId}>
-          <Select value={subcontractorId} onValueChange={setSubcontractorId}>
-            <SelectTrigger id="subcontractorId" className={errors.subcontractorId ? 'border-destructive' : ''}>
-              <SelectValue placeholder={subcontractors.length === 0 ? 'No subcontractors found' : 'Select subcontractor'} />
+        <Field label="Project Subcontractor" htmlFor="projectSubcontractorId" required error={errors.subcontractorId}>
+          <Select value={selectedAssignment?.id ?? projectSubcontractorId} onValueChange={setProjectSubcontractorId}>
+            <SelectTrigger id="projectSubcontractorId" className={errors.subcontractorId ? 'border-destructive' : ''}>
+              <SelectValue placeholder={subcontractors.length === 0 ? 'No project subcontractors found' : 'Select subcontractor assignment'} />
             </SelectTrigger>
             <SelectContent>
               {subcontractors.map((subcontractor) => (
-                <SelectItem key={subcontractor.id} value={subcontractor.id}>{subcontractor.name}</SelectItem>
+                <SelectItem key={subcontractor.id} value={subcontractor.id}>{subcontractor.supplier.name} - {subcontractor.workType.replaceAll('_', ' ')}</SelectItem>
               ))}
             </SelectContent>
           </Select>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Bills link to the project subcontractor assignment so contract and progress billing stay together.
+          </p>
         </Field>
         <Field label="Work Type" htmlFor="workType">
           <Select value={workType} onValueChange={setWorkType}>

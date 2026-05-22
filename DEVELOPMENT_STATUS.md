@@ -236,3 +236,60 @@ prisma/migrations/0005_accounting_hardening/migration.sql
 - Project vendor assignment is still inferred from project bills/expenses.
 - Dedicated subcontractor contract tables remain future.
 - Full ledger filtering and same-page edit workflows remain future.
+
+## Project Vendor Contract Phase 1 - May 22, 2026
+
+### Added
+
+- `PROJECT_VENDOR_CONTRACT_PHASE1.md`
+- Migration:
+  - `prisma/migrations/0006_project_vendor_contract_phase1/migration.sql`
+- New Prisma models:
+  - `ProjectSupplier`
+  - `ProjectSubcontractor`
+- New relations:
+  - `SupplierPayable.projectSupplierId`
+  - `SupplierPayable.projectSubcontractorId`
+  - `Document.projectSupplierId`
+  - `Document.projectSubcontractorId`
+
+### New Project Routes
+
+- `/projects/[id]/suppliers`
+- `/projects/[id]/suppliers/new`
+- `/projects/[id]/suppliers/[projectSupplierId]`
+- `/projects/[id]/suppliers/[projectSupplierId]/edit`
+- `/projects/[id]/subcontractors/[projectSubcontractorId]`
+- `/projects/[id]/subcontractors/[projectSubcontractorId]/edit`
+
+### Improved
+
+- Project Vendors page now reads from formal project assignments instead of inferring vendors only from bills.
+- Supplier bills can link to project supplier assignments.
+- Subcontractor bills can link to project subcontractor assignments.
+- Contract/rate/agreement/measurement documents can link directly to project vendor assignments.
+- Supplier and subcontractor ledger reports now group by project assignment.
+- Finance overview now separates:
+  - direct expense
+  - supplier bill cost
+  - subcontractor bill cost
+  - supplier payable
+  - subcontractor payable
+- Supplier and subcontractor payments are no longer shown as project cost in the finance summary.
+
+### Verified In This Pass
+
+| Check | Status | Notes |
+| --- | --- | --- |
+| Prisma validate | Pass | `npx prisma validate` |
+| Prisma generate | Pass | `npx prisma generate` |
+| Migration apply | Pass | `npx prisma migrate dev` |
+| Production build | Pass | `npm run build` |
+| Seed | Pass | `npm run db:seed` |
+| Migration reset | Pass | `npx prisma migrate reset --force --skip-seed` |
+| Seed after reset | Pass | `npm run db:seed` |
+| Top Sheet totals | Pass | Income 100,143,800 / Expense 104,659,890.40 / Balance -4,516,090.40 |
+
+### Next Recommended Build Step
+
+Cash/bank account architecture and cheque lifecycle.

@@ -189,3 +189,37 @@ Build the accountant-facing reversal/adjustment UI and expand supplier/subcontra
 - Subcontractor bill form now links to Add Subcontractor and supports measurement sheet, agreement, and invoice/voucher uploads during bill creation.
 - Supplier bill creation records initial payment metadata when a paid amount is entered.
 - Project Vendors page now has separate supplier/subcontractor sections with add, bill, and ledger actions.
+
+## Project Vendor Contract Phase 1 - May 22, 2026
+
+- Added `PROJECT_VENDOR_CONTRACT_PHASE1.md`.
+- Added formal project assignment layers for suppliers and subcontractors.
+- Added one clean migration:
+  - `prisma/migrations/0006_project_vendor_contract_phase1/migration.sql`
+- Supplier bills can now link to `ProjectSupplier`.
+- Subcontractor bills can now link to `ProjectSubcontractor`.
+- Contract, rate-sheet, quotation, agreement, and measurement documents can now link directly to project vendor assignments.
+- Added project supplier routes:
+  - `/projects/[id]/suppliers`
+  - `/projects/[id]/suppliers/new`
+  - `/projects/[id]/suppliers/[projectSupplierId]`
+  - `/projects/[id]/suppliers/[projectSupplierId]/edit`
+- Added project subcontractor detail/edit routes:
+  - `/projects/[id]/subcontractors/[projectSubcontractorId]`
+  - `/projects/[id]/subcontractors/[projectSubcontractorId]/edit`
+- Supplier and subcontractor ledgers are now grouped by project assignment/contract instead of only raw payables.
+- Finance summary now separates:
+  - direct expense
+  - supplier bill cost
+  - subcontractor bill cost
+  - supplier payable
+  - subcontractor payable
+- Supplier/subcontractor payments are no longer treated as project cost in the finance summary.
+
+## Project Vendor Contract Phase 1 Gaps Remaining
+
+- Cash/bank accounts and cheque lifecycle are still next phase.
+- VAT/AIT/TDS remains future.
+- Retention/security remains future.
+- Final reconciliation remains future.
+- Dedicated subcontractor billing tables remain a future schema improvement; current subcontractor bills still persist through `SupplierPayable`.

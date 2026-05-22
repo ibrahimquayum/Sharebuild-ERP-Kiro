@@ -194,6 +194,13 @@ enum DocumentStatus {
   REJECTED
 }
 
+enum ProjectVendorStatus {
+  ACTIVE
+  INACTIVE
+  COMPLETED
+  CANCELLED
+}
+
 // ─────────────────────────────────────────────
 // TENANT: COMPANY
 // ─────────────────────────────────────────────
@@ -218,6 +225,8 @@ model Company {
   users           User[]
   projects        Project[]
   suppliers       Supplier[]
+  projectSuppliers ProjectSupplier[]
+  projectSubcontractors ProjectSubcontractor[]
   buyers          Buyer[]
   settings        CompanySetting[]
 
@@ -322,6 +331,8 @@ model Project {
   documents       Document[]
   auditLogs       AuditLog[]
   supplierPayables SupplierPayable[]
+  projectSuppliers ProjectSupplier[]
+  projectSubcontractors ProjectSubcontractor[]
   staffAssignments ProjectStaffAssignment[]
 
   @@map("projects")
@@ -517,6 +528,7 @@ model Phase {
   materialItems MaterialItem[]
   approvals     Approval[]
   supplierPayables SupplierPayable[]
+  projectSubcontractors ProjectSubcontractor[]
   documents     Document[]
 
   @@map("phases")
@@ -666,6 +678,8 @@ model Supplier {
   expenses   Expense[]
   materials  MaterialItem[]
   payables   SupplierPayable[]
+  projectSuppliers ProjectSupplier[]
+  projectSubcontractors ProjectSubcontractor[]
 
   @@map("suppliers")
 }
@@ -674,11 +688,74 @@ model Supplier {
 // SUPPLIER PAYABLES
 // ─────────────────────────────────────────────
 
+model ProjectSupplier {
+  id               String              @id @default(cuid())
+  companyId        String
+  projectId        String
+  supplierId       String
+  materialCategory String?
+  phaseNotes       String?
+  paymentTerms     String?
+  creditDays       Int?
+  openingBalance   Decimal             @default(0)
+  contractNo       String?
+  contractDate     DateTime?
+  startDate        DateTime?
+  endDate          DateTime?
+  status           ProjectVendorStatus @default(ACTIVE)
+  notes            String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  company   Company           @relation(fields: [companyId], references: [id])
+  project   Project           @relation(fields: [projectId], references: [id])
+  supplier  Supplier          @relation(fields: [supplierId], references: [id])
+  documents Document[]
+  payables  SupplierPayable[]
+
+  @@unique([projectId, supplierId])
+  @@index([companyId, projectId, status])
+  @@map("project_suppliers")
+}
+
+model ProjectSubcontractor {
+  id               String              @id @default(cuid())
+  companyId        String
+  projectId        String
+  supplierId       String
+  workType         String
+  assignedPhaseId  String?
+  contractAmount   Decimal?
+  extraWorkAmount  Decimal             @default(0)
+  paymentTerms     String?
+  contractNo       String?
+  contractDate     DateTime?
+  startDate        DateTime?
+  deadline         DateTime?
+  status           ProjectVendorStatus @default(ACTIVE)
+  notes            String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  company       Company              @relation(fields: [companyId], references: [id])
+  project       Project              @relation(fields: [projectId], references: [id])
+  supplier      Supplier             @relation(fields: [supplierId], references: [id])
+  assignedPhase Phase?               @relation(fields: [assignedPhaseId], references: [id])
+  documents     Document[]
+  payables      SupplierPayable[]
+
+  @@index([companyId, projectId, status])
+  @@index([projectId, supplierId, workType])
+  @@map("project_subcontractors")
+}
+
 model SupplierPayable {
   id           String        @id @default(cuid())
   supplierId   String
   projectId    String        // required — every bill belongs to a project
   phaseId      String?       // optional — bill may be project-general
+  projectSupplierId String?
+  projectSubcontractorId String?
   billNo       String?
   billDate     DateTime
   totalAmount  Decimal
@@ -696,11 +773,15 @@ model SupplierPayable {
   supplier  Supplier          @relation(fields: [supplierId], references: [id])
   project   Project           @relation(fields: [projectId], references: [id])
   phase     Phase?            @relation(fields: [phaseId], references: [id])
+  projectSupplier ProjectSupplier? @relation(fields: [projectSupplierId], references: [id])
+  projectSubcontractor ProjectSubcontractor? @relation(fields: [projectSubcontractorId], references: [id])
   payments  SupplierPayment[]
   expenses  Expense[]
   billItems SupplierBillItem[]
   documents Document[]
 
+  @@index([projectSupplierId])
+  @@index([projectSubcontractorId])
   @@map("supplier_payables")
 }
 
@@ -755,6 +836,8 @@ model Document {
   phaseId     String?
   expenseId   String?
   payableId   String?
+  projectSupplierId String?
+  projectSubcontractorId String?
   uploadedById String?
   title       String?
   category    String?
@@ -774,6 +857,8 @@ model Document {
   phase   Phase?   @relation(fields: [phaseId], references: [id])
   expense Expense? @relation(fields: [expenseId], references: [id])
   payable SupplierPayable? @relation(fields: [payableId], references: [id])
+  projectSupplier ProjectSupplier? @relation(fields: [projectSupplierId], references: [id])
+  projectSubcontractor ProjectSubcontractor? @relation(fields: [projectSubcontractorId], references: [id])
   uploadedBy User? @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
 
   @@index([projectId, scope])
@@ -782,6 +867,8 @@ model Document {
   @@index([phaseId])
   @@index([expenseId])
   @@index([payableId])
+  @@index([projectSupplierId])
+  @@index([projectSubcontractorId])
 
   @@map("documents")
 }

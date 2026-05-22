@@ -2,12 +2,13 @@ import { prisma } from '@/lib/prisma';
 import { getCompanyBranding } from '@/lib/branding';
 import { FINAL_EXPENSE_STATUSES } from '@/lib/accounting';
 import { getProjectFinanceSummary } from '@/lib/project-finance';
+import { getProjectSupplierAssignments, getProjectSubcontractorAssignments, isSubcontractorSupplierType } from '@/lib/project-vendor-ledger';
 
 export async function getCompleteProjectReportData(companyId: string, projectId: string) {
   const project = await prisma.project.findFirst({ where: { id: projectId, companyId } });
   if (!project) return null;
 
-  const [branding, summary, phases, expenses, payables, projectBuyers, auditLogs] = await Promise.all([
+  const [branding, summary, phases, expenses, payables, projectBuyers, auditLogs, projectSupplierAssignments, projectSubcontractorAssignments] = await Promise.all([
     getCompanyBranding(companyId),
     getProjectFinanceSummary(project.id),
     prisma.phase.findMany({
@@ -59,6 +60,8 @@ export async function getCompleteProjectReportData(companyId: string, projectId:
       orderBy: { createdAt: 'desc' },
       take: 200,
     }),
+    getProjectSupplierAssignments(project.id, companyId),
+    getProjectSubcontractorAssignments(project.id, companyId),
   ]);
 
   const phaseSummary = summary.phaseBalances.map((phase) => ({
@@ -75,8 +78,8 @@ export async function getCompleteProjectReportData(companyId: string, projectId:
         phaseName: phase.name,
         phaseType: phase.phaseType,
         income: row?.collection ?? 0,
-        expense: row?.expense ?? 0,
-        balance: (row?.collection ?? 0) - (row?.expense ?? 0),
+        expense: (row?.expense ?? 0) + (row?.supplierBill ?? 0) + (row?.subcontractorBill ?? 0),
+        balance: row?.carryOut ?? 0,
       };
     });
 
@@ -106,10 +109,10 @@ export async function getCompleteProjectReportData(companyId: string, projectId:
   });
 
   const supplierSummary = payables
-    .filter((payable) => payable.supplier.supplierType !== 'LABOUR_CONTRACTOR')
+    .filter((payable) => !isSubcontractorSupplierType(payable.supplier.supplierType))
     .map((payable) => ({ ...payable, validPaid: payable.payments.reduce((sum, payment) => sum + Number(payment.amount), 0) }));
   const subcontractorSummary = payables
-    .filter((payable) => payable.supplier.supplierType === 'LABOUR_CONTRACTOR')
+    .filter((payable) => isSubcontractorSupplierType(payable.supplier.supplierType))
     .map((payable) => ({ ...payable, validPaid: payable.payments.reduce((sum, payment) => sum + Number(payment.amount), 0) }));
 
   const officialExpenses = expenses.filter((expense) => FINAL_EXPENSE_STATUSES.includes(expense.status as any) && !expense.reversedAt);
@@ -132,6 +135,8 @@ export async function getCompleteProjectReportData(companyId: string, projectId:
     officialExpenses,
     supplierSummary,
     subcontractorSummary,
+    projectSupplierAssignments,
+    projectSubcontractorAssignments,
     buyerDue,
     auditLogs,
     auditSummary: {

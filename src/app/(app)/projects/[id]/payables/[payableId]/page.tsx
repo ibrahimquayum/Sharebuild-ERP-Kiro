@@ -19,6 +19,8 @@ export default async function PayableDetailPage({ params }: { params: { id: stri
     where: { id: params.payableId, projectId: params.id, supplier: { companyId } },
     include: {
       supplier: { select: { id: true, name: true, supplierType: true } },
+      projectSupplier: { select: { id: true, materialCategory: true, paymentTerms: true } },
+      projectSubcontractor: { select: { id: true, workType: true, assignedPhase: { select: { id: true, name: true } } } },
       phase: { select: { id: true, name: true, auditLockedAt: true } },
       billItems: true,
       payments: { orderBy: { paidAt: 'desc' } },
@@ -54,6 +56,8 @@ export default async function PayableDetailPage({ params }: { params: { id: stri
           <CardHeader><CardTitle className="text-sm">Bill Summary</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div><span className="text-muted-foreground">{isSubcontractor ? 'Subcontractor' : 'Vendor'}</span><div className="font-medium">{payable.supplier.name}</div></div>
+            {payable.projectSupplier && <div><span className="text-muted-foreground">Project supplier</span><div className="font-medium"><Link href={`/projects/${params.id}/suppliers/${payable.projectSupplier.id}`} className="text-primary hover:underline">{payable.projectSupplier.materialCategory || 'Assignment details'}</Link></div></div>}
+            {payable.projectSubcontractor && <div><span className="text-muted-foreground">Project subcontractor</span><div className="font-medium"><Link href={`/projects/${params.id}/subcontractors/${payable.projectSubcontractor.id}`} className="text-primary hover:underline">{payable.projectSubcontractor.workType.replaceAll('_', ' ')}</Link></div></div>}
             <div><span className="text-muted-foreground">Phase</span><div className="font-medium">{payable.phase?.name ?? 'Project general'}</div></div>
             <div><span className="text-muted-foreground">Bill Date</span><div className="font-medium">{formatDate(payable.billDate)}</div></div>
             <div><span className="text-muted-foreground">Status</span><div><StatusBadge status={payable.status} tone={payable.status === 'WRITTEN_OFF' ? 'danger' : payable.status === 'PAID' ? 'success' : 'warning'} /></div></div>

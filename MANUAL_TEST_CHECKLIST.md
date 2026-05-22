@@ -165,3 +165,21 @@ Login: `admin@relaxdevelopers.com` / `admin123`
 - [ ] Subcontractor bill create uploads measurement sheet, agreement, and invoice/voucher files.
 - [ ] Bill create with paid amount creates a payment row with payment method/reference metadata.
 - [ ] `/projects/[id]/finance` includes Add Supplier, Add Subcontractor, Supplier Ledger, Subcontractor Ledger, and Complete Project Report links.
+
+## O. Project Vendor Contract Phase 1
+
+- [ ] `/projects/[id]/suppliers` lists assigned project suppliers, not only inferred bill vendors.
+- [ ] `/projects/[id]/suppliers/new` can assign an existing company supplier with project-specific terms.
+- [ ] `/projects/[id]/suppliers/new` can create a new company supplier and assign it to the project in one flow.
+- [ ] `/projects/[id]/suppliers/[projectSupplierId]` shows terms, documents, bills, phase breakdown, and audit history.
+- [ ] `/projects/[id]/suppliers/[projectSupplierId]/edit` updates assignment terms and supplier master fields.
+- [ ] `/projects/[id]/subcontractors` lists assigned project subcontractors with contract, billed, paid, and due values.
+- [ ] `/projects/[id]/subcontractors/new` can assign an existing or new subcontractor with project contract terms.
+- [ ] `/projects/[id]/subcontractors/[projectSubcontractorId]` shows agreement/measurement docs, bills, and audit history.
+- [ ] `/projects/[id]/subcontractors/[projectSubcontractorId]/edit` updates subcontractor assignment terms.
+- [ ] Contract/rate-sheet/agreement uploads attach to the project vendor assignment and appear on the assignment detail page.
+- [ ] `/projects/[id]/payables/new?projectSupplierId=...` preselects the project supplier assignment.
+- [ ] `/projects/[id]/subcontractors/bills/new?projectSubcontractorId=...` preselects the project subcontractor assignment.
+- [ ] `/projects/[id]/reports/supplier-ledger` groups data by project supplier assignment.
+- [ ] `/projects/[id]/reports/subcontractor-ledger` groups data by project subcontractor assignment.
+- [ ] `/projects/[id]/finance` shows direct expense, supplier bill cost, and subcontractor bill cost without double-counting payments as cost.

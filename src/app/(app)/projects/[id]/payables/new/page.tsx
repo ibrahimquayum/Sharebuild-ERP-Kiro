@@ -44,10 +44,17 @@ export default function ProjectPayableNewPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
-  const [suppliers, setSuppliers] = useState<{ id: string; name: string; supplierType?: string }[]>([]);
+  const [projectSuppliers, setProjectSuppliers] = useState<Array<{
+    id: string;
+    materialCategory?: string | null;
+    paymentTerms?: string | null;
+    supplier: { id: string; name: string; supplierType?: string };
+  }>>([]);
   const [phases, setPhases] = useState<{ id: string; name: string }[]>([]);
 
-  const [supplierId, setSupplierId] = useState(searchParams.get('supplierId') ?? '');
+  const initialProjectSupplierId = searchParams.get('projectSupplierId') ?? '';
+  const initialSupplierId = searchParams.get('supplierId') ?? '';
+  const [projectSupplierId, setProjectSupplierId] = useState(initialProjectSupplierId);
   const [phaseId, setPhaseId] = useState(NO_PHASE);
   const [billNo, setBillNo] = useState('');
   const [billDate, setBillDate] = useState(today());
@@ -62,16 +69,21 @@ export default function ProjectPayableNewPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/suppliers').then((r) => r.json()),
+      fetch(`/api/projects/${projectId}/suppliers`).then((r) => r.json()),
       fetch(`/api/phases?projectId=${projectId}`).then((r) => r.json()),
     ])
       .then(([s, p]) => {
-        setSuppliers(Array.isArray(s) ? s.filter((supplier) => !['LABOUR_CONTRACTOR', 'SERVICE_PROVIDER'].includes(supplier.supplierType)) : []);
+        const assignments = Array.isArray(s) ? s : [];
+        setProjectSuppliers(assignments);
+        if (!initialProjectSupplierId && initialSupplierId) {
+          const match = assignments.find((assignment) => assignment.supplier?.id === initialSupplierId);
+          if (match) setProjectSupplierId(match.id);
+        }
         setPhases(Array.isArray(p) ? p : []);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [projectId]);
+  }, [initialProjectSupplierId, initialSupplierId, projectId]);
 
   function updateItem(index: number, patch: Partial<ReturnType<typeof emptyItem>>) {
     setItems((current) => current.map((row, i) => i === index ? { ...row, ...patch } : row));
@@ -79,7 +91,7 @@ export default function ProjectPayableNewPage() {
 
   function validate() {
     const e: Record<string, string> = {};
-    if (!supplierId) e.supplierId = 'Please select a supplier.';
+    if (!projectSupplierId) e.projectSupplierId = 'Please select a project supplier.';
     if (!billDate) e.billDate = 'Bill date is required.';
     const amount = Number(totalAmount);
     if (!totalAmount || Number.isNaN(amount) || amount <= 0) e.totalAmount = 'Enter a valid bill amount.';
@@ -94,6 +106,8 @@ export default function ProjectPayableNewPage() {
     setErrors(e);
     return Object.keys(e).length === 0;
   }
+
+  const selectedProjectSupplier = projectSuppliers.find((assignment) => assignment.id === projectSupplierId);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -113,7 +127,8 @@ export default function ProjectPayableNewPage() {
         }));
 
       const body: Record<string, unknown> = {
-        supplierId,
+        supplierId: selectedProjectSupplier?.supplier.id,
+        projectSupplierId,
         projectId,
         billDate,
         totalAmount: Number(totalAmount),
@@ -183,15 +198,22 @@ export default function ProjectPayableNewPage() {
                   Add new supplier
                 </Link>
               </div>
-              <Field label="Supplier / Vendor" htmlFor="supplierId" required error={errors.supplierId}>
-                <Select value={supplierId} onValueChange={setSupplierId}>
-                  <SelectTrigger id="supplierId" className={errors.supplierId ? 'border-destructive' : ''}>
-                    <SelectValue placeholder={loading ? 'Loading...' : suppliers.length === 0 ? 'No suppliers - add one first' : 'Select supplier'} />
+              <Field label="Project Supplier" htmlFor="projectSupplierId" required error={errors.projectSupplierId}>
+                <Select value={projectSupplierId} onValueChange={setProjectSupplierId}>
+                  <SelectTrigger id="projectSupplierId" className={errors.projectSupplierId ? 'border-destructive' : ''}>
+                    <SelectValue placeholder={loading ? 'Loading...' : projectSuppliers.length === 0 ? 'No project suppliers - assign one first' : 'Select project supplier'} />
                   </SelectTrigger>
                   <SelectContent>
-                    {suppliers.map((supplier) => <SelectItem key={supplier.id} value={supplier.id}>{supplier.name}</SelectItem>)}
+                    {projectSuppliers.map((assignment) => (
+                      <SelectItem key={assignment.id} value={assignment.id}>
+                        {assignment.supplier.name}{assignment.materialCategory ? ` - ${assignment.materialCategory}` : ''}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Bills link to the project supplier assignment, then roll up to the company supplier master.
+                </p>
               </Field>
               <Field label="Construction Phase" htmlFor="phaseId">
                 <Select value={phaseId} onValueChange={setPhaseId}>

@@ -8,6 +8,8 @@ import { isPhaseLocked, lockedPhaseMessage } from '@/lib/accounting';
 
 const createSchema = z.object({
   supplierId:  z.string().min(1),
+  projectSupplierId: z.string().optional(),
+  projectSubcontractorId: z.string().optional(),
   projectId:   z.string().min(1),          // required — bill must belong to a project
   phaseId:     z.string().optional(),       // optional — may be project-general
   billNo:      z.string().optional(),
@@ -55,6 +57,8 @@ export async function GET(req: NextRequest) {
     },
     include: {
       supplier: { select: { id: true, name: true } },
+      projectSupplier: { select: { id: true } },
+      projectSubcontractor: { select: { id: true } },
       phase:    { select: { id: true, name: true } },
       payments: { select: { id: true, amount: true, paidAt: true, paymentMethod: true } },
       _count:   { select: { payments: true } },
@@ -92,6 +96,31 @@ export async function POST(req: NextRequest) {
     if (isPhaseLocked(phase)) return NextResponse.json({ error: lockedPhaseMessage() }, { status: 423 });
   }
 
+  let linkedProjectSupplier: { id: string; supplierId: string } | null = null;
+  let linkedProjectSubcontractor: { id: string; supplierId: string } | null = null;
+
+  if (d.projectSupplierId) {
+    linkedProjectSupplier = await prisma.projectSupplier.findFirst({
+      where: { id: d.projectSupplierId, projectId: d.projectId, companyId },
+      select: { id: true, supplierId: true },
+    });
+    if (!linkedProjectSupplier) return NextResponse.json({ error: 'Project supplier assignment not found.' }, { status: 404 });
+    if (linkedProjectSupplier.supplierId !== d.supplierId) {
+      return NextResponse.json({ error: 'Selected supplier does not match the project supplier assignment.' }, { status: 400 });
+    }
+  }
+
+  if (d.projectSubcontractorId) {
+    linkedProjectSubcontractor = await prisma.projectSubcontractor.findFirst({
+      where: { id: d.projectSubcontractorId, projectId: d.projectId, companyId },
+      select: { id: true, supplierId: true },
+    });
+    if (!linkedProjectSubcontractor) return NextResponse.json({ error: 'Project subcontractor assignment not found.' }, { status: 404 });
+    if (linkedProjectSubcontractor.supplierId !== d.supplierId) {
+      return NextResponse.json({ error: 'Selected supplier does not match the project subcontractor assignment.' }, { status: 400 });
+    }
+  }
+
   const itemTotal = d.items?.reduce((sum, item) => sum + item.amount, 0);
   if (itemTotal && Math.abs(itemTotal - d.totalAmount) > 0.01) {
     return NextResponse.json({ error: 'Supplier bill line total must equal the bill total.' }, { status: 400 });
@@ -105,6 +134,8 @@ export async function POST(req: NextRequest) {
       supplierId:  d.supplierId,
       projectId:   d.projectId,
       phaseId:     d.phaseId || undefined,
+      projectSupplierId: linkedProjectSupplier?.id,
+      projectSubcontractorId: linkedProjectSubcontractor?.id,
       billNo:      d.billNo,
       billDate:    new Date(d.billDate),
       totalAmount,

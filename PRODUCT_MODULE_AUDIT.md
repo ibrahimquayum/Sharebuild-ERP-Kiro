@@ -129,3 +129,22 @@ Current highest-risk gaps are save-flow consistency, document upload completenes
 ## Schema Recommendation
 
 The accounting hardening pass required one clean schema migration for allocation, reversal metadata, cheque state, and phase audit locks. Future phases should consider dedicated tables for material masters, payment methods, dynamic permissions, local shops, subcontractor bills, adjustment entries, reconciliation snapshots, and report export jobs.
+
+## Project Vendor Contract Phase 1 Update - May 22, 2026
+
+- Supplier and subcontractor project relationships are no longer inferred only from bills.
+- New schema layer added:
+  - `ProjectSupplier`
+  - `ProjectSubcontractor`
+- Existing payables are backfilled into project assignments through migration `0006_project_vendor_contract_phase1`.
+- Documents can now link directly to project supplier and subcontractor assignments.
+- Project supplier and subcontractor list/create/detail/edit pages now exist.
+- Supplier and subcontractor ledger report pages are now assignment-aware and no longer placeholders.
+- Finance summary now separates direct expense from supplier/subcontractor bill cost and does not treat payments as additional project expense.
+
+### Remaining Audit Gaps After This Phase
+
+- No cash/bank account ledger yet.
+- No tax deduction ledger yet.
+- No retention/security ledger yet.
+- No final reconciliation ledger yet.

@@ -57,6 +57,8 @@ export function DocumentUploadForm({
   initialPhaseId,
   initialExpenseId,
   initialPayableId,
+  initialProjectSupplierId,
+  initialProjectSubcontractorId,
   initialScope,
   initialCategory,
   returnTo,
@@ -70,6 +72,8 @@ export function DocumentUploadForm({
   initialPhaseId?: string;
   initialExpenseId?: string;
   initialPayableId?: string;
+  initialProjectSupplierId?: string;
+  initialProjectSubcontractorId?: string;
   initialScope?: string;
   initialCategory?: string;
   returnTo?: string;
@@ -113,6 +117,8 @@ export function DocumentUploadForm({
     if (phaseId) data.set('phaseId', phaseId);
     if (initialExpenseId) data.set('expenseId', initialExpenseId);
     if (initialPayableId) data.set('payableId', initialPayableId);
+    if (initialProjectSupplierId) data.set('projectSupplierId', initialProjectSupplierId);
+    if (initialProjectSubcontractorId) data.set('projectSubcontractorId', initialProjectSubcontractorId);
 
     setSaving(true);
     try {
@@ -152,9 +158,9 @@ export function DocumentUploadForm({
             </SelectContent>
           </Select>
         </Field>
-        {(initialExpenseId || initialPayableId) && (
+        {(initialExpenseId || initialPayableId || initialProjectSupplierId || initialProjectSubcontractorId) && (
           <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground md:col-span-2">
-            This upload will be linked directly to the selected {initialExpenseId ? 'expense' : 'bill/payable'} record.
+            This upload will be linked directly to the selected {initialExpenseId ? 'expense' : initialPayableId ? 'bill/payable' : initialProjectSupplierId ? 'project supplier assignment' : 'project subcontractor assignment'} record.
           </div>
         )}
         <TextField label="Manual Sort Order" id="sortOrder" type="number" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} />

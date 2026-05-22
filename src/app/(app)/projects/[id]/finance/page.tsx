@@ -47,9 +47,9 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
         <StatCard title="Total Collected" value={formatBDTCompact(summary.totalCollected)} subtitle={formatBDT(summary.totalCollected)} icon={Receipt} iconColor="text-green-600" iconBg="bg-green-50" />
         <StatCard title="Buyer Receivable" value={formatBDTCompact(summary.buyerReceivable)} subtitle={`${formatBDT(summary.buyerAdvance)} advance`} icon={AlertCircle} iconColor="text-amber-600" iconBg="bg-amber-50" />
         <StatCard title="Project Balance" value={formatBDTCompact(summary.projectBalance)} subtitle={formatBDT(summary.projectBalance)} icon={summary.projectBalance >= 0 ? CheckCircle2 : TrendingDown} iconColor={summary.projectBalance >= 0 ? 'text-emerald-600' : 'text-red-600'} iconBg={summary.projectBalance >= 0 ? 'bg-emerald-50' : 'bg-red-50'} />
-        <StatCard title="Approved Expense" value={formatBDTCompact(summary.totalExpense)} subtitle={`${formatBDT(summary.pendingExpense)} pending`} icon={ShoppingCart} iconColor="text-red-500" iconBg="bg-red-50" />
-        <StatCard title="Supplier Payable" value={formatBDTCompact(summary.supplierPayable)} subtitle={formatBDT(summary.supplierPayable)} icon={Truck} iconColor="text-orange-600" iconBg="bg-orange-50" />
-        <StatCard title="Subcontractor Payable" value={formatBDTCompact(summary.subcontractorPayable)} subtitle={formatBDT(summary.subcontractorPayable)} icon={Truck} iconColor="text-violet-600" iconBg="bg-violet-50" />
+        <StatCard title="Project Cost" value={formatBDTCompact(summary.projectCostTotal)} subtitle={`Direct ${formatBDT(summary.directExpenseTotal)}`} icon={ShoppingCart} iconColor="text-red-500" iconBg="bg-red-50" />
+        <StatCard title="Supplier Payable" value={formatBDTCompact(summary.supplierPayable)} subtitle={`${summary.assignedSupplierCount} assigned suppliers`} icon={Truck} iconColor="text-orange-600" iconBg="bg-orange-50" />
+        <StatCard title="Subcontractor Due" value={formatBDTCompact(summary.subcontractorPayable)} subtitle={`${summary.assignedSubcontractorCount} assigned subcontractors`} icon={Truck} iconColor="text-violet-600" iconBg="bg-violet-50" />
         <StatCard title="Missing Vouchers" value={String(summary.missingVoucherCount)} subtitle={`${summary.pendingApprovalCount} pending approvals`} icon={AlertCircle} iconColor="text-yellow-600" iconBg="bg-yellow-50" />
       </div>
 
@@ -58,10 +58,12 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
           <CardHeader><CardTitle className="text-sm">Project Balance</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">Collections</span><span className="font-medium text-green-600">{formatBDT(summary.totalCollected)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Expenses</span><span className="font-medium text-red-600">{formatBDT(summary.totalExpense)}</span></div>
-            <div className="flex justify-between border-t pt-3"><span>Cash Balance</span><span className={`font-bold ${balanceColor(summary.projectBalance)}`}>{formatBDT(summary.projectBalance)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Direct expense</span><span className="font-medium text-red-600">{formatBDT(summary.directExpenseTotal)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Supplier bills</span><span>{formatBDT(summary.supplierBillCost)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Subcontractor bills</span><span>{formatBDT(summary.subcontractorBillCost)}</span></div>
+            <div className="flex justify-between border-t pt-3"><span>Cash position</span><span className={`font-bold ${balanceColor(summary.cashPosition)}`}>{formatBDT(summary.cashPosition)}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Open payables</span><span>{formatBDT(summary.supplierPayable + summary.subcontractorPayable)}</span></div>
-            <div className="flex justify-between border-t pt-3"><span>Surplus / Deficit after payables</span><span className={`font-bold ${balanceColor(summary.surplusDeficit)}`}>{formatBDT(summary.surplusDeficit)}</span></div>
+            <div className="flex justify-between border-t pt-3"><span>Project surplus / deficit</span><span className={`font-bold ${balanceColor(summary.surplusDeficit)}`}>{formatBDT(summary.surplusDeficit)}</span></div>
             <div className="text-xs text-muted-foreground">Default service charge: {project.defaultServiceChargePct?.toString() ?? '0'}%</div>
           </CardContent>
         </Card>
