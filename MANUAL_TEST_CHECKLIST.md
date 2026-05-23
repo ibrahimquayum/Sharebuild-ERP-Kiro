@@ -231,12 +231,30 @@ Login: `admin@relaxdevelopers.com` / `admin123`
 - [ ] `/projects/[id]/finance/service-charge` opens and shows phase-wise service charge rows.
 - [ ] `POST /api/projects/[id]/service-charge` can calculate service charge rows without crashing.
 - [ ] Approved service charge rows appear in finance hub, service charge report, and complete project report.
+- [ ] Service charge can be settled separately to a treasury account and then shows as settled in the ledger.
 - [ ] `/projects/[id]/finance/final-reconciliation` opens and shows finance readiness plus buyer distribution preview.
 - [ ] Final reconciliation posting is blocked when no ownership rows exist.
 - [ ] After assigning unit ownership, final reconciliation posting succeeds once.
 - [ ] Posted final reconciliation creates `FINAL_RECONCILIATION` demand rows for deficit posting.
 - [ ] Generated reconciliation demands carry `finalReconciliationId`.
+- [ ] Generated reconciliation demands appear in `/projects/[id]/demands` and are labeled as final reconciliation demands.
 - [ ] Reversing a posted reconciliation is blocked if generated reconciliation demands already have collected allocations.
 - [ ] `/projects/[id]/reports/service-charge` opens and CSV export returns real rows.
 - [ ] `/projects/[id]/reports/final-reconciliation` opens and CSV export returns posted reconciliation metadata when available.
 - [ ] Buyer detail, buyer due report, finance hub, and complete project report all show the same due/advance totals after reconciliation posting.
+
+## R. Ownership Seed And Finance QA Sequence
+
+- [ ] Login with `admin@relaxdevelopers.com` / `admin123`.
+- [ ] Open `/projects/project-relax-tower/units` and confirm 54 apartment units exist.
+- [ ] Open `/projects/project-relax-tower/buyers` and confirm 50 project buyers plus seeded ownership rows.
+- [ ] Open `/projects/project-relax-tower/finance/service-charge`.
+- [ ] Calculate service charge entries.
+- [ ] Approve service charge entries.
+- [ ] Settle one approved service charge entry to `Office Cash` or another active account.
+- [ ] Open `/projects/project-relax-tower/finance/final-reconciliation`.
+- [ ] Confirm preview is not blocked for missing ownership.
+- [ ] Post final reconciliation once.
+- [ ] Open `/projects/project-relax-tower/demands` and confirm posted final reconciliation demand rows are visible.
+- [ ] Open `/projects/project-relax-tower/reports/final-reconciliation` and confirm generated demand count is shown.
+- [ ] Re-seed the database after QA if you want the clean baseline restored.

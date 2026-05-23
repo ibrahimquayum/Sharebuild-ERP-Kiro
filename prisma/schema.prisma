@@ -300,6 +300,12 @@ enum ServiceChargeStatus {
   REVERSED
 }
 
+enum ServiceChargeSettlementStatus {
+  UNSETTLED
+  INCLUDED_IN_DEMAND
+  SETTLED
+}
+
 enum DemandType {
   REGULAR
   FINAL_RECONCILIATION
@@ -315,6 +321,14 @@ enum FinalReconciliationStatus {
   DRAFT
   POSTED
   REVERSED
+}
+
+enum ReconciliationCreditSettlementStatus {
+  NOT_APPLICABLE
+  OPEN_CREDIT
+  KEPT_AS_ADVANCE
+  REFUNDED
+  ADJUSTED
 }
 
 // ─────────────────────────────────────────────
@@ -1138,6 +1152,12 @@ model ServiceChargeEntry {
   serviceChargeAmount Decimal
   includedInDemand    Boolean             @default(false)
   status              ServiceChargeStatus @default(DRAFT)
+  settlementStatus    ServiceChargeSettlementStatus @default(UNSETTLED)
+  settlementAccountId String?
+  settlementMethod    PaymentMethod?
+  settlementReference String?
+  settledAt           DateTime?
+  settledById         String?
   calculatedAt        DateTime?
   approvedAt          DateTime?
   approvedById        String?
@@ -1201,6 +1221,13 @@ model FinalReconciliationLine {
   unitId           String?
   ownershipShare   Decimal             @default(0)
   amount           Decimal
+  settlementStatus ReconciliationCreditSettlementStatus @default(NOT_APPLICABLE)
+  settlementAccountId String?
+  settlementMethod PaymentMethod?
+  settlementReference String?
+  settledAt        DateTime?
+  settledById      String?
+  settlementNote   String?
   notes            String?
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt

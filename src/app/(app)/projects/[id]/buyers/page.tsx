@@ -8,6 +8,7 @@ import { formatBDT } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatCard } from '@/components/shared/stat-card';
 import { OwnershipForm } from '@/components/projects/ownership-form';
+import { getProjectBuyerLedger } from '@/lib/project-finance';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,20 +22,12 @@ export default async function ProjectBuyersPage({ params }: { params: { id: stri
   });
   if (!project) notFound();
 
-  const [projectBuyers, allBuyers, units] = await Promise.all([
+  const [projectBuyers, allBuyers, units, buyerLedger] = await Promise.all([
     prisma.projectBuyer.findMany({
       where: { projectId: project.id },
       include: {
         buyer: {
           include: {
-            collections: { where: { phase: { projectId: project.id }, status: { not: 'REVERSED' } }, select: { amount: true } },
-            demands: {
-              where: { unit: { projectId: project.id } },
-              include: {
-                collections: { where: { status: { not: 'REVERSED' } }, select: { amount: true } },
-                allocations: { where: { collection: { status: { not: 'REVERSED' } } }, select: { amount: true } },
-              },
-            },
             unitAllocations: {
               where: { unit: { projectId: project.id } },
               include: { unit: { select: { id: true, unitNo: true, floor: true, unitType: true } } },
@@ -47,12 +40,21 @@ export default async function ProjectBuyersPage({ params }: { params: { id: stri
     }),
     prisma.buyer.findMany({ where: { companyId }, orderBy: { name: 'asc' }, select: { id: true, name: true, phone: true } }),
     prisma.unit.findMany({ where: { projectId: project.id }, orderBy: [{ floor: 'asc' }, { unitNo: 'asc' }], select: { id: true, unitNo: true, floor: true, status: true } }),
+    getProjectBuyerLedger(project.id),
   ]);
 
+  const ledgerMap = new Map(buyerLedger.map((row) => [row.buyerId, row]));
   const rows = projectBuyers.map(({ id, buyer }) => {
-    const totalDemand = buyer.demands.reduce((sum, demand) => sum + Number(demand.amount), 0);
-    const totalPaid = buyer.collections.reduce((sum, collection) => sum + Number(collection.amount), 0);
-    return { membershipId: id, buyer, totalDemand, totalPaid, due: totalDemand - totalPaid };
+    const ledger = ledgerMap.get(buyer.id);
+    return {
+      membershipId: id,
+      buyer,
+      totalDemand: ledger?.demanded ?? 0,
+      totalPaid: ledger?.allocated ?? 0,
+      due: ledger?.due ?? 0,
+      advance: ledger?.advance ?? 0,
+      reconciliationCredit: ledger?.reconciliationCredit ?? 0,
+    };
   });
 
   const totalDemand = rows.reduce((sum, row) => sum + row.totalDemand, 0);
@@ -129,7 +131,9 @@ export default async function ProjectBuyersPage({ params }: { params: { id: stri
                     </td>
                     <td className="px-4 py-3 text-right font-medium">{formatBDT(row.totalDemand)}</td>
                     <td className="px-4 py-3 text-right font-medium text-green-600">{formatBDT(row.totalPaid)}</td>
-                    <td className="px-4 py-3 text-right font-bold">{formatBDT(row.due)}</td>
+                    <td className="px-4 py-3 text-right font-bold">
+                      {row.advance > 0 ? `${formatBDT(row.advance)} advance` : formatBDT(row.due)}
+                    </td>
                     <td className="px-4 py-3 text-center text-xs text-muted-foreground">{row.buyer.documents.length}</td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex justify-center gap-2 text-xs">

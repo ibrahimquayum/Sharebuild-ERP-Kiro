@@ -20,8 +20,24 @@ export default async function ServiceChargeFinancePage({ params }: { params: { i
   });
   if (!project) notFound();
 
-  const ledger = await getProjectServiceChargeLedger(project.id);
+  const [ledger, accounts] = await Promise.all([
+    getProjectServiceChargeLedger(project.id),
+    prisma.cashBankAccount.findMany({
+      where: { companyId, isActive: true },
+      orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+      select: { id: true, name: true, type: true },
+    }),
+  ]);
   if (!ledger) notFound();
+
+  const settlementEntries = ledger.rows
+    .filter((row) => row.status === 'APPROVED' && !row.includedInDemand && row.settlementStatus !== 'SETTLED' && row.entryId)
+    .map((row) => ({
+      entryId: row.entryId!,
+      phaseName: row.phaseName,
+      amount: row.serviceChargeAmount,
+      settlementStatus: row.settlementStatus,
+    }));
 
   return (
     <div className="p-5 space-y-5">
@@ -30,11 +46,15 @@ export default async function ServiceChargeFinancePage({ params }: { params: { i
       <div className="grid gap-4 md:grid-cols-4">
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Approved</div><div className="mt-1 text-lg font-bold">{formatBDT(ledger.totals.approvedTotal)}</div></CardContent></Card>
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Calculated</div><div className="mt-1 text-lg font-bold">{formatBDT(ledger.totals.calculatedTotal)}</div></CardContent></Card>
-        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Preview Basis</div><div className="mt-1 text-lg font-bold">{formatBDT(ledger.totals.previewTotal)}</div></CardContent></Card>
-        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Pending Rows</div><div className="mt-1 text-lg font-bold">{ledger.totals.pendingCount}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Included In Demand</div><div className="mt-1 text-lg font-bold">{formatBDT(ledger.totals.includedInDemandTotal)}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Settled Separately</div><div className="mt-1 text-lg font-bold">{formatBDT(ledger.totals.settledTotal)}</div></CardContent></Card>
       </div>
 
-      <ServiceChargeActions projectId={project.id} />
+      <ServiceChargeActions
+        projectId={project.id}
+        accounts={accounts.map((account) => ({ id: account.id, label: `${account.name} (${account.type.replaceAll('_', ' ')})` }))}
+        settlementEntries={settlementEntries}
+      />
 
       <Card>
         <CardHeader>
@@ -50,7 +70,7 @@ export default async function ServiceChargeFinancePage({ params }: { params: { i
                   <th className="px-3 py-2 text-right text-xs uppercase text-muted-foreground">%</th>
                   <th className="px-3 py-2 text-right text-xs uppercase text-muted-foreground">Amount</th>
                   <th className="px-3 py-2 text-left text-xs uppercase text-muted-foreground">Status</th>
-                  <th className="px-3 py-2 text-left text-xs uppercase text-muted-foreground">Demand</th>
+                  <th className="px-3 py-2 text-left text-xs uppercase text-muted-foreground">Settlement</th>
                   <th className="px-3 py-2 text-right text-xs uppercase text-muted-foreground">Action</th>
                 </tr>
               </thead>
@@ -64,7 +84,10 @@ export default async function ServiceChargeFinancePage({ params }: { params: { i
                     <td className="px-3 py-2 text-right">{row.percentage?.toFixed?.(2) ?? row.percentage ?? 0}%</td>
                     <td className="px-3 py-2 text-right">{formatBDT(row.serviceChargeAmount)}</td>
                     <td className="px-3 py-2">{row.status.replaceAll('_', ' ')}</td>
-                    <td className="px-3 py-2">{row.includedInDemand ? 'Included' : 'Separate income'}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                      {row.settlementStatus.replaceAll('_', ' ')}
+                      {row.settlementReference ? <div>{row.settlementReference}</div> : null}
+                    </td>
                     <td className="px-3 py-2 text-right">{row.entryId && row.status !== 'PREVIEW' ? <ServiceChargeActions projectId={project.id} entryId={row.entryId} /> : null}</td>
                   </tr>
                 ))}

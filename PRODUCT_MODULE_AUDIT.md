@@ -169,6 +169,21 @@ Remaining finance audit gaps:
   - surplus reconciliation credits are posted in the ledger but not yet paid/refunded through a dedicated workflow
   - no native XLSX workbook or server-generated PDF
 
+## Ownership Seed / Finance QA Update - May 24, 2026
+
+- Relax Tower seed ownership gap is now resolved:
+  - 54 units
+  - 50 buyers
+  - 56 ownership rows
+  - seeded co-ownership and multi-unit ownership
+- Final reconciliation can now be browser-tested against seeded ownership instead of remaining blocked.
+- Project demand listing now includes `FINAL_RECONCILIATION` demand rows, so posted reconciliation receivables are visible in the daily finance workflow.
+- Service charge settlement now has durable settlement status plus treasury posting metadata.
+- Remaining audit gaps after this pass:
+  - no default seed scenario for posted surplus refund-credit settlement
+  - no dedicated document seed records because placeholder file links would be misleading
+  - no native XLSX workbook or server-generated PDF
+
 ## Schema Recommendation
 
 The accounting hardening pass required one clean schema migration for allocation, reversal metadata, cheque state, and phase audit locks. Future phases should consider dedicated tables for material masters, payment methods, dynamic permissions, local shops, subcontractor bills, adjustment entries, reconciliation snapshots, and report export jobs.

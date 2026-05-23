@@ -96,7 +96,7 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
         <StatCard
           title="Project Balance"
           value={formatBDTCompact(summary.projectBalance)}
-          subtitle={formatBDT(summary.projectBalance)}
+          subtitle={summary.postedReconciliation ? `Posted reconciliation ${formatBDT(Number(summary.postedReconciliation.finalAmount))}` : formatBDT(summary.projectBalance)}
           icon={summary.projectBalance >= 0 ? CheckCircle2 : TrendingDown}
           iconColor={summary.projectBalance >= 0 ? 'text-emerald-600' : 'text-red-600'}
           iconBg={summary.projectBalance >= 0 ? 'bg-emerald-50' : 'bg-red-50'}
@@ -152,7 +152,15 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
         <StatCard
           title="Service Charge"
           value={formatBDTCompact(summary.serviceChargeAccrued)}
-          subtitle={summary.serviceChargeApproved > 0 ? `${formatBDT(summary.serviceChargeApproved)} approved` : 'Uses approved or calculated ledger'}
+          subtitle={
+            summary.serviceChargeSettled > 0
+              ? `${formatBDT(summary.serviceChargeSettled)} settled`
+              : summary.serviceChargeIncludedInDemand > 0
+                ? `${formatBDT(summary.serviceChargeIncludedInDemand)} included in demand`
+                : summary.serviceChargeApproved > 0
+                  ? `${formatBDT(summary.serviceChargeApproved)} approved`
+                  : 'Uses approved or calculated ledger'
+          }
           icon={CircleDollarSign}
           iconColor="text-purple-600"
           iconBg="bg-purple-50"

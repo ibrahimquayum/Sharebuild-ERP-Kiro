@@ -35,6 +35,16 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       ['Buyer', 'Units', 'Share %', preview.direction === 'SURPLUS' ? 'Refund / Adjust' : 'Collect'],
       ...preview.distribution.map((row) => [row.buyerName, row.units, row.sharePercent, row.amount]),
     ]),
+    csvSection('Posted Lines', [
+      ['Buyer', 'Unit', 'Amount', 'Settlement Status', 'Settlement Reference'],
+      ...(preview.posted?.lines ?? []).map((line) => [
+        line.buyer.name,
+        line.unit?.unitNo ?? '',
+        line.amount,
+        line.settlementStatus,
+        line.settlementReference ?? '',
+      ]),
+    ]),
   ].join('\r\n');
 
   await safeAuditLog({ userId: (session.user as any).id, projectId: project.id, action: 'CREATE', entityType: 'report_export', entityId: project.id, newValues: { report: 'final_reconciliation', format: 'csv' }, context: 'final reconciliation csv export' });

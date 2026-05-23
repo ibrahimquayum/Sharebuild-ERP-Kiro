@@ -42,6 +42,30 @@ export default async function FinalReconciliationReportPage({ params }: { params
           </tbody>
         </table>
       </div>
+      {preview.posted?.lines?.length ? (
+        <div className="overflow-x-auto rounded-md border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/40">
+                <th className="px-3 py-2 text-left">Buyer</th>
+                <th className="px-3 py-2 text-left">Unit</th>
+                <th className="px-3 py-2 text-right">Amount</th>
+                <th className="px-3 py-2 text-left">Settlement</th>
+              </tr>
+            </thead>
+            <tbody>
+              {preview.posted.lines.map((line) => (
+                <tr key={line.id} className="border-b">
+                  <td className="px-3 py-2">{line.buyer.name}</td>
+                  <td className="px-3 py-2">{line.unit?.unitNo ?? '-'}</td>
+                  <td className="px-3 py-2 text-right font-medium">{formatBDT(Number(line.amount))}</td>
+                  <td className="px-3 py-2">{line.settlementStatus.replaceAll('_', ' ')}{line.settlementReference ? ` - ${line.settlementReference}` : ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
       <ReportFooter note={branding.reportFooterNote} />
     </div>
   );

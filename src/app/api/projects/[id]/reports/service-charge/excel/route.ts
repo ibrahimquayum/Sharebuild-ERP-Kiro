@@ -22,7 +22,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
   const ledger = await getProjectServiceChargeLedger(project.id);
   const rows = [
-    ['Phase', 'Basis Type', 'Basis Amount', 'Percent', 'Service Charge', 'Status', 'Included In Demand'],
+    ['Phase', 'Basis Type', 'Basis Amount', 'Percent', 'Service Charge', 'Status', 'Settlement Status', 'Settlement Reference', 'Included In Demand'],
     ...(ledger?.rows ?? []).map((row) => [
       row.phaseName,
       row.basisType,
@@ -30,6 +30,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       row.percentage ?? 0,
       row.serviceChargeAmount,
       row.status,
+      row.settlementStatus,
+      row.settlementReference ?? '',
       row.includedInDemand ? 'YES' : 'NO',
     ]),
   ];

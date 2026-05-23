@@ -3,14 +3,18 @@ import { getServerSession } from 'next-auth';
 import { z } from 'zod';
 import { authOptions } from '@/lib/auth';
 import { safeAuditLog } from '@/lib/audit';
+import { createCashBankTransactionFromServiceChargeSettlement } from '@/lib/cash-bank';
 import { assertCan } from '@/lib/permissions';
 import { getProjectServiceChargeLedger } from '@/lib/project-finance';
 import { prisma } from '@/lib/prisma';
 
 const mutationSchema = z.object({
-  action: z.enum(['calculate', 'approve', 'reverse']),
+  action: z.enum(['calculate', 'approve', 'settle', 'reverse']),
   entryId: z.string().optional(),
   includedInDemand: z.boolean().optional(),
+  accountId: z.string().optional(),
+  paymentMethod: z.enum(['CASH', 'BANK_TRANSFER', 'MOBILE_BANKING', 'OTHER']).optional(),
+  reference: z.string().optional(),
   reason: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -84,6 +88,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           serviceChargeAmount: row.previewAmount || row.serviceChargeAmount,
           includedInDemand: data.includedInDemand ?? row.includedInDemand,
           status: 'CALCULATED' as const,
+          settlementStatus: (data.includedInDemand ?? row.includedInDemand) ? 'INCLUDED_IN_DEMAND' as const : 'UNSETTLED' as const,
+          settlementAccountId: undefined,
+          settlementMethod: undefined,
+          settlementReference: undefined,
+          settledAt: undefined,
+          settledById: undefined,
           calculatedAt: new Date(),
           notes: data.notes?.trim() || row.notes || undefined,
         };
@@ -133,6 +143,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         approvedAt: new Date(),
         approvedById: userId,
         includedInDemand: data.includedInDemand ?? false,
+        settlementStatus: data.includedInDemand ? 'INCLUDED_IN_DEMAND' : 'UNSETTLED',
+        settlementAccountId: null,
+        settlementMethod: null,
+        settlementReference: null,
+        settledAt: null,
+        settledById: null,
       },
     });
 
@@ -149,6 +165,81 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ approved: result.count, calculated: calcResult.updated });
   }
 
+  if (data.action === 'settle') {
+    assertCan(role, 'accounts', 'create');
+    if (!data.entryId) return NextResponse.json({ error: 'Select an approved service charge entry to settle.' }, { status: 400 });
+    if (!data.accountId) return NextResponse.json({ error: 'Select the receiving account for service charge settlement.' }, { status: 400 });
+    if (!data.paymentMethod) return NextResponse.json({ error: 'Select a payment method for service charge settlement.' }, { status: 400 });
+    const paymentMethod = data.paymentMethod;
+
+    const entry = await prisma.serviceChargeEntry.findFirst({
+      where: { id: data.entryId, companyId, projectId, reversedAt: null },
+      select: {
+        id: true,
+        phaseId: true,
+        status: true,
+        includedInDemand: true,
+        settlementStatus: true,
+        serviceChargeAmount: true,
+      },
+    });
+    if (!entry) return NextResponse.json({ error: 'Service charge entry not found.' }, { status: 404 });
+    if (entry.status !== 'APPROVED') return NextResponse.json({ error: 'Only approved service charge entries can be settled.' }, { status: 400 });
+    if (entry.includedInDemand || entry.settlementStatus === 'INCLUDED_IN_DEMAND') {
+      return NextResponse.json({ error: 'This service charge is already included in buyer demand and does not need separate settlement.' }, { status: 400 });
+    }
+    if (entry.settlementStatus === 'SETTLED') {
+      return NextResponse.json({ error: 'This service charge entry is already settled.' }, { status: 400 });
+    }
+
+    const account = await prisma.cashBankAccount.findFirst({
+      where: { id: data.accountId, companyId, isActive: true },
+      select: { id: true, name: true },
+    });
+    if (!account) return NextResponse.json({ error: 'Selected settlement account was not found.' }, { status: 404 });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.serviceChargeEntry.update({
+        where: { id: entry.id },
+        data: {
+          settlementStatus: 'SETTLED',
+          settlementAccountId: account.id,
+          settlementMethod: paymentMethod,
+          settlementReference: data.reference?.trim() || undefined,
+          settledAt: new Date(),
+          settledById: userId,
+          notes: data.notes?.trim() || undefined,
+        },
+      });
+
+      await createCashBankTransactionFromServiceChargeSettlement(tx, {
+        entryId: entry.id,
+        accountId: account.id,
+        paymentMethod,
+        referenceNo: data.reference?.trim() || undefined,
+        description: data.notes?.trim() || 'Service charge settled as separate company income.',
+        createdById: userId,
+      });
+    });
+
+    await safeAuditLog({
+      userId,
+      projectId,
+      action: 'CREATE',
+      entityType: 'service_charge_settlement',
+      entityId: entry.id,
+      newValues: {
+        accountId: account.id,
+        paymentMethod,
+        reference: data.reference?.trim() || null,
+        amount: Number(entry.serviceChargeAmount),
+      },
+      context: 'service charge settle',
+    });
+
+    return NextResponse.json({ ok: true });
+  }
+
   assertCan(role, 'reports', 'reverseAdjust');
   if (!data.entryId) return NextResponse.json({ error: 'Select a service charge entry to reverse.' }, { status: 400 });
   if (!data.reason?.trim()) return NextResponse.json({ error: 'A reversal reason is required.' }, { status: 400 });
@@ -163,10 +254,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const entry = await prisma.serviceChargeEntry.findFirst({
     where: { id: data.entryId, projectId, companyId, reversedAt: null },
-    select: { id: true, status: true },
+    select: { id: true, status: true, settlementStatus: true },
   });
   if (!entry) return NextResponse.json({ error: 'Service charge entry not found.' }, { status: 404 });
   if (entry.status === 'REVERSED') return NextResponse.json({ error: 'Service charge entry is already reversed.' }, { status: 400 });
+  if (entry.settlementStatus === 'SETTLED') {
+    return NextResponse.json({ error: 'Reverse the service charge settlement before reversing the approved service charge entry.' }, { status: 400 });
+  }
 
   await prisma.serviceChargeEntry.update({
     where: { id: entry.id },

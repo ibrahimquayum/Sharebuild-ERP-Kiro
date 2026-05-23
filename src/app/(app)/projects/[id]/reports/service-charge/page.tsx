@@ -25,8 +25,8 @@ export default async function ServiceChargeReportPage({ params }: { params: { id
       <div className="grid gap-3 md:grid-cols-4">
         <div className="rounded-md border p-3 text-sm"><div className="text-xs text-muted-foreground">Approved</div><div className="mt-1 font-bold">{formatBDT(ledger?.totals.approvedTotal ?? 0)}</div></div>
         <div className="rounded-md border p-3 text-sm"><div className="text-xs text-muted-foreground">Calculated</div><div className="mt-1 font-bold">{formatBDT(ledger?.totals.calculatedTotal ?? 0)}</div></div>
-        <div className="rounded-md border p-3 text-sm"><div className="text-xs text-muted-foreground">Preview</div><div className="mt-1 font-bold">{formatBDT(ledger?.totals.previewTotal ?? 0)}</div></div>
-        <div className="rounded-md border p-3 text-sm"><div className="text-xs text-muted-foreground">Effective Total</div><div className="mt-1 font-bold">{formatBDT(ledger?.totals.effectiveTotal ?? 0)}</div></div>
+        <div className="rounded-md border p-3 text-sm"><div className="text-xs text-muted-foreground">Included In Demand</div><div className="mt-1 font-bold">{formatBDT(ledger?.totals.includedInDemandTotal ?? 0)}</div></div>
+        <div className="rounded-md border p-3 text-sm"><div className="text-xs text-muted-foreground">Settled Separately</div><div className="mt-1 font-bold">{formatBDT(ledger?.totals.settledTotal ?? 0)}</div></div>
       </div>
       <div className="overflow-x-auto rounded-md border">
         <table className="w-full text-sm">
@@ -37,7 +37,7 @@ export default async function ServiceChargeReportPage({ params }: { params: { id
               <th className="px-3 py-2 text-right">Percent</th>
               <th className="px-3 py-2 text-right">Charge</th>
               <th className="px-3 py-2 text-left">Status</th>
-              <th className="px-3 py-2 text-left">Included In Demand</th>
+              <th className="px-3 py-2 text-left">Settlement</th>
             </tr>
           </thead>
           <tbody>
@@ -48,7 +48,7 @@ export default async function ServiceChargeReportPage({ params }: { params: { id
                 <td className="px-3 py-2 text-right">{row.percentage?.toFixed?.(2) ?? row.percentage ?? 0}%</td>
                 <td className="px-3 py-2 text-right font-medium">{formatBDT(row.serviceChargeAmount)}</td>
                 <td className="px-3 py-2">{row.status.replaceAll('_', ' ')}</td>
-                <td className="px-3 py-2">{row.includedInDemand ? 'Yes' : 'No'}</td>
+                <td className="px-3 py-2">{row.settlementStatus.replaceAll('_', ' ')}{row.settlementReference ? ` - ${row.settlementReference}` : ''}</td>
               </tr>
             ))}
           </tbody>

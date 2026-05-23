@@ -90,6 +90,77 @@ const PHASE_FINANCIALS: Record<string, { income: number; expense: number }> = {
   'ph-finish':  { income:          0,  expense:             0  },
 };
 
+const BASE_BUYERS = [
+  { name: 'Md. Karim Uddin', nameBn: 'মোঃ করিম উদ্দিন', phone: '01711000001' },
+  { name: 'Nasrin Begum', nameBn: 'নাসরিন বেগম', phone: '01711000002' },
+  { name: 'Abdul Hamid', nameBn: 'আব্দুল হামিদ', phone: '01711000003' },
+  { name: 'Fatema Khatun', nameBn: 'ফাতেমা খাতুন', phone: '01711000004' },
+  { name: 'Shahidul Islam', nameBn: 'শহিদুল ইসলাম', phone: '01711000005' },
+  { name: 'Rina Akter', nameBn: 'রিনা আক্তার', phone: '01711000006' },
+  { name: 'Nurul Huda', nameBn: 'নুরুল হুদা', phone: '01711000007' },
+  { name: 'Tahmina Parvin', nameBn: 'তাহমিনা পারভীন', phone: '01711000008' },
+  { name: 'Jamal Hossain', nameBn: 'জামাল হোসেন', phone: '01711000009' },
+  { name: 'Hasina Khanam', nameBn: 'হাসিনা খানম', phone: '01711000010' },
+] as const;
+
+const EXTRA_FIRST_NAMES = [
+  'Sajjad', 'Mahmud', 'Farzana', 'Sharmin', 'Kamal', 'Rubina', 'Imran', 'Morsheda', 'Shafiqul', 'Nusrat',
+  'Anisur', 'Sharmeen', 'Rashida', 'Saiful', 'Nasima', 'Helal', 'Sabina', 'Rakib', 'Jannat', 'Mahbub',
+  'Shila', 'Rafiqul', 'Selina', 'Jubair', 'Tania', 'Shamim', 'Momena', 'Zahid', 'Sultana', 'Asif',
+  'Meherun', 'Arefin', 'Munni', 'Habibur', 'Lipi', 'Mizanur', 'Rokeya', 'Tanvir', 'Rehana', 'Ilias',
+];
+
+const EXTRA_LAST_NAMES = ['Ahmed', 'Rahman', 'Sarker', 'Chowdhury', 'Hasan', 'Islam', 'Akter', 'Begum'];
+const UNIT_COLUMNS = ['A', 'B', 'C', 'D', 'E', 'F'] as const;
+const UNIT_SIZES: Record<(typeof UNIT_COLUMNS)[number], number> = {
+  A: 1450,
+  B: 1475,
+  C: 1490,
+  D: 1510,
+  E: 1485,
+  F: 1460,
+};
+
+function buildBuyerSeed() {
+  const extra = Array.from({ length: 40 }, (_, index) => {
+    const firstName = EXTRA_FIRST_NAMES[index];
+    const lastName = EXTRA_LAST_NAMES[index % EXTRA_LAST_NAMES.length];
+    return {
+      name: `${firstName} ${lastName}`,
+      nameBn: null,
+      phone: `0171200${String(index + 11).padStart(4, '0')}`,
+    };
+  });
+
+  return [...BASE_BUYERS, ...extra];
+}
+
+function buildRelaxTowerUnits() {
+  const units: Array<{
+    id: string;
+    floor: number;
+    unitNo: string;
+    unitType: 'FLAT';
+    status: 'SOLD';
+    sizesqft: number;
+  }> = [];
+
+  for (let floor = 1; floor <= 9; floor += 1) {
+    for (const column of UNIT_COLUMNS) {
+      units.push({
+        id: `unit-relax-${String(floor).padStart(2, '0')}${column.toLowerCase()}`,
+        floor,
+        unitNo: `${floor}${column}`,
+        unitType: 'FLAT',
+        status: 'SOLD',
+        sizesqft: UNIT_SIZES[column],
+      });
+    }
+  }
+
+  return units;
+}
+
 // Expected totals (for assertion at end):
 // income  = 100,143,800
 // expense = 104,659,890.40
@@ -189,6 +260,10 @@ async function main() {
     where: { id: 'project-relax-tower' },
     update: {
       totalFloors: 11,
+      residentialFloors: 9,
+      unitsPerFloor: 6,
+      totalPlannedUnits: 54,
+      defaultServiceChargePct: 5,
       phone: '01712553110',
     },
     create: {
@@ -204,6 +279,10 @@ async function main() {
       postCode: '1230',
       phone: '01712553110',
       totalFloors: 11,
+      residentialFloors: 9,
+      unitsPerFloor: 6,
+      totalPlannedUnits: 54,
+      defaultServiceChargePct: 5,
       status: 'ACTIVE',
       startDate: new Date('2023-06-01'),
     },
@@ -269,6 +348,20 @@ async function main() {
 
   await prisma.cashBankTransaction.deleteMany({ where: { projectId: project.id } });
   await prisma.chequeLog.deleteMany({ where: { projectId: project.id } });
+  await prisma.document.deleteMany({ where: { projectId: project.id } });
+  await prisma.collection.deleteMany({ where: { phase: { projectId: project.id } } });
+  await prisma.demand.deleteMany({ where: { unit: { projectId: project.id } } });
+  await prisma.finalReconciliation.deleteMany({ where: { projectId: project.id } });
+  await prisma.serviceChargeEntry.deleteMany({ where: { projectId: project.id } });
+  await prisma.expense.deleteMany({ where: { phase: { projectId: project.id } } });
+  await prisma.supplierPayment.deleteMany({ where: { payable: { projectId: project.id } } });
+  await prisma.supplierBillItem.deleteMany({ where: { payable: { projectId: project.id } } });
+  await prisma.supplierPayable.deleteMany({ where: { projectId: project.id } });
+  await prisma.projectSupplier.deleteMany({ where: { projectId: project.id } });
+  await prisma.projectSubcontractor.deleteMany({ where: { projectId: project.id } });
+  await prisma.unitBuyer.deleteMany({ where: { unit: { projectId: project.id } } });
+  await prisma.unit.deleteMany({ where: { projectId: project.id } });
+  await prisma.projectBuyer.deleteMany({ where: { projectId: project.id } });
   console.log('  ✅  Default cash/bank accounts prepared');
 
   // ── 4. Phases ───────────────────────────────────────────────────────────
@@ -295,7 +388,8 @@ async function main() {
 
   // ── 5. Seed buyers — representative names from a typical Relax Tower project
   //    (Real names are not in the Excel context; using generic buyer names)
-  const buyerNames = [
+  const buyerNames = buildBuyerSeed();
+  /* legacy sample names retained below for reference during the seed refresh
     { name: 'Md. Karim Uddin',    nameBn: 'মোঃ করিম উদ্দিন',    phone: '01711000001' },
     { name: 'Nasrin Begum',       nameBn: 'নাসরিন বেগম',         phone: '01711000002' },
     { name: 'Abdul Hamid',        nameBn: 'আব্দুল হামিদ',        phone: '01711000003' },
@@ -306,7 +400,7 @@ async function main() {
     { name: 'Tahmina Parvin',     nameBn: 'তাহমিনা পারভীন',      phone: '01711000008' },
     { name: 'Jamal Hossain',      nameBn: 'জামাল হোসেন',         phone: '01711000009' },
     { name: 'Hasina Khanam',      nameBn: 'হাসিনা খানম',         phone: '01711000010' },
-  ];
+  ]; */
 
   const createdBuyers: { id: string; name: string }[] = [];
   for (let i = 0; i < buyerNames.length; i++) {
@@ -342,17 +436,108 @@ async function main() {
     where: { phase: { projectId: project.id } },
   });
 
+  const unitsToCreate = buildRelaxTowerUnits();
+  await prisma.unit.createMany({
+    data: unitsToCreate.map((unit) => ({
+      id: unit.id,
+      projectId: project.id,
+      floor: unit.floor,
+      unitNo: unit.unitNo,
+      unitType: unit.unitType,
+      status: unit.status,
+      sizesqft: unit.sizesqft,
+      notes: 'Seeded residential apartment for Relax Tower finance QA.',
+    })),
+  });
+
+  const ownershipRows: Array<{
+    unitId: string;
+    buyerId: string;
+    sharePercent: number;
+    relationship: 'OWNER' | 'CO_OWNER';
+    isPrimary: boolean;
+    isPayer: boolean;
+  }> = [];
+
+  for (let unitIndex = 0; unitIndex < 12; unitIndex += 1) {
+    const buyer = createdBuyers[Math.floor(unitIndex / 2)];
+    ownershipRows.push({
+      unitId: unitsToCreate[unitIndex].id,
+      buyerId: buyer.id,
+      sharePercent: 100,
+      relationship: 'OWNER',
+      isPrimary: true,
+      isPayer: true,
+    });
+  }
+
+  for (let unitIndex = 12; unitIndex < 52; unitIndex += 1) {
+    const buyer = createdBuyers[unitIndex - 6];
+    ownershipRows.push({
+      unitId: unitsToCreate[unitIndex].id,
+      buyerId: buyer.id,
+      sharePercent: 100,
+      relationship: 'OWNER',
+      isPrimary: true,
+      isPayer: true,
+    });
+  }
+
+  ownershipRows.push(
+    {
+      unitId: unitsToCreate[52].id,
+      buyerId: createdBuyers[46].id,
+      sharePercent: 60,
+      relationship: 'OWNER',
+      isPrimary: true,
+      isPayer: true,
+    },
+    {
+      unitId: unitsToCreate[52].id,
+      buyerId: createdBuyers[47].id,
+      sharePercent: 40,
+      relationship: 'CO_OWNER',
+      isPrimary: false,
+      isPayer: true,
+    },
+    {
+      unitId: unitsToCreate[53].id,
+      buyerId: createdBuyers[48].id,
+      sharePercent: 50,
+      relationship: 'OWNER',
+      isPrimary: true,
+      isPayer: true,
+    },
+    {
+      unitId: unitsToCreate[53].id,
+      buyerId: createdBuyers[49].id,
+      sharePercent: 50,
+      relationship: 'CO_OWNER',
+      isPrimary: false,
+      isPayer: true,
+    },
+  );
+
+  await prisma.unitBuyer.createMany({
+    data: ownershipRows.map((row) => ({
+      ...row,
+      notes: 'Seeded ownership row for Relax Tower reconciliation testing.',
+    })),
+  });
+  console.log(`  âœ…  ${unitsToCreate.length} units and ${ownershipRows.length} ownership rows seeded`);
+
+  const collectionBuyers = createdBuyers.slice(0, BASE_BUYERS.length);
   let totalCollectionSeeded = 0;
   for (const phase of PHASES) {
     const fin = PHASE_FINANCIALS[phase.id];
     if (!fin || fin.income === 0) continue;
 
     const income = fin.income;
-    const count = createdBuyers.length;
+    const count = collectionBuyers.length;
     const perBuyer = Math.floor(income / count);
     const remainder = income - perBuyer * count;
 
-    const collections = createdBuyers.map((buyer, idx) => ({
+    const collections = collectionBuyers.map((buyer, idx) => ({
       phaseId: phase.id,
       buyerId: buyer.id,
       accountId: mainBank.id,

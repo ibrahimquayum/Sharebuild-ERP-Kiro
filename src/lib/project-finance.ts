@@ -89,12 +89,19 @@ export async function getProjectBuyerLedger(projectId: string) {
           reversedAt: null,
         },
       },
-      select: { buyerId: true, amount: true },
+      select: { buyerId: true, amount: true, settlementStatus: true },
     }),
   ]);
 
-  const creditMap = surplusCredits.reduce<Record<string, number>>((map, row) => {
-    map[row.buyerId] = (map[row.buyerId] ?? 0) + numberValue(row.amount);
+  const creditSummary = surplusCredits.reduce<Record<string, { active: number; refunded: number; adjusted: number }>>((map, row) => {
+    const current = map[row.buyerId] ?? { active: 0, refunded: 0, adjusted: 0 };
+    const amount = numberValue(row.amount);
+    if (row.settlementStatus === 'OPEN_CREDIT' || row.settlementStatus === 'KEPT_AS_ADVANCE') {
+      current.active += amount;
+    }
+    if (row.settlementStatus === 'REFUNDED') current.refunded += amount;
+    if (row.settlementStatus === 'ADJUSTED') current.adjusted += amount;
+    map[row.buyerId] = current;
     return map;
   }, {});
 
@@ -108,7 +115,8 @@ export async function getProjectBuyerLedger(projectId: string) {
     const collected = sumAmounts(buyer.collections.map((collection) => collection.amount));
     const demandDueBeforeCredit = Math.max(demanded - allocated, 0);
     const cashAdvance = Math.max(collected - allocated, 0);
-    const reconciliationCredit = creditMap[buyer.id] ?? 0;
+    const credit = creditSummary[buyer.id] ?? { active: 0, refunded: 0, adjusted: 0 };
+    const reconciliationCredit = credit.active;
     const due = Math.max(demandDueBeforeCredit - reconciliationCredit, 0);
     const advance = cashAdvance + Math.max(reconciliationCredit - demandDueBeforeCredit, 0);
     const finalReconciliationDemand = buyer.demands
@@ -139,6 +147,8 @@ export async function getProjectBuyerLedger(projectId: string) {
       due,
       advance,
       reconciliationCredit,
+      refundedReconciliationCredit: credit.refunded,
+      adjustedReconciliationCredit: credit.adjusted,
       finalReconciliationDemand,
       oldestDue,
     };
@@ -225,7 +235,10 @@ export async function getProjectPhaseBalances(projectId: string) {
     const supplierBill = numberValue(supplierAgg._sum.totalAmount);
     const subcontractorBill = numberValue(subcontractorAgg._sum.totalAmount);
     const phaseCost = expense + supplierBill + subcontractorBill;
-    const serviceChargePct = numberValue(phase.serviceChargePct ?? project?.defaultServiceChargePct ?? 0);
+      const phaseServiceChargePct = numberValue(phase.serviceChargePct);
+      const serviceChargePct = phaseServiceChargePct > 0
+        ? phaseServiceChargePct
+        : numberValue(project?.defaultServiceChargePct ?? 0);
     const serviceChargePreview = roundMoney((phaseCost * serviceChargePct) / 100);
     const phaseEntries = entriesByPhase.get(phase.id) ?? [];
     const approvedEntries = phaseEntries.filter((entry) => entry.status === 'APPROVED');
@@ -296,63 +309,85 @@ export async function getProjectServiceChargeLedger(projectId: string) {
         ? numberValue(phaseEntry.serviceChargeAmount)
         : row.serviceChargePreview;
 
-      return {
-        phaseId: row.phaseId,
-        phaseName: row.phaseName,
-        basisType: phaseEntry?.basisType ?? 'PHASE_TOTAL_COST',
-        basisAmount: phaseEntry ? numberValue(phaseEntry.basisAmount) : row.phaseCost,
-        percentage: phaseEntry ? numberValue(phaseEntry.percentage) : row.serviceChargePct,
-        manualAmount: phaseEntry ? numberValue(phaseEntry.manualAmount) : 0,
-        includedInDemand: phaseEntry?.includedInDemand ?? false,
-        status: phaseEntry?.status ?? 'PREVIEW',
-        serviceChargeAmount: effectiveAmount,
-        previewAmount: row.serviceChargePreview,
-        entryId: phaseEntry?.id,
-        notes: phaseEntry?.notes ?? '',
-      };
+        return {
+          phaseId: row.phaseId,
+          phaseName: row.phaseName,
+          basisType: phaseEntry?.basisType ?? 'PHASE_TOTAL_COST',
+          basisAmount: phaseEntry ? numberValue(phaseEntry.basisAmount) : row.phaseCost,
+          percentage: phaseEntry ? numberValue(phaseEntry.percentage) : row.serviceChargePct,
+          manualAmount: phaseEntry ? numberValue(phaseEntry.manualAmount) : 0,
+          includedInDemand: phaseEntry?.includedInDemand ?? false,
+          status: phaseEntry?.status ?? 'PREVIEW',
+          settlementStatus: phaseEntry
+            ? phaseEntry.includedInDemand && phaseEntry.settlementStatus === 'UNSETTLED'
+              ? 'INCLUDED_IN_DEMAND'
+              : phaseEntry.settlementStatus
+            : 'UNSETTLED',
+          settlementAccountId: phaseEntry?.settlementAccountId ?? '',
+          settlementMethod: phaseEntry?.settlementMethod ?? null,
+          settlementReference: phaseEntry?.settlementReference ?? '',
+          settledAt: phaseEntry?.settledAt ?? null,
+          serviceChargeAmount: effectiveAmount,
+          previewAmount: row.serviceChargePreview,
+          entryId: phaseEntry?.id,
+          notes: phaseEntry?.notes ?? '',
+        };
     });
 
   const manualRows = activeEntries
     .filter((entry) => !entry.phaseId)
-    .map((entry) => ({
+      .map((entry) => ({
       phaseId: null,
       phaseName: 'Project-level manual entry',
       basisType: entry.basisType,
       basisAmount: numberValue(entry.basisAmount),
-      percentage: numberValue(entry.percentage),
-      manualAmount: numberValue(entry.manualAmount),
-      includedInDemand: entry.includedInDemand,
-      status: entry.status,
-      serviceChargeAmount: numberValue(entry.serviceChargeAmount),
-      previewAmount: 0,
-      entryId: entry.id,
-      notes: entry.notes ?? '',
-    }));
+        percentage: numberValue(entry.percentage),
+        manualAmount: numberValue(entry.manualAmount),
+        includedInDemand: entry.includedInDemand,
+        status: entry.status,
+        settlementStatus: entry.includedInDemand && entry.settlementStatus === 'UNSETTLED' ? 'INCLUDED_IN_DEMAND' : entry.settlementStatus,
+        settlementAccountId: entry.settlementAccountId ?? '',
+        settlementMethod: entry.settlementMethod ?? null,
+        settlementReference: entry.settlementReference ?? '',
+        settledAt: entry.settledAt ?? null,
+        serviceChargeAmount: numberValue(entry.serviceChargeAmount),
+        previewAmount: 0,
+        entryId: entry.id,
+        notes: entry.notes ?? '',
+      }));
 
   const approvedTotal = rows
     .filter((row) => row.status === 'APPROVED')
     .reduce((sum, row) => sum + row.serviceChargeAmount, 0) +
     manualRows.filter((row) => row.status === 'APPROVED').reduce((sum, row) => sum + row.serviceChargeAmount, 0);
-  const calculatedTotal = rows
-    .filter((row) => row.status === 'CALCULATED')
-    .reduce((sum, row) => sum + row.serviceChargeAmount, 0) +
-    manualRows.filter((row) => row.status === 'CALCULATED').reduce((sum, row) => sum + row.serviceChargeAmount, 0);
-  const previewTotal = rows.reduce((sum, row) => sum + row.previewAmount, 0);
-  const effectiveTotal = approvedTotal || calculatedTotal || previewTotal;
+    const calculatedTotal = rows
+      .filter((row) => row.status === 'CALCULATED')
+      .reduce((sum, row) => sum + row.serviceChargeAmount, 0) +
+      manualRows.filter((row) => row.status === 'CALCULATED').reduce((sum, row) => sum + row.serviceChargeAmount, 0);
+    const includedInDemandTotal = [...rows, ...manualRows]
+      .filter((row) => row.settlementStatus === 'INCLUDED_IN_DEMAND')
+      .reduce((sum, row) => sum + row.serviceChargeAmount, 0);
+    const settledTotal = [...rows, ...manualRows]
+      .filter((row) => row.settlementStatus === 'SETTLED')
+      .reduce((sum, row) => sum + row.serviceChargeAmount, 0);
+    const previewTotal = rows.reduce((sum, row) => sum + row.previewAmount, 0);
+    const effectiveTotal = approvedTotal || calculatedTotal || previewTotal;
 
   return {
     project,
     rows: [...rows, ...manualRows],
     entries,
-    totals: {
-      approvedTotal,
-      calculatedTotal,
-      previewTotal,
-      effectiveTotal,
-      pendingCount: activeEntries.filter((entry) => entry.status !== 'APPROVED').length,
-    },
-  };
-}
+      totals: {
+        approvedTotal,
+        calculatedTotal,
+        previewTotal,
+        effectiveTotal,
+        includedInDemandTotal,
+        settledTotal,
+        pendingCount: activeEntries.filter((entry) => entry.status !== 'APPROVED').length,
+      },
+    };
+  }
 
 export async function getProjectFinanceSummary(projectId: string) {
   const [
@@ -472,6 +507,8 @@ export async function getProjectFinanceSummary(projectId: string) {
   const accountsUsed = cashBankSummary?.accountsUsed ?? [];
   const serviceChargeAccrued = serviceChargeLedger?.totals.effectiveTotal ?? phaseBalances.reduce((sum, row) => sum + row.serviceChargePreview, 0);
   const serviceChargeApproved = serviceChargeLedger?.totals.approvedTotal ?? 0;
+  const serviceChargeSettled = serviceChargeLedger?.totals.settledTotal ?? 0;
+  const serviceChargeIncludedInDemand = serviceChargeLedger?.totals.includedInDemandTotal ?? 0;
   const projectBalance = totalCollected - projectCostTotal;
   const finalSurplusDeficit = projectBalance - serviceChargeAccrued;
   const unlockedPhases = phaseBalances.filter((row) => !row.auditLocked).length;
@@ -486,6 +523,9 @@ export async function getProjectFinanceSummary(projectId: string) {
     pendingReceivedCheques > 0 || pendingIssuedCheques > 0 ? 'Pending cheques are still unresolved.' : null,
     bouncedCheques > 0 ? 'Bounced cheques still need resolution.' : null,
     serviceChargeLedger && serviceChargeLedger.totals.pendingCount > 0 ? 'Service charge is not fully approved yet.' : null,
+    serviceChargeLedger && serviceChargeLedger.totals.approvedTotal > 0 && serviceChargeLedger.totals.settledTotal <= 0 && serviceChargeLedger.totals.includedInDemandTotal <= 0
+      ? 'Approved service charge is not yet included in demand or settled.'
+      : null,
     !postedReconciliation ? 'Final reconciliation has not been posted yet.' : null,
     unlockedPhases > 0 ? `${unlockedPhases} phases are still open to finance changes.` : null,
   ].filter(Boolean) as string[];
@@ -500,11 +540,13 @@ export async function getProjectFinanceSummary(projectId: string) {
     totalExpense: projectCostTotal,
     directExpenseTotal,
     pendingExpense,
-    taxDeductionTotal,
-    retentionHeld,
-    serviceChargeAccrued,
-    serviceChargeApproved,
-    supplierPayable,
+      taxDeductionTotal,
+      retentionHeld,
+      serviceChargeAccrued,
+      serviceChargeApproved,
+      serviceChargeSettled,
+      serviceChargeIncludedInDemand,
+      supplierPayable,
     subcontractorPayable,
     supplierPaid,
     subcontractorPaid,

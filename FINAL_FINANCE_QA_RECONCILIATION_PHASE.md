@@ -183,3 +183,26 @@ This pass changes live finance truth tables, so the safest approach is:
   - Income `100,143,800`
   - Expense `104,659,890.40`
   - Balance `-4,516,090.40`
+
+## Ownership Seed And Finance QA Update - May 24, 2026
+
+- Added realistic Relax Tower ownership seed:
+  - 54 apartment units
+  - 50 buyers
+  - 56 ownership rows
+  - multiple two-unit buyers
+  - two co-owned units
+- Added durable settlement metadata for:
+  - `ServiceChargeEntry`
+  - `FinalReconciliationLine` surplus credit outcomes
+- Service charge now supports:
+  - calculate
+  - approve
+  - separate settlement to a treasury account
+  - included-in-demand vs settled tracking
+- Final reconciliation browser QA now verifies:
+  - preview opens with seeded ownership
+  - posted deficit creates `FINAL_RECONCILIATION` demand rows
+  - generated demand rows are visible in `/projects/[id]/demands`
+  - finance hub and reports reflect posted reconciliation totals consistently
+- Relax Tower was re-seeded after QA so the repo finishes in a clean baseline with realistic ownership preserved.

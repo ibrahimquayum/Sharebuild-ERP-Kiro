@@ -61,6 +61,8 @@ export default async function ProjectBuyerDetailPage({ params }: { params: { id:
   const totalDue = buyerLedger?.due ?? 0;
   const totalAdvance = buyerLedger?.advance ?? 0;
   const reconciliationCredit = buyerLedger?.reconciliationCredit ?? 0;
+  const refundedReconciliationCredit = buyerLedger?.refundedReconciliationCredit ?? 0;
+  const adjustedReconciliationCredit = buyerLedger?.adjustedReconciliationCredit ?? 0;
 
   return (
     <div className="p-5 space-y-5">
@@ -139,6 +141,8 @@ export default async function ProjectBuyerDetailPage({ params }: { params: { id:
               <div className="flex justify-between"><span className="text-muted-foreground">Demand</span><span>{formatBDT(totalDemand)}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Allocated paid</span><span className="text-green-600">{formatBDT(totalPaid)}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Reconciliation credit</span><span>{formatBDT(reconciliationCredit)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Refunded credit</span><span>{formatBDT(refundedReconciliationCredit)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Adjusted credit</span><span>{formatBDT(adjustedReconciliationCredit)}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Advance</span><span>{formatBDT(totalAdvance)}</span></div>
               <div className="flex justify-between border-t pt-2 font-bold"><span>Due</span><span>{formatBDT(totalDue)}</span></div>
             </CardContent>

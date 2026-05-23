@@ -1,6 +1,6 @@
 # Development Status - Sharebuild ERP
 
-**Last updated:** May 23, 2026
+**Last updated:** May 24, 2026
 **Branch:** `feat/erp-v1`
 
 ## Current State
@@ -139,6 +139,35 @@ This branch now has a buildable project-first finance foundation with vendor con
 - seeded Relax Tower data still needs unit ownership assignment before reconciliation posting from the seeded workspace
 - service charge has no separate collection/settlement flow yet
 - surplus reconciliation posts credit lines, not a separate refund payment workflow
+
+## Ownership Seed / Browser QA Pass - May 24, 2026
+
+### Added
+
+- `OWNERSHIP_SEED_FINANCE_QA_PHASE.md`
+- one additive migration:
+  - `20260523183725_ownership_seed_finance_qa_phase`
+- realistic Relax Tower seed coverage:
+  - 54 apartment units
+  - 50 buyers
+  - 56 ownership rows
+  - multi-unit and co-owned buyer scenarios
+- service charge settlement metadata and treasury posting
+- surplus credit settlement metadata for final reconciliation lines
+- final reconciliation demand visibility in `/projects/[id]/demands`
+
+### Browser QA Completed
+
+- authenticated route smoke passed across dashboard, project workspace, finance pages, treasury pages, and finance report pages
+- service charge calculate, approve, and settle were exercised successfully
+- final reconciliation preview and posting were exercised successfully before reseeding the database back to baseline
+- generated reconciliation demand rows were verified in both the posted reconciliation page and the project demand list
+
+### Current Remaining Gaps
+
+- Relax Tower seed now supports deficit reconciliation QA, but not a natural surplus/refund scenario
+- no dedicated service charge collection screen beyond service-charge settlement actions
+- no native XLSX workbook or server-side PDF export
 
 ## Schema Changes
 

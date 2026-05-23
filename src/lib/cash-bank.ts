@@ -504,6 +504,91 @@ export async function createCashBankTransactionFromSupplierPayment(
   return transaction;
 }
 
+export async function createCashBankTransactionFromServiceChargeSettlement(
+  tx: TxClient,
+  input: {
+    entryId: string;
+    accountId: string;
+    paymentMethod: PaymentMethod;
+    referenceNo?: string | null;
+    description?: string | null;
+    createdById?: string | null;
+    transactionDate?: Date;
+  },
+) {
+  const entry = await tx.serviceChargeEntry.findUnique({
+    where: { id: input.entryId },
+    include: {
+      project: { select: { id: true, companyId: true, name: true } },
+      phase: { select: { name: true } },
+    },
+  });
+  if (!entry || entry.reversedAt || entry.status !== 'APPROVED') return null;
+
+  return createCashBankTransaction(tx, {
+    companyId: entry.project.companyId,
+    projectId: entry.projectId,
+    accountId: input.accountId,
+    type: 'INFLOW',
+    sourceType: 'OTHER',
+    sourceId: `service-charge-settlement:${entry.id}`,
+    partyType: 'COMPANY',
+    partyName: entry.project.name,
+    amount: numberValue(entry.serviceChargeAmount),
+    transactionDate: input.transactionDate ?? new Date(),
+    paymentMethod: input.paymentMethod,
+    referenceNo: input.referenceNo ?? undefined,
+    description: input.description ?? `Service charge settlement${entry.phase?.name ? ` - ${entry.phase.name}` : ''}`,
+    createdById: input.createdById,
+    status: 'POSTED',
+  });
+}
+
+export async function createCashBankTransactionFromReconciliationRefund(
+  tx: TxClient,
+  input: {
+    lineId: string;
+    accountId: string;
+    paymentMethod: PaymentMethod;
+    referenceNo?: string | null;
+    description?: string | null;
+    createdById?: string | null;
+    transactionDate?: Date;
+  },
+) {
+  const line = await tx.finalReconciliationLine.findUnique({
+    where: { id: input.lineId },
+    include: {
+      buyer: { select: { id: true, name: true } },
+      reconciliation: {
+        include: {
+          project: { select: { id: true, companyId: true, name: true } },
+        },
+      },
+    },
+  });
+  if (!line || line.reconciliation.reversedAt || line.reconciliation.status !== 'POSTED') return null;
+
+  return createCashBankTransaction(tx, {
+    companyId: line.reconciliation.project.companyId,
+    projectId: line.reconciliation.projectId,
+    accountId: input.accountId,
+    type: 'OUTFLOW',
+    sourceType: 'OTHER',
+    sourceId: `final-reconciliation-refund:${line.id}`,
+    partyType: 'BUYER',
+    partyId: line.buyerId,
+    partyName: line.buyer.name,
+    amount: numberValue(line.amount),
+    transactionDate: input.transactionDate ?? new Date(),
+    paymentMethod: input.paymentMethod,
+    referenceNo: input.referenceNo ?? undefined,
+    description: input.description ?? `Final reconciliation surplus refund - ${line.reconciliation.project.name}`,
+    createdById: input.createdById,
+    status: 'POSTED',
+  });
+}
+
 export async function createAccountTransferEntries(
   tx: TxClient,
   transferId: string,

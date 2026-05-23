@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getFinalReconciliationPreview } from '@/lib/project-finance';
 import { FinalReconciliationActions } from '@/components/projects/final-reconciliation-actions';
+import { ReconciliationCreditSettlementActions } from '@/components/projects/reconciliation-credit-settlement-actions';
 import { PageHeader } from '@/components/shared/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { balanceColor, formatBDT } from '@/lib/utils';
@@ -17,7 +18,14 @@ export default async function FinalReconciliationPage({ params }: { params: { id
   const project = await prisma.project.findFirst({ where: { id: params.id, companyId }, select: { id: true, name: true } });
   if (!project) notFound();
 
-  const preview = await getFinalReconciliationPreview(project.id);
+  const [preview, accounts] = await Promise.all([
+    getFinalReconciliationPreview(project.id),
+    prisma.cashBankAccount.findMany({
+      where: { companyId, isActive: true },
+      orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+      select: { id: true, name: true, type: true },
+    }),
+  ]);
   if (!preview) notFound();
 
   return (
@@ -90,6 +98,21 @@ export default async function FinalReconciliationPage({ params }: { params: { id
         </Card>
       )}
 
+      {preview.posted?.type === 'SURPLUS_CREDIT' ? (
+        <ReconciliationCreditSettlementActions
+          projectId={project.id}
+          lines={preview.posted.lines.map((line) => ({
+            id: line.id,
+            buyerName: line.buyer.name,
+            unitNo: line.unit?.unitNo ?? '-',
+            amount: Number(line.amount),
+            settlementStatus: line.settlementStatus,
+            settlementReference: line.settlementReference,
+          }))}
+          accounts={accounts.map((account) => ({ id: account.id, label: `${account.name} (${account.type.replaceAll('_', ' ')})` }))}
+        />
+      ) : null}
+
       <Card>
         <CardHeader><CardTitle className="text-sm">Buyer Distribution Preview</CardTitle></CardHeader>
         <CardContent className="p-0">
@@ -117,6 +140,41 @@ export default async function FinalReconciliationPage({ params }: { params: { id
           </div>
         </CardContent>
       </Card>
+
+      {preview.posted?.lines?.length ? (
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Posted Reconciliation Lines</CardTitle></CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/40">
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase">Buyer</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase">Unit</th>
+                    <th className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground uppercase">Share %</th>
+                    <th className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground uppercase">Amount</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase">Settlement</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {preview.posted.lines.map((line) => (
+                    <tr key={line.id}>
+                      <td className="px-4 py-3 font-medium">{line.buyer.name}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{line.unit?.unitNo ?? '-'}</td>
+                      <td className="px-4 py-3 text-right">{Number(line.ownershipShare).toFixed(2)}%</td>
+                      <td className="px-4 py-3 text-right font-medium">{formatBDT(Number(line.amount))}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {line.settlementStatus.replaceAll('_', ' ')}
+                        {line.settlementReference ? <div>{line.settlementReference}</div> : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="flex gap-4 text-xs">
         <Link href={`/projects/${project.id}/reports/final-reconciliation`} className="text-primary hover:underline">Print-ready report</Link>

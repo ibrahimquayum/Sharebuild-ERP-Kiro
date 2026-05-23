@@ -178,6 +178,28 @@
 - Relax Tower seed data still needs unit ownership assignment before final reconciliation can be posted from the seeded project itself.
 - CSV remains the real export path; no native XLSX workbook or server-side PDF has been added.
 
+## Ownership Seed / Finance QA Update - May 24, 2026
+
+- Added `OWNERSHIP_SEED_FINANCE_QA_PHASE.md`.
+- Relax Tower seed now includes realistic ownership data:
+  - 54 apartment units
+  - 50 buyers
+  - 56 ownership rows
+  - multi-unit buyers and co-owned units
+- Service charge now supports separate settlement tracking and treasury posting.
+- Final reconciliation posting was browser-QA tested successfully against seeded ownership.
+- Project demand list now includes posted `FINAL_RECONCILIATION` demand rows instead of hiding them behind phase-only filtering.
+- Seed baseline still preserves:
+  - Income `100,143,800`
+  - Expense `104,659,890.40`
+  - Balance `-4,516,090.40`
+
+## Current Finance QA Limitations
+
+- Relax Tower seed now supports deficit reconciliation testing, but it does not naturally create a surplus scenario for refund-credit QA.
+- Surplus credit/refund settlement exists in the ledger, but there is still no dedicated refund-operations screen beyond the reconciliation page actions.
+- CSV is the real export path; no native XLSX workbook or server-side PDF has been added.
+
 ## Current Finance Limitations
 
 - Final reconciliation is preview-only in this pass; it does not yet post buyer demand rows.

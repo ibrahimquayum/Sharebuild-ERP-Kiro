@@ -3,16 +3,22 @@ import { getServerSession } from 'next-auth';
 import { z } from 'zod';
 import { authOptions } from '@/lib/auth';
 import { safeAuditLog } from '@/lib/audit';
+import { createCashBankTransactionFromReconciliationRefund } from '@/lib/cash-bank';
 import { assertCan } from '@/lib/permissions';
 import { getFinalReconciliationPreview } from '@/lib/project-finance';
 import { prisma } from '@/lib/prisma';
 
 const mutationSchema = z.object({
-  action: z.enum(['post', 'reverse']),
+  action: z.enum(['post', 'reverse', 'settleCredit']),
   dueDate: z.string().optional(),
   notes: z.string().optional(),
   reason: z.string().optional(),
   reconciliationId: z.string().optional(),
+  lineId: z.string().optional(),
+  settlementStatus: z.enum(['KEPT_AS_ADVANCE', 'REFUNDED', 'ADJUSTED']).optional(),
+  accountId: z.string().optional(),
+  paymentMethod: z.enum(['CASH', 'BANK_TRANSFER', 'MOBILE_BANKING', 'OTHER']).optional(),
+  reference: z.string().optional(),
 });
 
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
@@ -112,6 +118,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             unitId: line.unitId,
             ownershipShare: line.ownershipShare,
             amount: line.amount,
+            settlementStatus: type === 'SURPLUS_CREDIT' ? 'OPEN_CREDIT' : 'NOT_APPLICABLE',
             notes: `${line.unitNo} - ${line.ownershipShare}% ownership share`,
           },
         });
@@ -159,6 +166,90 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ id: posted.id }, { status: 201 });
   }
 
+  if (data.action === 'settleCredit') {
+    assertCan(role, 'accounts', 'create');
+    if (!data.lineId) return NextResponse.json({ error: 'Select a posted surplus credit line first.' }, { status: 400 });
+    if (!data.settlementStatus) return NextResponse.json({ error: 'Select how this surplus credit is being settled.' }, { status: 400 });
+
+    const line = await prisma.finalReconciliationLine.findFirst({
+      where: {
+        id: data.lineId,
+        reconciliation: {
+          projectId: project.id,
+          companyId,
+          type: 'SURPLUS_CREDIT',
+          status: 'POSTED',
+          reversedAt: null,
+        },
+      },
+      include: {
+        buyer: { select: { id: true, name: true } },
+        reconciliation: { select: { id: true, status: true, reversedAt: true } },
+      },
+    });
+    if (!line) return NextResponse.json({ error: 'Surplus credit line not found.' }, { status: 404 });
+    if (line.settlementStatus && line.settlementStatus !== 'OPEN_CREDIT') {
+      return NextResponse.json({ error: 'This surplus credit has already been settled.' }, { status: 400 });
+    }
+    if (data.settlementStatus === 'REFUNDED') {
+      if (!data.accountId) return NextResponse.json({ error: 'Select the paying account for the refund.' }, { status: 400 });
+      if (!data.paymentMethod) return NextResponse.json({ error: 'Select the refund payment method.' }, { status: 400 });
+    }
+    const paymentMethod = data.paymentMethod;
+
+    const account = data.accountId
+      ? await prisma.cashBankAccount.findFirst({
+          where: { id: data.accountId, companyId, isActive: true },
+          select: { id: true },
+        })
+      : null;
+    if (data.accountId && !account) return NextResponse.json({ error: 'Selected refund account was not found.' }, { status: 404 });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.finalReconciliationLine.update({
+        where: { id: line.id },
+        data: {
+          settlementStatus: data.settlementStatus,
+          settlementAccountId: account?.id ?? undefined,
+          settlementMethod: paymentMethod,
+          settlementReference: data.reference?.trim() || undefined,
+          settledAt: new Date(),
+          settledById: userId,
+          settlementNote: data.notes?.trim() || undefined,
+        },
+      });
+
+      if (data.settlementStatus === 'REFUNDED' && account?.id && paymentMethod) {
+        const refundPaymentMethod = paymentMethod;
+        await createCashBankTransactionFromReconciliationRefund(tx, {
+          lineId: line.id,
+          accountId: account.id,
+          paymentMethod: refundPaymentMethod,
+          referenceNo: data.reference?.trim() || undefined,
+          description: data.notes?.trim() || `Final reconciliation surplus refund for ${line.buyer.name}.`,
+          createdById: userId,
+        });
+      }
+    });
+
+    await safeAuditLog({
+      userId,
+      projectId: project.id,
+      action: 'CREATE',
+      entityType: 'final_reconciliation_credit_settlement',
+      entityId: line.id,
+      newValues: {
+        settlementStatus: data.settlementStatus,
+        accountId: account?.id ?? null,
+        paymentMethod: paymentMethod ?? null,
+        reference: data.reference?.trim() || null,
+      },
+      context: 'final reconciliation credit settlement',
+    });
+
+    return NextResponse.json({ ok: true });
+  }
+
   assertCan(role, 'reports', 'reverseAdjust');
   if (!data.reconciliationId) return NextResponse.json({ error: 'Select a posted reconciliation to reverse.' }, { status: 400 });
   if (!data.reason?.trim()) return NextResponse.json({ error: 'A reversal reason is required.' }, { status: 400 });
@@ -166,6 +257,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const reconciliation = await prisma.finalReconciliation.findFirst({
     where: { id: data.reconciliationId, projectId: project.id, companyId },
     include: {
+      lines: {
+        select: { id: true, settlementStatus: true, settlementReference: true },
+      },
       demands: {
         include: {
           allocations: {
@@ -191,6 +285,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   );
   if (collectedDemands) {
     return NextResponse.json({ error: 'Reverse or clear reconciliation collections before reversing the posted final reconciliation.' }, { status: 400 });
+  }
+  const settledCredits = reconciliation.lines.some((line) => ['REFUNDED', 'ADJUSTED'].includes(line.settlementStatus));
+  if (settledCredits) {
+    return NextResponse.json({ error: 'Reverse refunded or adjusted surplus credit settlements before reversing the posted final reconciliation.' }, { status: 400 });
   }
 
   await prisma.$transaction(async (tx) => {
