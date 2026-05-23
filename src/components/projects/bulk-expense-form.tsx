@@ -38,6 +38,7 @@ type Option = { id: string; label: string };
 type Row = {
   expenseDate: string;
   phaseId: string;
+  accountId: string;
   category: string;
   description: string;
   supplierMode: 'EXISTING_SUPPLIER' | 'LOCAL_SHOP' | 'NO_SUPPLIER';
@@ -46,6 +47,12 @@ type Row = {
   localShopPhone: string;
   amount: string;
   paymentMethod: string;
+  referenceNo: string;
+  chequeNo: string;
+  chequeDate: string;
+  chequeBankName: string;
+  chequeBranchName: string;
+  chequeMaturityDate: string;
   billNo: string;
   notes: string;
   voucher?: File | null;
@@ -55,10 +62,11 @@ function today() {
   return new Date().toISOString().split('T')[0];
 }
 
-function blankRow(defaultPhaseId = ''): Row {
+function blankRow(defaultPhaseId = '', defaultAccountId = ''): Row {
   return {
     expenseDate: today(),
     phaseId: defaultPhaseId,
+    accountId: defaultAccountId,
     category: 'OTHER',
     description: '',
     supplierMode: 'NO_SUPPLIER',
@@ -67,28 +75,47 @@ function blankRow(defaultPhaseId = ''): Row {
     localShopPhone: '',
     amount: '',
     paymentMethod: 'CASH',
+    referenceNo: '',
+    chequeNo: '',
+    chequeDate: '',
+    chequeBankName: '',
+    chequeBranchName: '',
+    chequeMaturityDate: '',
     billNo: '',
     notes: '',
     voucher: null,
   };
 }
 
-export function BulkExpenseForm({ projectId, phases, suppliers }: { projectId: string; phases: Option[]; suppliers: Option[] }) {
+export function BulkExpenseForm({
+  projectId,
+  phases,
+  suppliers,
+  accounts,
+}: {
+  projectId: string;
+  phases: Option[];
+  suppliers: Option[];
+  accounts: Option[];
+}) {
   const router = useRouter();
-  const [rows, setRows] = useState<Row[]>([blankRow(phases[0]?.id ?? '')]);
+  const defaultPhaseId = phases[0]?.id ?? '';
+  const defaultAccountId = accounts[0]?.id ?? '';
+  const [rows, setRows] = useState<Row[]>([blankRow(defaultPhaseId, defaultAccountId)]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const total = useMemo(() => rows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0), [rows]);
 
   function updateRow(index: number, patch: Partial<Row>) {
-    setRows((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, ...patch } : row));
+    setRows((current) => current.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row)));
   }
 
   function validate() {
     for (let index = 0; index < rows.length; index += 1) {
       const row = rows[index];
       if (!row.phaseId) return `Row ${index + 1}: select a phase.`;
+      if (!row.accountId) return `Row ${index + 1}: select an account.`;
       if (!row.description.trim()) return `Row ${index + 1}: description is required.`;
       if (!row.amount || Number(row.amount) <= 0) return `Row ${index + 1}: enter a valid amount.`;
       if (row.supplierMode === 'EXISTING_SUPPLIER' && !row.supplierId) return `Row ${index + 1}: select a supplier.`;
@@ -107,20 +134,32 @@ export function BulkExpenseForm({ projectId, phases, suppliers }: { projectId: s
     }
 
     const formData = new FormData();
-    formData.set('rows', JSON.stringify(rows.map((row) => ({
-      expenseDate: row.expenseDate,
-      phaseId: row.phaseId,
-      category: row.category,
-      description: row.description.trim(),
-      supplierMode: row.supplierMode,
-      supplierId: row.supplierMode === 'EXISTING_SUPPLIER' ? row.supplierId : undefined,
-      localShopName: row.supplierMode === 'LOCAL_SHOP' ? row.localShopName.trim() : undefined,
-      localShopPhone: row.supplierMode === 'LOCAL_SHOP' ? row.localShopPhone.trim() : undefined,
-      amount: Number(row.amount),
-      paymentMethod: row.paymentMethod,
-      billNo: row.billNo.trim() || undefined,
-      notes: row.notes.trim() || undefined,
-    }))));
+    formData.set(
+      'rows',
+      JSON.stringify(
+        rows.map((row) => ({
+          expenseDate: row.expenseDate,
+          phaseId: row.phaseId,
+          accountId: row.accountId,
+          category: row.category,
+          description: row.description.trim(),
+          supplierMode: row.supplierMode,
+          supplierId: row.supplierMode === 'EXISTING_SUPPLIER' ? row.supplierId : undefined,
+          localShopName: row.supplierMode === 'LOCAL_SHOP' ? row.localShopName.trim() : undefined,
+          localShopPhone: row.supplierMode === 'LOCAL_SHOP' ? row.localShopPhone.trim() : undefined,
+          amount: Number(row.amount),
+          paymentMethod: row.paymentMethod,
+          referenceNo: row.referenceNo.trim() || undefined,
+          chequeNo: row.chequeNo.trim() || undefined,
+          chequeDate: row.chequeDate || undefined,
+          chequeBankName: row.chequeBankName.trim() || undefined,
+          chequeBranchName: row.chequeBranchName.trim() || undefined,
+          chequeMaturityDate: row.chequeMaturityDate || undefined,
+          billNo: row.billNo.trim() || undefined,
+          notes: row.notes.trim() || undefined,
+        })),
+      ),
+    );
     rows.forEach((row, index) => {
       if (row.voucher) formData.set(`voucher-${index}`, row.voucher);
     });
@@ -146,17 +185,20 @@ export function BulkExpenseForm({ projectId, phases, suppliers }: { projectId: s
     <form onSubmit={handleSubmit} className="space-y-5">
       <FormError message={error} />
       <div className="overflow-x-auto rounded-md border">
-        <table className="w-full min-w-[1180px] text-sm">
+        <table className="w-full min-w-[1700px] text-sm">
           <thead>
             <tr className="border-b bg-muted/40">
               <th className="px-3 py-2 text-left">Date</th>
               <th className="px-3 py-2 text-left">Phase</th>
+              <th className="px-3 py-2 text-left">Account</th>
               <th className="px-3 py-2 text-left">Category</th>
               <th className="px-3 py-2 text-left">Description</th>
               <th className="px-3 py-2 text-left">Supplier Type</th>
               <th className="px-3 py-2 text-left">Supplier / Shop</th>
               <th className="px-3 py-2 text-left">Amount</th>
               <th className="px-3 py-2 text-left">Payment</th>
+              <th className="px-3 py-2 text-left">Reference</th>
+              <th className="px-3 py-2 text-left">Cheque</th>
               <th className="px-3 py-2 text-left">Bill / Voucher No</th>
               <th className="px-3 py-2 text-left">Voucher</th>
               <th className="px-3 py-2" />
@@ -170,6 +212,12 @@ export function BulkExpenseForm({ projectId, phases, suppliers }: { projectId: s
                   <Select value={row.phaseId} onValueChange={(value) => updateRow(index, { phaseId: value })}>
                     <SelectTrigger><SelectValue placeholder="Phase" /></SelectTrigger>
                     <SelectContent>{phases.map((phase) => <SelectItem key={phase.id} value={phase.id}>{phase.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </td>
+                <td className="px-3 py-2">
+                  <Select value={row.accountId} onValueChange={(value) => updateRow(index, { accountId: value })}>
+                    <SelectTrigger><SelectValue placeholder="Account" /></SelectTrigger>
+                    <SelectContent>{accounts.map((account) => <SelectItem key={account.id} value={account.id}>{account.label}</SelectItem>)}</SelectContent>
                   </Select>
                 </td>
                 <td className="px-3 py-2">
@@ -212,12 +260,21 @@ export function BulkExpenseForm({ projectId, phases, suppliers }: { projectId: s
                   </Select>
                 </td>
                 <td className="px-3 py-2">
-                  <input
-                    value={row.billNo}
-                    onChange={(e) => updateRow(index, { billNo: e.target.value })}
-                    className="h-9 w-36 rounded-md border px-2"
-                    placeholder="Bill / voucher"
-                  />
+                  <input value={row.referenceNo} onChange={(e) => updateRow(index, { referenceNo: e.target.value })} className="h-9 w-36 rounded-md border px-2" placeholder="Ref / memo" />
+                </td>
+                <td className="px-3 py-2">
+                  {row.paymentMethod === 'CHEQUE' ? (
+                    <div className="space-y-1">
+                      <input value={row.chequeNo} onChange={(e) => updateRow(index, { chequeNo: e.target.value })} className="h-8 w-32 rounded-md border px-2 text-xs" placeholder="Cheque no" />
+                      <input type="date" value={row.chequeDate} onChange={(e) => updateRow(index, { chequeDate: e.target.value })} className="h-8 w-36 rounded-md border px-2 text-xs" />
+                      <input value={row.chequeBankName} onChange={(e) => updateRow(index, { chequeBankName: e.target.value })} className="h-8 w-36 rounded-md border px-2 text-xs" placeholder="Bank" />
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </td>
+                <td className="px-3 py-2">
+                  <input value={row.billNo} onChange={(e) => updateRow(index, { billNo: e.target.value })} className="h-9 w-36 rounded-md border px-2" placeholder="Bill / voucher" />
                 </td>
                 <td className="px-3 py-2">
                   <input type="file" accept="application/pdf,image/*" onChange={(e) => updateRow(index, { voucher: e.target.files?.[0] ?? null })} className="w-40 text-xs" />
@@ -234,12 +291,12 @@ export function BulkExpenseForm({ projectId, phases, suppliers }: { projectId: s
         </table>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Button type="button" variant="outline" onClick={() => setRows((current) => [...current, blankRow(current[0]?.phaseId ?? '')])}>
+        <Button type="button" variant="outline" onClick={() => setRows((current) => [...current, blankRow(current[0]?.phaseId ?? defaultPhaseId, current[0]?.accountId ?? defaultAccountId)])}>
           <Plus className="mr-2 h-4 w-4" /> Add Row
         </Button>
         <div className="text-sm font-semibold">Total: BDT {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
       </div>
-      <Field label="Approval Status" htmlFor="bulkStatus" hint="Engineer and site staff entries save as Pending Approval. Accounts/Management can approve later.">
+      <Field label="Approval Status" htmlFor="bulkStatus" hint="Engineer and site staff entries save as Pending Approval. Accounts and Management can approve later. Cash movement posts when the row becomes final.">
         <TextField id="bulkStatus" label="" value="Draft / Pending Approval by role" readOnly />
       </Field>
       <Button type="submit" disabled={saving}>

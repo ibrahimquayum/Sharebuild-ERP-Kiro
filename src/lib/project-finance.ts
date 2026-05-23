@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { FINAL_EXPENSE_STATUSES } from '@/lib/accounting';
+import { getProjectCashBankSummary } from '@/lib/cash-bank';
 
 export async function getProjectFinanceSummary(projectId: string) {
   const [
@@ -85,7 +86,15 @@ export async function getProjectFinanceSummary(projectId: string) {
   const buyerReceivable = Math.max(totalDemanded - allocatedToDemand, 0);
   const buyerAdvance = Math.max(totalCollected - allocatedToDemand, 0);
   const phaseBalances = await getProjectPhaseBalances(projectId);
-  const cashPosition = totalCollected - directExpenseTotal - supplierPaid - subcontractorPaid;
+  const cashBankSummary = await getProjectCashBankSummary(projectId);
+  const cashIn = cashBankSummary?.totals.inflow ?? 0;
+  const cashOut = cashBankSummary?.totals.outflow ?? 0;
+  const netCashMovement = cashBankSummary?.totals.netMovement ?? 0;
+  const accountBalance = cashBankSummary?.totals.accountBalance ?? 0;
+  const pendingReceivedCheques = cashBankSummary?.totals.pendingReceivedCheques ?? 0;
+  const pendingIssuedCheques = cashBankSummary?.totals.pendingIssuedCheques ?? 0;
+  const bouncedCheques = cashBankSummary?.totals.bouncedCheques ?? 0;
+  const accountsUsed = cashBankSummary?.accountsUsed ?? [];
 
   return {
     totalDemanded,
@@ -100,7 +109,15 @@ export async function getProjectFinanceSummary(projectId: string) {
     subcontractorPayable,
     projectBalance: totalCollected - projectCostTotal,
     surplusDeficit: totalCollected - projectCostTotal,
-    cashPosition,
+    cashPosition: netCashMovement,
+    cashIn,
+    cashOut,
+    netCashMovement,
+    accountBalance,
+    pendingReceivedCheques,
+    pendingIssuedCheques,
+    bouncedCheques,
+    accountsUsed,
     missingVoucherCount,
     pendingApprovalCount,
     assignedSupplierCount,

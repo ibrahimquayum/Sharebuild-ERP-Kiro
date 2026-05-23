@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { safeAuditLog } from '@/lib/audit';
+import { createCashBankTransactionFromExpense } from '@/lib/cash-bank';
 
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -22,9 +23,13 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   });
   if (!expense) return NextResponse.json({ error: 'Expense not found' }, { status: 404 });
 
-  const updated = await prisma.expense.update({
-    where: { id: params.id },
-    data: { status: 'APPROVED', approvedById: userId, approvedAt: new Date() },
+  const updated = await prisma.$transaction(async (tx) => {
+    const approved = await tx.expense.update({
+      where: { id: params.id },
+      data: { status: 'APPROVED', approvedById: userId, approvedAt: new Date() },
+    });
+    await createCashBankTransactionFromExpense(tx, approved.id, userId);
+    return approved;
   });
 
   await safeAuditLog({

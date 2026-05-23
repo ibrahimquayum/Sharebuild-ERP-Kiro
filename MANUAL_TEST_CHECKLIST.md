@@ -183,3 +183,29 @@ Login: `admin@relaxdevelopers.com` / `admin123`
 - [ ] `/projects/[id]/reports/supplier-ledger` groups data by project supplier assignment.
 - [ ] `/projects/[id]/reports/subcontractor-ledger` groups data by project subcontractor assignment.
 - [ ] `/projects/[id]/finance` shows direct expense, supplier bill cost, and subcontractor bill cost without double-counting payments as cost.
+
+## P. Cash / Bank / Cheque Phase
+
+- [ ] `/company/accounts` opens after login.
+- [ ] `/company/accounts/new` creates a cash/bank account.
+- [ ] `/company/accounts/[accountId]` shows account info, recent transactions, inflow, outflow, and balance.
+- [ ] `/company/accounts/[accountId]/edit` updates account details successfully.
+- [ ] `/company/cheques` opens and shows cheque status actions.
+- [ ] `/projects/[id]/finance` shows cash in, cash out, net cash movement, account balance, pending received cheques, pending issued cheques, and bounced cheques.
+- [ ] `/projects/[id]/finance/cash-bank` opens and shows account-wise and transaction-wise treasury movement.
+- [ ] `/projects/[id]/finance/cheques` opens and shows project cheque register.
+- [ ] `/projects/[id]/reports/cash-bank-book` opens with print-friendly treasury reporting.
+- [ ] `/projects/[id]/reports/cheque-register` opens with project cheque data.
+- [ ] Creating a buyer collection writes a `CashBankTransaction` inflow row.
+- [ ] Creating a cheque-based buyer collection writes a `ChequeLog` row.
+- [ ] Creating an approved expense writes a `CashBankTransaction` outflow row.
+- [ ] Creating a cheque-based approved expense writes a `ChequeLog` row.
+- [ ] Creating approved bulk expenses writes treasury outflow rows for approved/final items only.
+- [ ] Creating a supplier payment writes a `CashBankTransaction` outflow row and does not increase project cost.
+- [ ] Creating a cheque-based supplier payment writes a `ChequeLog` row.
+- [ ] Creating a subcontractor payment writes a `CashBankTransaction` outflow row and does not increase project cost.
+- [ ] Finance cost totals still separate direct expense, supplier bills, and subcontractor bills from cash movement.
+- [ ] Seed still verifies:
+  - Income: 100,143,800
+  - Expense: 104,659,890.40
+  - Balance: -4,516,090.40

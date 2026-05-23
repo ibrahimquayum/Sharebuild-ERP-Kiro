@@ -16,6 +16,22 @@ Phase 1 of this architecture is now implemented in code on `feat/erp-v1`:
 
 The remaining roadmap phases below are still the source of truth for later cash/bank, tax, retention, service charge, and final reconciliation work.
 
+## Phase 2 Status Update
+
+Phase 2 of this architecture is now implemented in code on `feat/erp-v1`:
+
+- Formal `CashBankAccount` model added for company treasury accounts.
+- Formal `CashBankTransaction` ledger added for durable money movement.
+- Formal `ChequeLog` model added for pending, cleared, bounced, and cancelled cheque tracking.
+- `AccountTransfer` schema foundation added for later internal transfer workflows.
+- Collections now post treasury inflows.
+- Approved/final direct expenses now post treasury outflows.
+- Supplier and subcontractor payments now post treasury outflows without creating additional project cost.
+- Project finance now shows treasury movement separately from project cost.
+- Default seeded company accounts and treasury backfill now exist for Relax Tower demo data.
+
+The remaining roadmap phases below are still the source of truth for tax, retention, service charge, and final reconciliation work.
+
 ## 1. Finance Philosophy
 
 Sharebuild ERP should treat project finance as five separate truths that must reconcile but must not be merged:

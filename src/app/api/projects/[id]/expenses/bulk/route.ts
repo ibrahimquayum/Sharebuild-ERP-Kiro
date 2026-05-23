@@ -9,6 +9,7 @@ import { prisma } from '@/lib/prisma';
 import { safeAuditLog } from '@/lib/audit';
 import { can } from '@/lib/permissions';
 import { isPhaseLocked, lockedPhaseMessage } from '@/lib/accounting';
+import { createCashBankTransactionFromExpense } from '@/lib/cash-bank';
 
 export const runtime = 'nodejs';
 
@@ -18,6 +19,7 @@ const ALLOWED_VOUCHER_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', '
 const expenseRowSchema = z.object({
   expenseDate: z.string().min(1),
   phaseId: z.string().min(1),
+  accountId: z.string().min(1),
   category: z.enum([
     'ROD_STEEL','CEMENT','STONE_AGGREGATE','SAND','BRICK','READYMIX_CONCRETE',
     'TIMBER_SHUTTERING','PAINT','TILES','SANITARY_FITTINGS','ELECTRICAL_MATERIAL',
@@ -33,6 +35,12 @@ const expenseRowSchema = z.object({
   localShopPhone: z.string().trim().optional(),
   amount: z.number().positive(),
   paymentMethod: z.enum(['CASH','CHEQUE','BANK_TRANSFER','MOBILE_BANKING','OTHER']).default('CASH'),
+  referenceNo: z.string().trim().optional(),
+  chequeNo: z.string().trim().optional(),
+  chequeDate: z.string().trim().optional(),
+  chequeBankName: z.string().trim().optional(),
+  chequeBranchName: z.string().trim().optional(),
+  chequeMaturityDate: z.string().trim().optional(),
   billNo: z.string().trim().optional(),
   notes: z.string().trim().optional(),
 });
@@ -104,42 +112,63 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const phaseIds = Array.from(new Set(parsed.data.rows.map((row) => row.phaseId)));
   const supplierIds = Array.from(new Set(parsed.data.rows.map((row) => row.supplierId).filter(Boolean))) as string[];
-  const [phases, suppliers] = await Promise.all([
+  const accountIds = Array.from(new Set(parsed.data.rows.map((row) => row.accountId)));
+  const [phases, suppliers, accounts] = await Promise.all([
     prisma.phase.findMany({ where: { id: { in: phaseIds }, projectId: project.id }, select: { id: true, auditLockedAt: true } }),
     supplierIds.length > 0 ? prisma.supplier.findMany({ where: { id: { in: supplierIds }, companyId }, select: { id: true } }) : Promise.resolve([]),
+    prisma.cashBankAccount.findMany({ where: { id: { in: accountIds }, companyId, isActive: true }, select: { id: true } }),
   ]);
   const validPhaseIds = new Set(phases.map((phase) => phase.id));
   const validSupplierIds = new Set(suppliers.map((supplier) => supplier.id));
+  const validAccountIds = new Set(accounts.map((account) => account.id));
 
   for (let index = 0; index < parsed.data.rows.length; index += 1) {
     const row = parsed.data.rows[index];
     if (!validPhaseIds.has(row.phaseId)) return NextResponse.json({ error: `Row ${index + 1}: phase is not in this project.` }, { status: 400 });
     if (row.supplierId && !validSupplierIds.has(row.supplierId)) return NextResponse.json({ error: `Row ${index + 1}: supplier is not in this company.` }, { status: 400 });
+    if (!validAccountIds.has(row.accountId)) return NextResponse.json({ error: `Row ${index + 1}: cash/bank account is not in this company.` }, { status: 400 });
     const phase = phases.find((item) => item.id === row.phaseId);
     if (phase && isPhaseLocked(phase)) return NextResponse.json({ error: `Row ${index + 1}: ${lockedPhaseMessage()}` }, { status: 423 });
   }
 
   const autoApprove = ['COMPANY_ADMIN', 'MANAGEMENT', 'MANAGER', 'ACCOUNTS', 'ACCOUNTANT'].includes(role);
-  const expenses = await prisma.$transaction(parsed.data.rows.map((row) => prisma.expense.create({
-    data: {
-      phaseId: row.phaseId,
-      supplierId: row.supplierMode === 'EXISTING_SUPPLIER' ? row.supplierId : undefined,
-      category: row.category,
-      description: row.description,
-      amount: row.amount,
-      paymentMethod: row.paymentMethod,
-      supplierMode: row.supplierMode,
-      localShopName: row.supplierMode === 'LOCAL_SHOP' ? row.localShopName : undefined,
-      localShopPhone: row.supplierMode === 'LOCAL_SHOP' ? row.localShopPhone : undefined,
-      expenseDate: new Date(row.expenseDate),
-      billNo: row.billNo,
-      notes: row.notes,
-      status: autoApprove ? 'APPROVED' : 'PENDING_APPROVAL',
-      createdById: userId,
-      approvedById: autoApprove ? userId : undefined,
-      approvedAt: autoApprove ? new Date() : undefined,
-    },
-  })));
+  const expenses = await prisma.$transaction(async (tx) => {
+    const created = [];
+    for (const row of parsed.data.rows) {
+      const expense = await tx.expense.create({
+        data: {
+          phaseId: row.phaseId,
+          supplierId: row.supplierMode === 'EXISTING_SUPPLIER' ? row.supplierId : undefined,
+          accountId: row.accountId,
+          category: row.category,
+          description: row.description,
+          amount: row.amount,
+          paymentMethod: row.paymentMethod,
+          referenceNo: row.referenceNo,
+          chequeNo: row.chequeNo,
+          chequeDate: row.chequeDate ? new Date(row.chequeDate) : undefined,
+          chequeBankName: row.chequeBankName,
+          chequeBranchName: row.chequeBranchName,
+          chequeMaturityDate: row.chequeMaturityDate ? new Date(row.chequeMaturityDate) : undefined,
+          supplierMode: row.supplierMode,
+          localShopName: row.supplierMode === 'LOCAL_SHOP' ? row.localShopName : undefined,
+          localShopPhone: row.supplierMode === 'LOCAL_SHOP' ? row.localShopPhone : undefined,
+          expenseDate: new Date(row.expenseDate),
+          billNo: row.billNo,
+          notes: row.notes,
+          status: autoApprove ? 'APPROVED' : 'PENDING_APPROVAL',
+          createdById: userId,
+          approvedById: autoApprove ? userId : undefined,
+          approvedAt: autoApprove ? new Date() : undefined,
+        },
+      });
+      if (autoApprove) {
+        await createCashBankTransactionFromExpense(tx, expense.id, userId);
+      }
+      created.push(expense);
+    }
+    return created;
+  });
 
   const documents = [];
   for (let index = 0; index < expenses.length; index += 1) {

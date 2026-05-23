@@ -19,6 +19,7 @@ export type PermissionModule =
   | 'expenses'
   | 'suppliers'
   | 'subcontractors'
+  | 'accounts'
   | 'reports'
   | 'audit'
   | 'settings';
@@ -45,6 +46,7 @@ const ALL_MODULES: PermissionModule[] = [
   'expenses',
   'suppliers',
   'subcontractors',
+  'accounts',
   'reports',
   'audit',
   'settings',
@@ -74,6 +76,7 @@ export const ROLE_PERMISSIONS: Record<string, RoleMatrix> = {
     expenses: financeActions,
     suppliers: financeActions,
     subcontractors: financeActions,
+    accounts: financeActions,
     reports: ['view', 'export'],
     audit: ['view', 'auditAccess'],
   },
@@ -87,6 +90,7 @@ export const ROLE_PERMISSIONS: Record<string, RoleMatrix> = {
     expenses: financeActions,
     suppliers: financeActions,
     subcontractors: financeActions,
+    accounts: financeActions,
     reports: ['view', 'export'],
     audit: ['view', 'auditAccess'],
   },
@@ -97,6 +101,7 @@ export const ROLE_PERMISSIONS: Record<string, RoleMatrix> = {
     documents: ['view', 'create'],
     demands: ['view', 'create', 'editDraft', 'deleteDraft'],
     collections: ['view', 'create', 'editDraft', 'deleteDraft'],
+    accounts: ['view'],
     reports: ['view'],
   },
   ENGINEER: {
@@ -105,6 +110,7 @@ export const ROLE_PERMISSIONS: Record<string, RoleMatrix> = {
     documents: ['view', 'create'],
     phases: ['view', 'create', 'editDraft'],
     expenses: ['view', 'create', 'editDraft', 'deleteDraft'],
+    accounts: ['view'],
     reports: ['view'],
   },
   SITE_ENGINEER: {
@@ -113,6 +119,7 @@ export const ROLE_PERMISSIONS: Record<string, RoleMatrix> = {
     documents: ['view', 'create'],
     phases: ['view', 'create', 'editDraft'],
     expenses: ['view', 'create', 'editDraft', 'deleteDraft'],
+    accounts: ['view'],
     reports: ['view'],
   },
   SITE_SUPERVISOR: {
@@ -121,6 +128,7 @@ export const ROLE_PERMISSIONS: Record<string, RoleMatrix> = {
     documents: ['view', 'create'],
     phases: ['view'],
     expenses: ['view', 'create', 'editDraft'],
+    accounts: ['view'],
   },
   DOCUMENT_OFFICER: {
     projects: ['view'],
@@ -128,6 +136,7 @@ export const ROLE_PERMISSIONS: Record<string, RoleMatrix> = {
     buyers: ['view'],
     documents: ['view', 'create', 'editDraft', 'deleteDraft', 'export'],
     phases: ['view'],
+    accounts: ['view'],
     reports: ['view'],
   },
   AUDITOR: allModules(readExportAudit),

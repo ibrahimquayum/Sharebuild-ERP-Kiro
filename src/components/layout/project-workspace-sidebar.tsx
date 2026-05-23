@@ -2,29 +2,22 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { cn } from '@/lib/utils';
+import { useState } from 'react';
 import {
-  LayoutDashboard,
-  Layers,
-  Users,
-  Receipt,
-  ShoppingCart,
-  Truck,
-  FileText,
-  AlertCircle,
   BarChart3,
   Building2,
-  Home,
-  ChevronLeft,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   DollarSign,
-  Package,
-  ClipboardList,
-  Shield,
+  FileText,
+  Home,
+  Layers,
+  LayoutDashboard,
   Settings,
+  Shield,
 } from 'lucide-react';
-import { useState } from 'react';
+import { cn } from '@/lib/utils';
 
 interface ProjectMeta {
   id: string;
@@ -35,9 +28,9 @@ interface ProjectMeta {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  ACTIVE:    'bg-green-100 text-green-700',
-  PLANNING:  'bg-yellow-100 text-yellow-700',
-  ON_HOLD:   'bg-orange-100 text-orange-700',
+  ACTIVE: 'bg-green-100 text-green-700',
+  PLANNING: 'bg-yellow-100 text-yellow-700',
+  ON_HOLD: 'bg-orange-100 text-orange-700',
   COMPLETED: 'bg-blue-100 text-blue-700',
   CANCELLED: 'bg-red-100 text-red-600',
 };
@@ -57,10 +50,11 @@ interface NavItem {
 
 function buildNav(projectId: string): NavItem[] {
   const base = `/projects/${projectId}`;
+
   return [
     {
       label: 'Overview',
-      href: `${base}`,
+      href: base,
       icon: LayoutDashboard,
       end: true,
     },
@@ -86,6 +80,8 @@ function buildNav(projectId: string): NavItem[] {
         { label: 'Supplier Payments', href: `${base}/payables/payments` },
         { label: 'Subcontractor Bills', href: `${base}/subcontractors/bills` },
         { label: 'Subcontractor Payments', href: `${base}/payables/payments?type=subcontractor` },
+        { label: 'Cash / Bank', href: `${base}/finance/cash-bank` },
+        { label: 'Cheques', href: `${base}/finance/cheques` },
         { label: 'Project Balance', href: `${base}/reports/top-sheet` },
       ],
     },
@@ -94,7 +90,7 @@ function buildNav(projectId: string): NavItem[] {
       icon: Layers,
       children: [
         { label: 'Phases', href: `${base}/phases` },
-        { label: 'Suppliers', href: `${base}/vendors` },
+        { label: 'Vendors', href: `${base}/vendors` },
         { label: 'Subcontractors', href: `${base}/subcontractors` },
       ],
     },
@@ -121,52 +117,39 @@ function buildNav(projectId: string): NavItem[] {
   ];
 }
 
-function NavItemRow({ item, projectId }: { item: NavItem; projectId: string }) {
+function NavItemRow({ item }: { item: NavItem }) {
   const pathname = usePathname();
-
-  // Determine if any child is active (for auto-expanding groups)
-  const childActive = item.children?.some(
-    (c) => pathname === c.href || pathname.startsWith(c.href + '/')
-  ) ?? false;
-
+  const childActive =
+    item.children?.some((child) => pathname === child.href || pathname.startsWith(child.href + '/')) ?? false;
   const [open, setOpen] = useState(childActive);
 
   if (item.children) {
     return (
       <div>
         <button
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => setOpen((value) => !value)}
           className={cn(
             'w-full flex items-center justify-between gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-            childActive
-              ? 'text-foreground bg-accent'
-              : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+            childActive ? 'text-foreground bg-accent' : 'text-muted-foreground hover:text-foreground hover:bg-accent',
           )}
         >
           <span className="flex items-center gap-2.5">
             <item.icon className="h-4 w-4 shrink-0" />
             {item.label}
           </span>
-          {open ? (
-            <ChevronDown className="h-3.5 w-3.5 shrink-0" />
-          ) : (
-            <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-          )}
+          {open ? <ChevronDown className="h-3.5 w-3.5 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
         </button>
-        {open && (
+        {open ? (
           <div className="ml-4 mt-0.5 border-l border-border pl-2 space-y-0.5">
             {item.children.map((child) => {
-              const isActive =
-                pathname === child.href || pathname.startsWith(child.href + '/');
+              const isActive = pathname === child.href || pathname.startsWith(child.href + '/');
               return (
                 <Link
                   key={child.href}
                   href={child.href}
                   className={cn(
                     'flex items-center px-2 py-1.5 rounded-md text-xs font-medium transition-colors',
-                    isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                    isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent',
                   )}
                 >
                   {child.label}
@@ -174,23 +157,19 @@ function NavItemRow({ item, projectId }: { item: NavItem; projectId: string }) {
               );
             })}
           </div>
-        )}
+        ) : null}
       </div>
     );
   }
 
-  const isActive = item.end
-    ? pathname === item.href
-    : pathname === item.href || pathname.startsWith(item.href! + '/');
+  const isActive = item.end ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href! + '/');
 
   return (
     <Link
       href={item.href!}
       className={cn(
         'flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-        isActive
-          ? 'bg-primary text-primary-foreground'
-          : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+        isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent',
       )}
     >
       <item.icon className="h-4 w-4 shrink-0" />
@@ -201,14 +180,10 @@ function NavItemRow({ item, projectId }: { item: NavItem; projectId: string }) {
 
 export function ProjectWorkspaceSidebar({ project }: { project: ProjectMeta }) {
   const navItems = buildNav(project.id);
-
-  // Truncate project name at 30 chars
-  const displayName =
-    project.name.length > 30 ? project.name.slice(0, 30) + '…' : project.name;
+  const displayName = project.name.length > 30 ? `${project.name.slice(0, 30)}…` : project.name;
 
   return (
     <aside className="w-56 shrink-0 h-screen sticky top-0 flex flex-col border-r bg-background">
-      {/* Back to company */}
       <div className="border-b px-3 py-2.5 flex items-center justify-between gap-2">
         <Link
           href="/projects"
@@ -226,7 +201,6 @@ export function ProjectWorkspaceSidebar({ project }: { project: ProjectMeta }) {
         </Link>
       </div>
 
-      {/* Project identity */}
       <div className="px-3 py-3 border-b">
         <div className="flex items-start gap-2">
           <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
@@ -236,34 +210,28 @@ export function ProjectWorkspaceSidebar({ project }: { project: ProjectMeta }) {
             <p className="text-sm font-bold leading-tight truncate" title={project.name}>
               {displayName}
             </p>
-            {project.nameBn && (
-              <p className="text-xs bn text-muted-foreground truncate">{project.nameBn}</p>
-            )}
+            {project.nameBn ? <p className="text-xs bn text-muted-foreground truncate">{project.nameBn}</p> : null}
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
               <span
                 className={cn(
                   'text-xs px-1.5 py-0.5 rounded font-medium',
-                  STATUS_COLOR[project.status] ?? 'bg-gray-100 text-gray-600'
+                  STATUS_COLOR[project.status] ?? 'bg-gray-100 text-gray-600',
                 )}
               >
                 {project.status}
               </span>
-              {project.code && (
-                <span className="text-xs font-mono text-muted-foreground">{project.code}</span>
-              )}
+              {project.code ? <span className="text-xs font-mono text-muted-foreground">{project.code}</span> : null}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Workspace nav */}
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
         {navItems.map((item) => (
-          <NavItemRow key={item.label} item={item} projectId={project.id} />
+          <NavItemRow key={item.label} item={item} />
         ))}
       </nav>
 
-      {/* Footer */}
       <div className="border-t px-3 py-2.5">
         <p className="text-xs text-muted-foreground">Sharebuild ERP v0.1</p>
       </div>

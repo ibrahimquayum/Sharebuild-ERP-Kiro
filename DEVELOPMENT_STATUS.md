@@ -1,6 +1,6 @@
 # Development Status - Sharebuild ERP
 
-**Last updated:** May 18, 2026
+**Last updated:** May 23, 2026
 **Branch:** `feat/erp-v1`
 
 ## Current State
@@ -293,3 +293,65 @@ prisma/migrations/0005_accounting_hardening/migration.sql
 ### Next Recommended Build Step
 
 Cash/bank account architecture and cheque lifecycle.
+
+## Cash / Bank / Cheque Phase - May 23, 2026
+
+### Added
+
+- `CASH_BANK_CHEQUE_PHASE.md`.
+- Migration:
+  - `prisma/migrations/0007_cash_bank_cheque_phase/migration.sql`
+- New treasury models:
+  - `CashBankAccount`
+  - `CashBankTransaction`
+  - `ChequeLog`
+  - `AccountTransfer`
+- New company routes:
+  - `/company/accounts`
+  - `/company/accounts/new`
+  - `/company/accounts/[accountId]`
+  - `/company/accounts/[accountId]/edit`
+  - `/company/cheques`
+- New project routes:
+  - `/projects/[id]/finance/cash-bank`
+  - `/projects/[id]/finance/cheques`
+  - `/projects/[id]/reports/cash-bank-book`
+  - `/projects/[id]/reports/cheque-register`
+
+### Improved
+
+- Collections now create cash/bank inflow rows through `CashBankTransaction`.
+- Approved and final expenses now create cash/bank outflow rows.
+- Bulk expenses now create cash/bank outflow rows for approved/final entries.
+- Supplier payments and subcontractor payments now create treasury outflow rows without being treated as project cost.
+- Cheque-backed collections, expenses, and vendor payments now create `ChequeLog` entries.
+- Finance overview now shows cash in, cash out, net cash movement, account balance, pending cheques, and bounced cheques separately from project cost.
+- Global sidebar now includes company treasury navigation.
+- Project workspace sidebar now includes project cash/bank and cheque routes.
+- Seed creates default company accounts and treasury rows for seeded collections and expenses.
+
+### Verified In This Pass
+
+| Check | Status | Notes |
+| --- | --- | --- |
+| Prisma validate | Pass | `npx prisma validate` |
+| Prisma generate | Pass | `npx prisma generate` |
+| Production build | Pass | `npm run build` |
+| Seed | Pass | `npm run db:seed` |
+| Migration reset | Pass | `npx prisma migrate reset --force --skip-seed` |
+| Seed after reset | Pass | `npm run db:seed` |
+| Migration status | Pass | `npx prisma migrate status` |
+| Authenticated route smoke checks | Pass | `/dashboard`, `/company/accounts`, `/company/cheques`, `/projects/project-relax-tower/finance`, `/projects/project-relax-tower/finance/cash-bank`, `/projects/project-relax-tower/finance/cheques` |
+| Top Sheet totals | Pass | Income 100,143,800 / Expense 104,659,890.40 / Balance -4,516,090.40 |
+
+### Known Gaps
+
+- No dedicated account transfer UI yet.
+- No strict cheque-clearance posting workflow yet.
+- No VAT/AIT/TDS handling yet.
+- No retention/security ledger yet.
+- No final reconciliation yet.
+
+### Next Recommended Build Step
+
+VAT/AIT/TDS plus retention/security architecture and accounting flows.

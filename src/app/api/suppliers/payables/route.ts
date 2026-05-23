@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { safeAuditLog } from '@/lib/audit';
 import { isPhaseLocked, lockedPhaseMessage } from '@/lib/accounting';
+import { assertAccountBelongsToCompany, createCashBankTransactionFromSupplierPayment } from '@/lib/cash-bank';
 
 const createSchema = z.object({
   supplierId:  z.string().min(1),
@@ -18,10 +19,13 @@ const createSchema = z.object({
   dueDate:     z.string().optional(),
   notes:       z.string().optional(),
   paidAmount:  z.number().min(0).optional(),
+  accountId: z.string().optional(),
   paymentMethod: z.enum(['CASH','CHEQUE','BANK_TRANSFER','MOBILE_BANKING','OTHER']).optional(),
   chequeNo: z.string().optional(),
   chequeDate: z.string().optional(),
   bankName: z.string().optional(),
+  chequeBranchName: z.string().optional(),
+  chequeMaturityDate: z.string().optional(),
   reference: z.string().optional(),
   items: z.array(z.object({
     description: z.string().min(1),
@@ -128,52 +132,69 @@ export async function POST(req: NextRequest) {
   const totalAmount = d.totalAmount;
   const paidAmount = d.paidAmount ?? 0;
   if (paidAmount > totalAmount) return NextResponse.json({ error: 'Paid amount cannot exceed total bill amount.' }, { status: 400 });
+  if (paidAmount > 0 && !d.accountId) return NextResponse.json({ error: 'Select a cash/bank account for the initial payment.' }, { status: 400 });
+  if (paidAmount > 0 && d.accountId) await assertAccountBelongsToCompany(d.accountId, companyId);
 
-  const payable = await prisma.supplierPayable.create({
-    data: {
-      supplierId:  d.supplierId,
-      projectId:   d.projectId,
-      phaseId:     d.phaseId || undefined,
-      projectSupplierId: linkedProjectSupplier?.id,
-      projectSubcontractorId: linkedProjectSubcontractor?.id,
-      billNo:      d.billNo,
-      billDate:    new Date(d.billDate),
-      totalAmount,
-      paidAmount,
-      dueAmount:   totalAmount - paidAmount,
-      dueDate:     d.dueDate ? new Date(d.dueDate) : undefined,
-      status:      paidAmount >= totalAmount ? 'PAID' : paidAmount > 0 ? 'PARTIALLY_PAID' : 'UNPAID',
-      notes:       d.notes,
-      ...(paidAmount > 0 ? {
-        payments: {
-          create: {
-            amount: paidAmount,
-            paymentMethod: d.paymentMethod ?? 'BANK_TRANSFER',
-            chequeNo: d.chequeNo,
-            chequeDate: d.chequeDate ? new Date(d.chequeDate) : undefined,
-            bankName: d.bankName,
-            reference: d.reference,
-            paidAt: new Date(d.billDate),
-            notes: 'Initial payment recorded during bill entry',
-            status: d.paymentMethod === 'CHEQUE' ? 'CLEARED' : 'CLEARED',
-            chequeStatus: d.paymentMethod === 'CHEQUE' ? 'CLEARED' : undefined,
+  const payable = await prisma.$transaction(async (tx) => {
+    const created = await tx.supplierPayable.create({
+      data: {
+        supplierId:  d.supplierId,
+        projectId:   d.projectId,
+        phaseId:     d.phaseId || undefined,
+        projectSupplierId: linkedProjectSupplier?.id,
+        projectSubcontractorId: linkedProjectSubcontractor?.id,
+        billNo:      d.billNo,
+        billDate:    new Date(d.billDate),
+        totalAmount,
+        paidAmount,
+        dueAmount:   totalAmount - paidAmount,
+        dueDate:     d.dueDate ? new Date(d.dueDate) : undefined,
+        status:      paidAmount >= totalAmount ? 'PAID' : paidAmount > 0 ? 'PARTIALLY_PAID' : 'UNPAID',
+        notes:       d.notes,
+        ...(d.items?.length ? {
+          billItems: {
+            create: d.items.map((item) => ({
+              description: item.description,
+              category: item.category,
+              quantity: item.quantity,
+              unit: item.unit,
+              unitPrice: item.unitPrice,
+              amount: item.amount,
+            })),
           },
+        } : {}),
+      },
+      include: { billItems: true },
+    });
+
+    if (paidAmount > 0) {
+      const payment = await tx.supplierPayment.create({
+        data: {
+          payableId: created.id,
+          accountId: d.accountId,
+          amount: paidAmount,
+          paymentMethod: d.paymentMethod ?? 'BANK_TRANSFER',
+          chequeNo: d.chequeNo,
+          chequeDate: d.chequeDate ? new Date(d.chequeDate) : undefined,
+          bankName: d.bankName,
+          chequeBranchName: d.chequeBranchName,
+          chequeMaturityDate: d.chequeMaturityDate ? new Date(d.chequeMaturityDate) : undefined,
+          reference: d.reference,
+          paidAt: new Date(d.billDate),
+          notes: 'Initial payment recorded during bill entry',
+          status: d.paymentMethod === 'CHEQUE' ? 'ISSUED' : 'CLEARED',
+          chequeStatus: d.paymentMethod === 'CHEQUE' ? 'ISSUED' : undefined,
         },
-      } : {}),
-      ...(d.items?.length ? {
-        billItems: {
-          create: d.items.map((item) => ({
-            description: item.description,
-            category: item.category,
-            quantity: item.quantity,
-            unit: item.unit,
-            unitPrice: item.unitPrice,
-            amount: item.amount,
-          })),
-        },
-      } : {}),
-    },
-    include: { billItems: true },
+      });
+      await createCashBankTransactionFromSupplierPayment(
+        tx,
+        payment.id,
+        linkedProjectSubcontractor ? 'SUBCONTRACTOR_PAYMENT' : 'SUPPLIER_PAYMENT',
+        userId,
+      );
+    }
+
+    return created;
   });
 
   await safeAuditLog({

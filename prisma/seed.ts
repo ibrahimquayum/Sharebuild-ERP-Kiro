@@ -210,6 +210,67 @@ async function main() {
   });
   console.log('  ✅  Project:', project.name);
 
+  const officeCash = await prisma.cashBankAccount.upsert({
+    where: { id: 'account-office-cash' },
+    update: {
+      companyId: company.id,
+      name: 'Office Cash',
+      type: 'CASH',
+      currency: 'BDT',
+      isDefault: true,
+      isActive: true,
+      openingBalance: 0,
+      notes: 'Default seeded cash account for demo treasury flows.',
+    },
+    create: {
+      id: 'account-office-cash',
+      companyId: company.id,
+      name: 'Office Cash',
+      type: 'CASH',
+      currency: 'BDT',
+      isDefault: true,
+      isActive: true,
+      openingBalance: 0,
+      notes: 'Default seeded cash account for demo treasury flows.',
+    },
+  });
+
+  const mainBank = await prisma.cashBankAccount.upsert({
+    where: { id: 'account-main-bank' },
+    update: {
+      companyId: company.id,
+      name: 'Main Bank Account',
+      type: 'BANK',
+      bankName: 'Demo Bank',
+      branchName: 'Dhaka Branch',
+      accountNumber: '1234567890',
+      accountHolderName: company.name,
+      currency: 'BDT',
+      isActive: true,
+      openingBalance: 0,
+      notes: 'Default seeded bank account for buyer collections.',
+    },
+    create: {
+      id: 'account-main-bank',
+      companyId: company.id,
+      name: 'Main Bank Account',
+      type: 'BANK',
+      bankName: 'Demo Bank',
+      branchName: 'Dhaka Branch',
+      accountNumber: '1234567890',
+      accountHolderName: company.name,
+      currency: 'BDT',
+      isDefault: false,
+      isActive: true,
+      openingBalance: 0,
+      notes: 'Default seeded bank account for buyer collections.',
+    },
+  });
+
+  await prisma.cashBankTransaction.deleteMany({ where: { projectId: project.id } });
+  await prisma.chequeLog.deleteMany({ where: { projectId: project.id } });
+  console.log('  ✅  Default cash/bank accounts prepared');
+
   // ── 4. Phases ───────────────────────────────────────────────────────────
   for (const p of PHASES) {
     await prisma.phase.upsert({
@@ -294,6 +355,7 @@ async function main() {
     const collections = createdBuyers.map((buyer, idx) => ({
       phaseId: phase.id,
       buyerId: buyer.id,
+      accountId: mainBank.id,
       amount: idx === 0 ? perBuyer + remainder : perBuyer,
       paymentMethod: 'CASH' as PaymentMethod,
       receivedDate: new Date('2024-01-01'),
@@ -301,6 +363,33 @@ async function main() {
     }));
 
     await prisma.collection.createMany({ data: collections });
+    const createdCollections = await prisma.collection.findMany({
+      where: {
+        phaseId: phase.id,
+        receivedDate: new Date('2024-01-01'),
+        notes: 'Seeded — phase income distributed from Excel Top Sheet',
+      },
+      include: { buyer: { select: { name: true } } },
+    });
+
+    await prisma.cashBankTransaction.createMany({
+      data: createdCollections.map((collection) => ({
+        companyId: company.id,
+        projectId: project.id,
+        accountId: mainBank.id,
+        type: 'INFLOW' as const,
+        sourceType: 'BUYER_COLLECTION' as const,
+        sourceId: collection.id,
+        partyType: 'BUYER' as const,
+        partyId: collection.buyerId,
+        partyName: collection.buyer.name,
+        amount: collection.amount,
+        transactionDate: collection.receivedDate,
+        paymentMethod: collection.paymentMethod,
+        description: collection.notes ?? 'Seeded buyer collection',
+        status: 'POSTED' as const,
+      })),
+    });
     totalCollectionSeeded += income;
   }
   console.log(`  ✅  Collections seeded — total ৳${totalCollectionSeeded.toLocaleString()}`);
@@ -325,6 +414,7 @@ async function main() {
         quantity: exp.quantity ?? undefined,
         unit: exp.unit ?? undefined,
         unitPrice: exp.unitPrice ?? undefined,
+        accountId: officeCash.id,
         amount: exp.amount,
         status: 'APPROVED',
         expenseDate: new Date('2023-08-15'),
@@ -347,6 +437,7 @@ async function main() {
         quantity: exp.quantity ?? undefined,
         unit: exp.unit ?? undefined,
         unitPrice: exp.unitPrice ?? undefined,
+        accountId: officeCash.id,
         amount: exp.amount,
         status: 'APPROVED',
         expenseDate: new Date('2024-04-15'),
@@ -371,6 +462,7 @@ async function main() {
         category: 'OTHER',
         description: `${p.name} — total expense (from Excel Top Sheet)`,
         descriptionBn: `${p.nameBn} — মোট খরচ (এক্সেল থেকে)`,
+        accountId: officeCash.id,
         amount: fin.expense,
         status: 'APPROVED',
         expenseDate: new Date('2024-06-01'),
@@ -382,6 +474,26 @@ async function main() {
     });
     totalExpenseSeeded += fin.expense;
   }
+
+  const seededExpenses = await prisma.expense.findMany({
+    where: { phase: { projectId: project.id } },
+  });
+
+  await prisma.cashBankTransaction.createMany({
+    data: seededExpenses.map((expense) => ({
+      companyId: company.id,
+      projectId: project.id,
+      accountId: officeCash.id,
+      type: 'OUTFLOW' as const,
+      sourceType: 'DIRECT_EXPENSE' as const,
+      sourceId: expense.id,
+      amount: expense.amount,
+      transactionDate: expense.expenseDate,
+      paymentMethod: expense.paymentMethod,
+      description: expense.description,
+      status: 'POSTED' as const,
+    })),
+  });
 
   console.log(`  ✅  Expenses seeded — total ৳${totalExpenseSeeded.toLocaleString()}`);
 

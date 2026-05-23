@@ -25,7 +25,7 @@ export default async function NewSubcontractorBillPage({
   });
   if (!project) notFound();
 
-  const [subcontractors, phases] = await Promise.all([
+  const [subcontractors, phases, accounts] = await Promise.all([
     prisma.projectSubcontractor.findMany({
       where: {
         companyId,
@@ -43,6 +43,11 @@ export default async function NewSubcontractorBillPage({
       where: { projectId: project.id },
       select: { id: true, name: true },
       orderBy: { sequence: 'asc' },
+    }),
+    prisma.cashBankAccount.findMany({
+      where: { companyId, isActive: true },
+      orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+      select: { id: true, name: true, type: true },
     }),
   ]);
 
@@ -64,6 +69,7 @@ export default async function NewSubcontractorBillPage({
             projectId={project.id}
             subcontractors={subcontractors}
             phases={phases}
+            accounts={accounts.map((account) => ({ id: account.id, label: `${account.name} - ${account.type.replaceAll('_', ' ')}` }))}
             initialProjectSubcontractorId={searchParams?.projectSubcontractorId}
             initialSubcontractorId={searchParams?.subcontractorId ?? searchParams?.supplierId}
           />

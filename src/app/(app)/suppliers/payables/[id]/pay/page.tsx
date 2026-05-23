@@ -1,22 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { TextField, TextareaField, FormError, FormSection, Field } from '@/components/shared/form-field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
 import { formatBDT } from '@/lib/utils';
 
 const PAYMENT_METHODS = [
-  { value: 'CASH',           label: 'Cash' },
-  { value: 'CHEQUE',         label: 'Cheque' },
-  { value: 'BANK_TRANSFER',  label: 'Bank Transfer' },
+  { value: 'CASH', label: 'Cash' },
+  { value: 'CHEQUE', label: 'Cheque' },
+  { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
   { value: 'MOBILE_BANKING', label: 'Mobile Banking (bKash / Nagad)' },
-  { value: 'OTHER',          label: 'Other' },
+  { value: 'OTHER', label: 'Other' },
 ];
 
 interface Payable {
@@ -30,76 +30,94 @@ interface Payable {
   supplier: { id: string; name: string };
 }
 
+function today() {
+  return new Date().toISOString().split('T')[0];
+}
+
 export default function RecordSupplierPaymentPage() {
-  const router     = useRouter();
-  const params     = useParams<{ id: string }>();
-  const payableId  = params.id;
+  const router = useRouter();
+  const params = useParams<{ id: string }>();
+  const payableId = params.id;
 
   const [payable, setPayable] = useState<Payable | null>(null);
+  const [accounts, setAccounts] = useState<{ id: string; name: string; type: string; isDefault?: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving,  setSaving]  = useState(false);
-  const [error,   setError]   = useState('');
-  const [errors,  setErrors]  = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const [amount,        setAmount]        = useState('');
+  const [accountId, setAccountId] = useState('');
+  const [amount, setAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('BANK_TRANSFER');
-  const [paidAt,        setPaidAt]        = useState(today());
-  const [chequeNo,      setChequeNo]      = useState('');
-  const [chequeDate,    setChequeDate]    = useState('');
-  const [bankName,      setBankName]      = useState('');
-  const [reference,     setReference]     = useState('');
-  const [notes,         setNotes]         = useState('');
-
-  function today() {
-    return new Date().toISOString().split('T')[0];
-  }
+  const [paidAt, setPaidAt] = useState(today());
+  const [chequeNo, setChequeNo] = useState('');
+  const [chequeDate, setChequeDate] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [chequeBranchName, setChequeBranchName] = useState('');
+  const [chequeMaturityDate, setChequeMaturityDate] = useState('');
+  const [reference, setReference] = useState('');
+  const [notes, setNotes] = useState('');
 
   useEffect(() => {
-    fetch(`/api/suppliers/payables/${payableId}/payments`)
-      .then(r => r.json())
-      .then(data => setPayable(data))
+    Promise.all([
+      fetch(`/api/suppliers/payables/${payableId}/payments`).then((r) => r.json()),
+      fetch('/api/company/accounts').then((r) => r.json()),
+    ])
+      .then(([payableResponse, accountsResponse]) => {
+        setPayable(payableResponse);
+        const accountList = Array.isArray(accountsResponse) ? accountsResponse : [];
+        setAccounts(accountList);
+        if (accountList.length > 0) {
+          const defaultAccount = accountList.find((account) => account.isDefault) ?? accountList[0];
+          setAccountId(defaultAccount.id);
+        }
+      })
       .catch(() => setError('Could not load payable details.'))
       .finally(() => setLoading(false));
   }, [payableId]);
 
   function validate() {
-    const e: Record<string, string> = {};
-    const amt = parseFloat(amount);
-    if (!amount || isNaN(amt) || amt <= 0) {
-      e.amount = 'Enter a valid amount.';
-    } else if (payable && amt > Number(payable.dueAmount)) {
-      e.amount = `Amount cannot exceed the outstanding balance of ${formatBDT(Number(payable.dueAmount))}.`;
+    const nextErrors: Record<string, string> = {};
+    const numericAmount = parseFloat(amount);
+    if (!accountId) nextErrors.accountId = 'Select the paying account.';
+    if (!amount || Number.isNaN(numericAmount) || numericAmount <= 0) {
+      nextErrors.amount = 'Enter a valid amount.';
+    } else if (payable && numericAmount > Number(payable.dueAmount)) {
+      nextErrors.amount = `Amount cannot exceed the outstanding balance of ${formatBDT(Number(payable.dueAmount))}.`;
     }
-    setErrors(e);
-    return Object.keys(e).length === 0;
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
     setError('');
     if (!validate()) return;
 
     setSaving(true);
     try {
       const body: Record<string, unknown> = {
+        accountId,
         amount: parseFloat(amount),
         paymentMethod,
         paidAt,
       };
-      if (chequeNo.trim())  body.chequeNo  = chequeNo.trim();
-      if (chequeDate)       body.chequeDate = chequeDate;
-      if (bankName.trim())  body.bankName  = bankName.trim();
+      if (chequeNo.trim()) body.chequeNo = chequeNo.trim();
+      if (chequeDate) body.chequeDate = chequeDate;
+      if (bankName.trim()) body.bankName = bankName.trim();
+      if (chequeBranchName.trim()) body.chequeBranchName = chequeBranchName.trim();
+      if (chequeMaturityDate) body.chequeMaturityDate = chequeMaturityDate;
       if (reference.trim()) body.reference = reference.trim();
-      if (notes.trim())     body.notes     = notes.trim();
+      if (notes.trim()) body.notes = notes.trim();
 
-      const res = await fetch(`/api/suppliers/payables/${payableId}/payments`, {
+      const response = await fetch(`/api/suppliers/payables/${payableId}/payments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
         setError(data?.error ?? 'Failed to save. Please try again.');
         return;
       }
@@ -117,7 +135,7 @@ export default function RecordSupplierPaymentPage() {
       <div className="flex flex-col min-h-full">
         <Header title="Record Payment" />
         <div className="flex items-center justify-center flex-1 text-muted-foreground">
-          <Loader2 className="h-6 w-6 animate-spin mr-2" /> Loading…
+          <Loader2 className="h-6 w-6 animate-spin mr-2" /> Loading...
         </div>
       </div>
     );
@@ -132,10 +150,10 @@ export default function RecordSupplierPaymentPage() {
     );
   }
 
-  const dueAmount   = Number(payable.dueAmount);
-  const isPaid      = payable.status === 'PAID';
-  const showCheque  = paymentMethod === 'CHEQUE';
-  const showBank    = paymentMethod === 'BANK_TRANSFER' || paymentMethod === 'MOBILE_BANKING';
+  const dueAmount = Number(payable.dueAmount);
+  const isPaid = payable.status === 'PAID';
+  const showCheque = paymentMethod === 'CHEQUE';
+  const showBank = paymentMethod === 'BANK_TRANSFER' || paymentMethod === 'MOBILE_BANKING';
 
   return (
     <div className="flex flex-col min-h-full">
@@ -146,7 +164,6 @@ export default function RecordSupplierPaymentPage() {
           <ArrowLeft className="h-4 w-4" /> Back to Payables
         </Link>
 
-        {/* Payable summary */}
         <Card className="border-blue-200 bg-blue-50/40">
           <CardContent className="p-4">
             <p className="text-sm font-semibold">{payable.supplier.name}</p>
@@ -162,7 +179,7 @@ export default function RecordSupplierPaymentPage() {
         {isPaid ? (
           <Card>
             <CardContent className="p-6 text-center text-muted-foreground">
-              <p className="text-lg font-medium text-green-600">✅ This bill is fully paid.</p>
+              <p className="text-lg font-medium text-green-600">This bill is fully paid.</p>
               <p className="text-sm mt-1">No outstanding balance remaining.</p>
             </CardContent>
           </Card>
@@ -180,28 +197,24 @@ export default function RecordSupplierPaymentPage() {
 
                 <FormSection title="Payment Details">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <TextField
-                      label="Amount Paid (৳)"
-                      id="amount"
-                      type="number"
-                      min={0.01}
-                      step="0.01"
-                      required
-                      placeholder={`Max: ${dueAmount}`}
-                      value={amount}
-                      onChange={e => setAmount(e.target.value)}
-                      error={errors.amount}
-                      hint={`Outstanding: ${formatBDT(dueAmount)}`}
-                    />
-                    <TextField
-                      label="Payment Date"
-                      id="paidAt"
-                      type="date"
-                      required
-                      value={paidAt}
-                      onChange={e => setPaidAt(e.target.value)}
-                    />
+                    <TextField label="Amount Paid (BDT)" id="amount" type="number" min={0.01} step="0.01" required placeholder={`Max: ${dueAmount}`} value={amount} onChange={(event) => setAmount(event.target.value)} error={errors.amount} hint={`Outstanding: ${formatBDT(dueAmount)}`} />
+                    <TextField label="Payment Date" id="paidAt" type="date" required value={paidAt} onChange={(event) => setPaidAt(event.target.value)} />
                   </div>
+
+                  <Field label="Paid From Account" htmlFor="accountId" required error={errors.accountId}>
+                    <Select value={accountId} onValueChange={setAccountId}>
+                      <SelectTrigger id="accountId" className={errors.accountId ? 'border-destructive' : ''}>
+                        <SelectValue placeholder={accounts.length === 0 ? 'No active accounts found' : 'Select account'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {accounts.map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.name} - {account.type.replaceAll('_', ' ')}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
 
                   <Field label="Payment Method" htmlFor="paymentMethod" required>
                     <Select value={paymentMethod} onValueChange={setPaymentMethod}>
@@ -209,8 +222,10 @@ export default function RecordSupplierPaymentPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {PAYMENT_METHODS.map(m => (
-                          <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                        {PAYMENT_METHODS.map((method) => (
+                          <SelectItem key={method.value} value={method.value}>
+                            {method.label}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -220,32 +235,31 @@ export default function RecordSupplierPaymentPage() {
                 {showCheque && (
                   <FormSection title="Cheque Details">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <TextField label="Cheque Number" id="chequeNo" placeholder="e.g. 0012345" value={chequeNo} onChange={e => setChequeNo(e.target.value)} />
-                      <TextField label="Cheque Date"   id="chequeDate" type="date" value={chequeDate} onChange={e => setChequeDate(e.target.value)} />
+                      <TextField label="Cheque Number" id="chequeNo" placeholder="e.g. 0012345" value={chequeNo} onChange={(event) => setChequeNo(event.target.value)} />
+                      <TextField label="Cheque Date" id="chequeDate" type="date" value={chequeDate} onChange={(event) => setChequeDate(event.target.value)} />
+                      <TextField label="Bank Name" id="bankName" placeholder="e.g. Agrani Bank" value={bankName} onChange={(event) => setBankName(event.target.value)} />
+                      <TextField label="Branch" id="chequeBranchName" placeholder="e.g. Kawlar Branch" value={chequeBranchName} onChange={(event) => setChequeBranchName(event.target.value)} />
+                      <TextField label="Maturity Date" id="chequeMaturityDate" type="date" value={chequeMaturityDate} onChange={(event) => setChequeMaturityDate(event.target.value)} />
                     </div>
-                    <TextField label="Bank Name" id="bankName" placeholder="e.g. Agrani Bank" value={bankName} onChange={e => setBankName(e.target.value)} />
                   </FormSection>
                 )}
 
                 {showBank && (
                   <FormSection title="Transfer Details">
-                    <TextField label="Bank / Account" id="bankName" placeholder="e.g. Dutch Bangla Bank" value={bankName} onChange={e => setBankName(e.target.value)} />
-                    <TextField label="Transaction Reference" id="reference" placeholder="e.g. TXN123456" value={reference} onChange={e => setReference(e.target.value)} />
+                    <TextField label="Bank / Account Note" id="bankName" placeholder="e.g. Dutch Bangla Bank" value={bankName} onChange={(event) => setBankName(event.target.value)} />
+                    <TextField label="Transaction Reference" id="reference" placeholder="e.g. TXN123456" value={reference} onChange={(event) => setReference(event.target.value)} />
                   </FormSection>
                 )}
 
-                <TextareaField
-                  label="Notes (optional)"
-                  id="notes"
-                  placeholder="Any notes about this payment..."
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  rows={2}
-                />
+                {!showBank && !showCheque && (
+                  <TextField label="Reference (optional)" id="reference" placeholder="e.g. memo or mobile transaction id" value={reference} onChange={(event) => setReference(event.target.value)} />
+                )}
+
+                <TextareaField label="Notes (optional)" id="notes" placeholder="Any notes about this payment..." value={notes} onChange={(event) => setNotes(event.target.value)} rows={2} />
 
                 <div className="flex items-center gap-3 pt-2">
                   <Button type="submit" disabled={saving} className="min-w-[140px]">
-                    {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving…</> : 'Record Payment'}
+                    {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Record Payment'}
                   </Button>
                   <Button type="button" variant="ghost" onClick={() => router.back()}>Cancel</Button>
                 </div>

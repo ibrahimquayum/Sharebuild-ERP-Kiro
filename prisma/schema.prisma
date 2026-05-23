@@ -201,6 +201,75 @@ enum ProjectVendorStatus {
   CANCELLED
 }
 
+enum CashBankAccountType {
+  CASH
+  BANK
+  MOBILE_BANKING
+  CHEQUE_CLEARING
+  OTHER
+}
+
+enum MobileBankingProvider {
+  BKASH
+  NAGAD
+  ROCKET
+  OTHER
+}
+
+enum CashBankTransactionType {
+  INFLOW
+  OUTFLOW
+  TRANSFER_IN
+  TRANSFER_OUT
+  ADJUSTMENT
+}
+
+enum CashBankSourceType {
+  BUYER_COLLECTION
+  DIRECT_EXPENSE
+  SUPPLIER_PAYMENT
+  SUBCONTRACTOR_PAYMENT
+  ACCOUNT_TRANSFER
+  OPENING_BALANCE
+  ADJUSTMENT
+  OTHER
+}
+
+enum CashBankTransactionStatus {
+  DRAFT
+  POSTED
+  REVERSED
+  CANCELLED
+}
+
+enum CashBankPartyType {
+  BUYER
+  SUPPLIER
+  SUBCONTRACTOR
+  LOCAL_SHOP
+  COMPANY
+  OTHER
+}
+
+enum ChequeType {
+  ISSUED
+  RECEIVED
+}
+
+enum ChequeStatus {
+  PENDING
+  CLEARED
+  BOUNCED
+  CANCELLED
+  REPLACED
+}
+
+enum AccountTransferStatus {
+  POSTED
+  REVERSED
+  CANCELLED
+}
+
 // ─────────────────────────────────────────────
 // TENANT: COMPANY
 // ─────────────────────────────────────────────
@@ -229,6 +298,10 @@ model Company {
   projectSubcontractors ProjectSubcontractor[]
   buyers          Buyer[]
   settings        CompanySetting[]
+  cashBankAccounts CashBankAccount[]
+  cashBankTransactions CashBankTransaction[]
+  chequeLogs      ChequeLog[]
+  accountTransfers AccountTransfer[]
 
   @@map("companies")
 }
@@ -272,6 +345,9 @@ model User {
   approvedExpenses Expense[]        @relation("ExpenseApprovedBy")
   staffAssignments ProjectStaffAssignment[]
   uploadedDocuments Document[]        @relation("DocumentUploadedBy")
+  createdCashBankTransactions CashBankTransaction[] @relation("CashBankTransactionCreatedBy")
+  reversedCashBankTransactions CashBankTransaction[] @relation("CashBankTransactionReversedBy")
+  createdAccountTransfers AccountTransfer[] @relation("AccountTransferCreatedBy")
 
   @@map("users")
 }
@@ -334,6 +410,8 @@ model Project {
   projectSuppliers ProjectSupplier[]
   projectSubcontractors ProjectSubcontractor[]
   staffAssignments ProjectStaffAssignment[]
+  cashBankTransactions CashBankTransaction[]
+  chequeLogs       ChequeLog[]
 
   @@map("projects")
 }
@@ -543,6 +621,7 @@ model Collection {
   phaseId         String
   buyerId         String
   demandId        String?
+  accountId       String?
   receiptNo       String?         // e.g. RCP-2024-001
   amount          Decimal
   paymentMethod   PaymentMethod   @default(CASH)
@@ -550,6 +629,8 @@ model Collection {
   chequeNo        String?
   chequeDate      DateTime?
   bankName        String?
+  chequeBranchName String?
+  chequeMaturityDate DateTime?
   reference       String?
   receivedDate    DateTime        @default(now())
   notes           String?
@@ -563,6 +644,7 @@ model Collection {
   phase   Phase   @relation(fields: [phaseId], references: [id])
   buyer   Buyer   @relation(fields: [buyerId], references: [id])
   demand  Demand? @relation(fields: [demandId], references: [id])
+  account CashBankAccount? @relation(fields: [accountId], references: [id])
   allocations CollectionAllocation[]
 
   @@map("collections")
@@ -591,6 +673,7 @@ model Expense {
   id            String          @id @default(cuid())
   phaseId       String
   supplierId    String?
+  accountId     String?
   category      ExpenseCategory
   description   String
   descriptionBn String?
@@ -605,6 +688,12 @@ model Expense {
   status        ExpenseStatus   @default(PENDING_APPROVAL)
   expenseDate   DateTime        @default(now())
   billNo        String?
+  referenceNo   String?
+  chequeNo      String?
+  chequeDate    DateTime?
+  chequeBankName String?
+  chequeBranchName String?
+  chequeMaturityDate DateTime?
   payableId     String?
   createdById   String
   approvedById  String?
@@ -618,6 +707,7 @@ model Expense {
 
   phase       Phase      @relation(fields: [phaseId], references: [id])
   supplier    Supplier?  @relation(fields: [supplierId], references: [id])
+  account     CashBankAccount? @relation(fields: [accountId], references: [id])
   createdBy   User       @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
   approvedBy  User?      @relation("ExpenseApprovedBy", fields: [approvedById], references: [id])
   payable     SupplierPayable? @relation(fields: [payableId], references: [id])
@@ -804,11 +894,14 @@ model SupplierBillItem {
 model SupplierPayment {
   id            String        @id @default(cuid())
   payableId     String
+  accountId     String?
   amount        Decimal
   paymentMethod PaymentMethod @default(BANK_TRANSFER)
   chequeNo      String?
   chequeDate    DateTime?
   bankName      String?
+  chequeBranchName String?
+  chequeMaturityDate DateTime?
   reference     String?
   paidAt        DateTime      @default(now())
   notes         String?
@@ -820,8 +913,137 @@ model SupplierPayment {
   createdAt     DateTime      @default(now())
 
   payable SupplierPayable @relation(fields: [payableId], references: [id])
+  account CashBankAccount? @relation(fields: [accountId], references: [id])
 
   @@map("supplier_payments")
+}
+
+model CashBankAccount {
+  id                String                @id @default(cuid())
+  companyId         String
+  name              String
+  type              CashBankAccountType
+  bankName          String?
+  branchName        String?
+  accountNumber     String?
+  accountHolderName String?
+  mobileProvider    MobileBankingProvider?
+  openingBalance    Decimal               @default(0)
+  currency          String                @default("BDT")
+  isDefault         Boolean               @default(false)
+  isActive          Boolean               @default(true)
+  notes             String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  company      Company               @relation(fields: [companyId], references: [id])
+  collections  Collection[]
+  expenses     Expense[]
+  supplierPayments SupplierPayment[]
+  transactions CashBankTransaction[]
+  cheques      ChequeLog[]
+  outgoingTransfers AccountTransfer[] @relation("AccountTransferFrom")
+  incomingTransfers AccountTransfer[] @relation("AccountTransferTo")
+
+  @@index([companyId, isActive])
+  @@map("cash_bank_accounts")
+}
+
+model CashBankTransaction {
+  id             String                    @id @default(cuid())
+  companyId      String
+  projectId      String?
+  accountId      String
+  type           CashBankTransactionType
+  sourceType     CashBankSourceType
+  sourceId       String?
+  partyType      CashBankPartyType?
+  partyId        String?
+  partyName      String?
+  amount         Decimal
+  transactionDate DateTime
+  paymentMethod  PaymentMethod            @default(CASH)
+  referenceNo    String?
+  description    String?
+  status         CashBankTransactionStatus @default(POSTED)
+  createdById    String?
+  reversedAt     DateTime?
+  reversedById   String?
+  reversalReason String?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  company    Company         @relation(fields: [companyId], references: [id])
+  project    Project?        @relation(fields: [projectId], references: [id])
+  account    CashBankAccount @relation(fields: [accountId], references: [id])
+  createdBy  User?           @relation("CashBankTransactionCreatedBy", fields: [createdById], references: [id])
+  reversedBy User?           @relation("CashBankTransactionReversedBy", fields: [reversedById], references: [id])
+
+  @@index([companyId, accountId, status])
+  @@index([projectId, status])
+  @@index([sourceType, sourceId])
+  @@map("cash_bank_transactions")
+}
+
+model ChequeLog {
+  id                String        @id @default(cuid())
+  companyId         String
+  projectId         String?
+  accountId         String?
+  chequeType        ChequeType
+  chequeNo          String
+  bankName          String
+  branchName        String?
+  chequeDate        DateTime
+  maturityDate      DateTime?
+  amount            Decimal
+  partyType         CashBankPartyType
+  partyId           String?
+  partyName         String?
+  sourceType        CashBankSourceType
+  sourceId          String?
+  status            ChequeStatus  @default(PENDING)
+  clearedDate       DateTime?
+  bouncedDate       DateTime?
+  cancelledDate     DateTime?
+  replacementChequeId String?
+  notes             String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  company          Company          @relation(fields: [companyId], references: [id])
+  project          Project?         @relation(fields: [projectId], references: [id])
+  account          CashBankAccount? @relation(fields: [accountId], references: [id])
+  replacementCheque ChequeLog?      @relation("ChequeReplacement", fields: [replacementChequeId], references: [id])
+  replacedBy       ChequeLog[]      @relation("ChequeReplacement")
+
+  @@index([companyId, status])
+  @@index([projectId, status])
+  @@index([sourceType, sourceId])
+  @@map("cheque_logs")
+}
+
+model AccountTransfer {
+  id            String                @id @default(cuid())
+  companyId     String
+  fromAccountId String
+  toAccountId   String
+  amount        Decimal
+  transferDate  DateTime
+  referenceNo   String?
+  notes         String?
+  status        AccountTransferStatus @default(POSTED)
+  createdById   String?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  company     Company         @relation(fields: [companyId], references: [id])
+  fromAccount CashBankAccount @relation("AccountTransferFrom", fields: [fromAccountId], references: [id])
+  toAccount   CashBankAccount @relation("AccountTransferTo", fields: [toAccountId], references: [id])
+  createdBy   User?           @relation("AccountTransferCreatedBy", fields: [createdById], references: [id])
+
+  @@index([companyId, status])
+  @@map("account_transfers")
 }
 
 // ─────────────────────────────────────────────

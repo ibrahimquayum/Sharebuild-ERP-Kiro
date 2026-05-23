@@ -35,6 +35,7 @@ const PAYMENT_METHODS = [
 
 type AssignmentOption = { id: string; workType: string; supplier: { id: string; name: string } };
 type PhaseOption = { id: string; name: string };
+type AccountOption = { id: string; label: string };
 
 function today() {
   return new Date().toISOString().split('T')[0];
@@ -44,12 +45,14 @@ export function SubcontractorBillForm({
   projectId,
   subcontractors,
   phases,
+  accounts,
   initialProjectSubcontractorId,
   initialSubcontractorId,
 }: {
   projectId: string;
   subcontractors: AssignmentOption[];
   phases: PhaseOption[];
+  accounts: AccountOption[];
   initialProjectSubcontractorId?: string;
   initialSubcontractorId?: string;
 }) {
@@ -66,7 +69,14 @@ export function SubcontractorBillForm({
   const [billAmount, setBillAmount] = useState('');
   const [paidAmount, setPaidAmount] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [accountId, setAccountId] = useState(accounts[0]?.id ?? '');
   const [paymentMethod, setPaymentMethod] = useState('BANK_TRANSFER');
+  const [reference, setReference] = useState('');
+  const [chequeNo, setChequeNo] = useState('');
+  const [chequeDate, setChequeDate] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [chequeBranchName, setChequeBranchName] = useState('');
+  const [chequeMaturityDate, setChequeMaturityDate] = useState('');
   const [notes, setNotes] = useState('');
   const [measurementFiles, setMeasurementFiles] = useState<File[]>([]);
   const [agreementFiles, setAgreementFiles] = useState<File[]>([]);
@@ -92,6 +102,7 @@ export function SubcontractorBillForm({
     if (!billDate) nextErrors.billDate = 'Bill date is required.';
     if (!billAmount || Number.isNaN(total) || total <= 0) nextErrors.billAmount = 'Enter a valid bill amount.';
     if (paid < 0 || paid > total) nextErrors.paidAmount = 'Paid amount cannot exceed bill amount.';
+    if (paid > 0 && !accountId) nextErrors.accountId = 'Select the paying account for the initial payment.';
     if (contractAmount && Number(contractAmount) < 0) nextErrors.contractAmount = 'Contract amount cannot be negative.';
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -118,7 +129,14 @@ export function SubcontractorBillForm({
         billDate,
         totalAmount: Number(billAmount),
         paidAmount: paidAmount ? Number(paidAmount) : 0,
+        accountId: paidAmount ? accountId : undefined,
         paymentMethod,
+        reference: reference.trim() || undefined,
+        chequeNo: chequeNo.trim() || undefined,
+        chequeDate: chequeDate || undefined,
+        bankName: bankName.trim() || undefined,
+        chequeBranchName: chequeBranchName.trim() || undefined,
+        chequeMaturityDate: chequeMaturityDate || undefined,
         phaseId: phaseId === NO_PHASE ? undefined : phaseId,
         billNo: billNo.trim() || undefined,
         dueDate: dueDate || undefined,
@@ -227,6 +245,14 @@ export function SubcontractorBillForm({
           <TextField label="Bill Date" id="billDate" type="date" required value={billDate} onChange={(event) => setBillDate(event.target.value)} error={errors.billDate} />
           <TextField label="Bill Amount (BDT)" id="billAmount" type="number" min={0.01} step="0.01" required value={billAmount} onChange={(event) => setBillAmount(event.target.value)} error={errors.billAmount} />
           <TextField label="Paid Amount Now" id="paidAmount" type="number" min={0} step="0.01" value={paidAmount} onChange={(event) => setPaidAmount(event.target.value)} error={errors.paidAmount} />
+          <Field label="Pay From Account" htmlFor="accountId" error={errors.accountId}>
+            <Select value={accountId} onValueChange={setAccountId}>
+              <SelectTrigger id="accountId" className={errors.accountId ? 'border-destructive' : ''}><SelectValue placeholder={accounts.length === 0 ? 'No active accounts found' : 'Select account'} /></SelectTrigger>
+              <SelectContent>
+                {accounts.map((account) => <SelectItem key={account.id} value={account.id}>{account.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
           <TextField label="Payment Due By" id="dueDate" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
           <Field label="Payment Method For Paid Amount" htmlFor="paymentMethod">
             <Select value={paymentMethod} onValueChange={setPaymentMethod}>
@@ -236,6 +262,16 @@ export function SubcontractorBillForm({
               </SelectContent>
             </Select>
           </Field>
+          <TextField label="Reference" id="reference" value={reference} onChange={(event) => setReference(event.target.value)} />
+          {paymentMethod === 'CHEQUE' && (
+            <>
+              <TextField label="Cheque Number" id="chequeNo" value={chequeNo} onChange={(event) => setChequeNo(event.target.value)} />
+              <TextField label="Cheque Date" id="chequeDate" type="date" value={chequeDate} onChange={(event) => setChequeDate(event.target.value)} />
+              <TextField label="Bank Name" id="bankName" value={bankName} onChange={(event) => setBankName(event.target.value)} />
+              <TextField label="Branch" id="chequeBranchName" value={chequeBranchName} onChange={(event) => setChequeBranchName(event.target.value)} />
+              <TextField label="Maturity Date" id="chequeMaturityDate" type="date" value={chequeMaturityDate} onChange={(event) => setChequeMaturityDate(event.target.value)} />
+            </>
+          )}
         </div>
       </FormSection>
 

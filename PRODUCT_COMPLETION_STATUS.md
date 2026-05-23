@@ -223,3 +223,47 @@ Build the accountant-facing reversal/adjustment UI and expand supplier/subcontra
 - Retention/security remains future.
 - Final reconciliation remains future.
 - Dedicated subcontractor billing tables remain a future schema improvement; current subcontractor bills still persist through `SupplierPayable`.
+
+## Cash / Bank / Cheque Phase - May 23, 2026
+
+- Added `CASH_BANK_CHEQUE_PHASE.md`.
+- Added one clean migration:
+  - `prisma/migrations/0007_cash_bank_cheque_phase/migration.sql`
+- Added treasury schema:
+  - `CashBankAccount`
+  - `CashBankTransaction`
+  - `ChequeLog`
+  - `AccountTransfer`
+- Added company treasury routes:
+  - `/company/accounts`
+  - `/company/accounts/new`
+  - `/company/accounts/[accountId]`
+  - `/company/accounts/[accountId]/edit`
+  - `/company/cheques`
+- Added project treasury routes:
+  - `/projects/[id]/finance/cash-bank`
+  - `/projects/[id]/finance/cheques`
+  - `/projects/[id]/reports/cash-bank-book`
+  - `/projects/[id]/reports/cheque-register`
+- Collections now post `CashBankTransaction` inflow rows.
+- Approved/final expenses now post `CashBankTransaction` outflow rows.
+- Bulk expenses now post outflow rows per approved/final expense.
+- Supplier payments and subcontractor payments now post treasury outflow rows without counting as project cost.
+- Cheque-based collections, expenses, and vendor payments now create `ChequeLog` rows with status tracking.
+- Finance hub now separates project cost from cash movement and shows:
+  - cash in
+  - cash out
+  - net cash movement
+  - account balance
+  - pending received cheques
+  - pending issued cheques
+  - bounced cheques
+- Seed now creates default treasury accounts and treasury rows for Relax Tower collections and expenses while preserving Top Sheet totals.
+
+## Cash / Bank / Cheque Gaps Remaining
+
+- No dedicated account transfer UI yet.
+- No strict cheque-clearance posting logic yet; business records post immediately and cheque state is tracked separately.
+- No VAT/AIT/TDS yet.
+- No retention/security yet.
+- No final reconciliation yet.

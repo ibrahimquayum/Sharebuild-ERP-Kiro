@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma';
 import { safeAuditLog } from '@/lib/audit';
 import { refreshDemandStatus } from '@/lib/accounting';
 import { can } from '@/lib/permissions';
+import { reverseCashBankTransaction } from '@/lib/cash-bank';
 
 const reverseSchema = z.object({
   reason: z.string().trim().min(3, 'A reversal reason is required.'),
@@ -39,6 +40,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         reversedById: userId,
         reversalReason: parsed.data.reason,
       },
+    });
+    await reverseCashBankTransaction(tx, {
+      sourceType: 'BUYER_COLLECTION',
+      sourceId: collection.id,
+      userId,
+      reason: parsed.data.reason,
     });
     const demandIds = new Set(collection.allocations.map((allocation) => allocation.demandId));
     if (collection.demandId) demandIds.add(collection.demandId);

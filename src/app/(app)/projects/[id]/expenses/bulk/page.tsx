@@ -19,7 +19,7 @@ export default async function BulkExpensePage({ params }: { params: { id: string
   });
   if (!project) notFound();
 
-  const [phases, suppliers] = await Promise.all([
+  const [phases, suppliers, accounts] = await Promise.all([
     prisma.phase.findMany({
       where: { projectId: project.id },
       orderBy: { sequence: 'asc' },
@@ -29,6 +29,11 @@ export default async function BulkExpensePage({ params }: { params: { id: string
       where: { companyId, isActive: true },
       orderBy: { name: 'asc' },
       select: { id: true, name: true, supplierType: true },
+    }),
+    prisma.cashBankAccount.findMany({
+      where: { companyId, isActive: true },
+      orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+      select: { id: true, name: true, type: true },
     }),
   ]);
 
@@ -40,19 +45,20 @@ export default async function BulkExpensePage({ params }: { params: { id: string
 
       <div>
         <h2 className="text-base font-semibold">Bulk Expense Entry</h2>
-        <p className="text-xs text-muted-foreground">{project.name} · field engineer/site staff daily expense submission</p>
+        <p className="text-xs text-muted-foreground">{project.name} - field engineer and site staff daily expense submission</p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-sm">Daily Site Expenses</CardTitle>
-          <CardDescription>Enter multiple project/phase costs at once. Missing vouchers are allowed but remain visible for audit follow-up.</CardDescription>
+          <CardDescription>Enter multiple project and phase costs at once. Missing vouchers are allowed but remain visible for audit follow-up.</CardDescription>
         </CardHeader>
         <CardContent>
           <BulkExpenseForm
             projectId={project.id}
             phases={phases.map((phase) => ({ id: phase.id, label: phase.name }))}
-            suppliers={suppliers.map((supplier) => ({ id: supplier.id, label: `${supplier.name} · ${supplier.supplierType.replaceAll('_', ' ').toLowerCase()}` }))}
+            suppliers={suppliers.map((supplier) => ({ id: supplier.id, label: `${supplier.name} - ${supplier.supplierType.replaceAll('_', ' ').toLowerCase()}` }))}
+            accounts={accounts.map((account) => ({ id: account.id, label: `${account.name} - ${account.type.replaceAll('_', ' ')}` }))}
           />
         </CardContent>
       </Card>

@@ -51,6 +51,7 @@ export default function ProjectPayableNewPage() {
     supplier: { id: string; name: string; supplierType?: string };
   }>>([]);
   const [phases, setPhases] = useState<{ id: string; name: string }[]>([]);
+  const [accounts, setAccounts] = useState<{ id: string; name: string; type: string; isDefault?: boolean }[]>([]);
 
   const initialProjectSupplierId = searchParams.get('projectSupplierId') ?? '';
   const initialSupplierId = searchParams.get('supplierId') ?? '';
@@ -60,8 +61,14 @@ export default function ProjectPayableNewPage() {
   const [billDate, setBillDate] = useState(today());
   const [totalAmount, setTotalAmount] = useState('');
   const [paidAmount, setPaidAmount] = useState('');
+  const [accountId, setAccountId] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('BANK_TRANSFER');
   const [reference, setReference] = useState('');
+  const [chequeNo, setChequeNo] = useState('');
+  const [chequeDate, setChequeDate] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [chequeBranchName, setChequeBranchName] = useState('');
+  const [chequeMaturityDate, setChequeMaturityDate] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState([emptyItem()]);
@@ -71,8 +78,9 @@ export default function ProjectPayableNewPage() {
     Promise.all([
       fetch(`/api/projects/${projectId}/suppliers`).then((r) => r.json()),
       fetch(`/api/phases?projectId=${projectId}`).then((r) => r.json()),
+      fetch('/api/company/accounts').then((r) => r.json()),
     ])
-      .then(([s, p]) => {
+      .then(([s, p, a]) => {
         const assignments = Array.isArray(s) ? s : [];
         setProjectSuppliers(assignments);
         if (!initialProjectSupplierId && initialSupplierId) {
@@ -80,6 +88,12 @@ export default function ProjectPayableNewPage() {
           if (match) setProjectSupplierId(match.id);
         }
         setPhases(Array.isArray(p) ? p : []);
+        const accountList = Array.isArray(a) ? a : [];
+        setAccounts(accountList);
+        if (accountList.length > 0) {
+          const defaultAccount = accountList.find((account) => account.isDefault) ?? accountList[0];
+          setAccountId(defaultAccount.id);
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -97,6 +111,7 @@ export default function ProjectPayableNewPage() {
     if (!totalAmount || Number.isNaN(amount) || amount <= 0) e.totalAmount = 'Enter a valid bill amount.';
     const paid = Number(paidAmount || 0);
     if (paid < 0 || paid > amount) e.paidAmount = 'Paid amount cannot exceed total bill amount.';
+    if (paid > 0 && !accountId) e.accountId = 'Select the paying account for the initial payment.';
     items.forEach((item, index) => {
       const hasAny = item.description || item.amount || item.quantity || item.unitPrice;
       if (!hasAny) return;
@@ -133,7 +148,16 @@ export default function ProjectPayableNewPage() {
         billDate,
         totalAmount: Number(totalAmount),
         ...(paidAmount ? { paidAmount: Number(paidAmount) } : {}),
-        ...(paidAmount ? { paymentMethod, reference: reference.trim() || undefined } : {}),
+        ...(paidAmount ? {
+          accountId,
+          paymentMethod,
+          reference: reference.trim() || undefined,
+          chequeNo: chequeNo.trim() || undefined,
+          chequeDate: chequeDate || undefined,
+          bankName: bankName.trim() || undefined,
+          chequeBranchName: chequeBranchName.trim() || undefined,
+          chequeMaturityDate: chequeMaturityDate || undefined,
+        } : {}),
         ...(phaseId !== NO_PHASE ? { phaseId } : {}),
         ...(billNo.trim() ? { billNo: billNo.trim() } : {}),
         ...(dueDate ? { dueDate } : {}),
@@ -232,6 +256,14 @@ export default function ProjectPayableNewPage() {
                 <TextField label="Bill Date" id="billDate" type="date" required value={billDate} onChange={(e) => setBillDate(e.target.value)} error={errors.billDate} />
                 <TextField label="Total Bill Amount (BDT)" id="totalAmount" type="number" min={0.01} step="0.01" required value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} error={errors.totalAmount} />
                 <TextField label="Paid Amount Now" id="paidAmount" type="number" min={0} step="0.01" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} error={errors.paidAmount} />
+                <Field label="Pay From Account" htmlFor="accountId" error={errors.accountId}>
+                  <Select value={accountId} onValueChange={setAccountId}>
+                    <SelectTrigger id="accountId" className={errors.accountId ? 'border-destructive' : ''}><SelectValue placeholder={accounts.length === 0 ? 'No active accounts found' : 'Select account'} /></SelectTrigger>
+                    <SelectContent>
+                      {accounts.map((account) => <SelectItem key={account.id} value={account.id}>{account.name} - {account.type.replaceAll('_', ' ')}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </Field>
                 <Field label="Payment Method" htmlFor="paymentMethod">
                   <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                     <SelectTrigger id="paymentMethod"><SelectValue /></SelectTrigger>
@@ -246,6 +278,15 @@ export default function ProjectPayableNewPage() {
                 </Field>
                 <TextField label="Reference / Cheque No" id="reference" value={reference} onChange={(e) => setReference(e.target.value)} />
                 <TextField label="Payment Due By" id="dueDate" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+                {paymentMethod === 'CHEQUE' && (
+                  <>
+                    <TextField label="Cheque Number" id="chequeNo" value={chequeNo} onChange={(e) => setChequeNo(e.target.value)} />
+                    <TextField label="Cheque Date" id="chequeDate" type="date" value={chequeDate} onChange={(e) => setChequeDate(e.target.value)} />
+                    <TextField label="Bank Name" id="bankName" value={bankName} onChange={(e) => setBankName(e.target.value)} />
+                    <TextField label="Branch" id="chequeBranchName" value={chequeBranchName} onChange={(e) => setChequeBranchName(e.target.value)} />
+                    <TextField label="Maturity Date" id="chequeMaturityDate" type="date" value={chequeMaturityDate} onChange={(e) => setChequeMaturityDate(e.target.value)} />
+                  </>
+                )}
               </div>
             </FormSection>
 

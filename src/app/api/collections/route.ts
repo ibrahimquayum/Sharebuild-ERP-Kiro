@@ -5,10 +5,12 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { safeAuditLog } from '@/lib/audit';
 import { getDemandPaidAmount, isPhaseLocked, lockedPhaseMessage, refreshDemandStatus } from '@/lib/accounting';
+import { assertAccountBelongsToCompany, createCashBankTransactionFromCollection } from '@/lib/cash-bank';
 
 const createSchema = z.object({
   phaseId: z.string(),
   buyerId: z.string(),
+  accountId: z.string().min(1),
   demandId: z.string().optional(),
   amount: z.number().positive(),
   paymentMethod: z.enum(['CASH','CHEQUE','BANK_TRANSFER','MOBILE_BANKING','OTHER']).default('CASH'),
@@ -16,6 +18,8 @@ const createSchema = z.object({
   chequeNo: z.string().optional(),
   chequeDate: z.string().optional(),
   bankName: z.string().optional(),
+  chequeBranchName: z.string().optional(),
+  chequeMaturityDate: z.string().optional(),
   reference: z.string().optional(),
   receiptNo: z.string().optional(),
   receivedDate: z.string().optional(),
@@ -72,6 +76,7 @@ export async function POST(req: NextRequest) {
   // Verify buyer belongs to company
   const buyer = await prisma.buyer.findFirst({ where: { id: d.buyerId, companyId } });
   if (!buyer) return NextResponse.json({ error: 'Buyer not found' }, { status: 404 });
+  await assertAccountBelongsToCompany(d.accountId, companyId);
   if (d.demandId) {
     const demand = await prisma.demand.findFirst({ where: { id: d.demandId, buyerId: d.buyerId, phaseId: d.phaseId, unit: { projectId: phase.projectId } } });
     if (!demand) return NextResponse.json({ error: 'Demand not found for this buyer, phase, and project.' }, { status: 404 });
@@ -88,11 +93,14 @@ export async function POST(req: NextRequest) {
   const receivedDate = d.receivedDate ? new Date(d.receivedDate) : new Date();
   const baseCollectionData = {
     buyerId: d.buyerId,
+    accountId: d.accountId,
     paymentMethod: d.paymentMethod,
     transactionType: d.transactionType,
     chequeNo: d.chequeNo,
     chequeDate: d.chequeDate ? new Date(d.chequeDate) : undefined,
     bankName: d.bankName,
+    chequeBranchName: d.chequeBranchName,
+    chequeMaturityDate: d.chequeMaturityDate ? new Date(d.chequeMaturityDate) : undefined,
     reference: d.reference,
     receiptNo: d.receiptNo,
     receivedDate,
@@ -120,6 +128,7 @@ export async function POST(req: NextRequest) {
         await tx.collectionAllocation.create({ data: { collectionId: collection.id, demandId: allocation.demandId, amount: allocation.amount } });
         await refreshDemandStatus(tx, allocation.demandId);
       }
+      await createCashBankTransactionFromCollection(tx, collection.id, (session.user as any).id);
       return [collection];
     }
 
@@ -145,6 +154,7 @@ export async function POST(req: NextRequest) {
         await tx.collectionAllocation.create({ data: { collectionId: collection.id, demandId: selectedDemandId, amount: allocatable } });
         await refreshDemandStatus(tx, selectedDemandId);
       }
+      await createCashBankTransactionFromCollection(tx, collection.id, (session.user as any).id);
       return [collection];
     }
 
@@ -170,19 +180,22 @@ export async function POST(req: NextRequest) {
       });
       await tx.collectionAllocation.create({ data: { collectionId: collection.id, demandId: demand.id, amount: allocated } });
       created.push(collection);
+      await createCashBankTransactionFromCollection(tx, collection.id, (session.user as any).id);
       remaining -= allocated;
       await refreshDemandStatus(tx, demand.id);
     }
 
     if (remaining > 0 || created.length === 0) {
-      created.push(await tx.collection.create({
+      const advanceCollection = await tx.collection.create({
         data: {
           ...baseCollectionData,
           phaseId: d.phaseId,
           amount: remaining > 0 ? remaining : d.amount,
           notes: [d.notes, remaining > 0 ? 'Advance/credit after FIFO demand allocation.' : 'Unallocated collection.'].filter(Boolean).join(' '),
         },
-      }));
+      });
+      created.push(advanceCollection);
+      await createCashBankTransactionFromCollection(tx, advanceCollection.id, (session.user as any).id);
     }
 
       return created;
