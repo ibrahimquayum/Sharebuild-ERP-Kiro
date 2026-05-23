@@ -23,9 +23,12 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     csvSection('Summary', [
       ['Direction', preview.direction],
       ['Project Balance', preview.summary.projectBalance],
-      ['Service Charge (Info)', preview.summary.serviceChargeAccrued],
+      ['Service Charge', preview.summary.serviceChargeAccrued],
       ['Retention Held', preview.summary.retentionHeld],
       ['Final Result', preview.finalSurplusDeficit],
+      ['Posted Reconciliation Id', preview.posted?.id ?? ''],
+      ['Posted Reconciliation Type', preview.posted?.type ?? ''],
+      ['Generated Demand Count', preview.posted?.demands.length ?? 0],
       ['Recommendation', preview.recommendation],
     ]),
     csvSection('Buyer Distribution', [

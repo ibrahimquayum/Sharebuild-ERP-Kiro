@@ -141,6 +141,43 @@
   - retention report
   - final reconciliation preview
 
+## Final Finance QA / Reconciliation Update - May 23, 2026
+
+- Added `FINAL_FINANCE_QA_RECONCILIATION_PHASE.md`.
+- Added one additive migration:
+  - `prisma/migrations/20260523095713_final_finance_qa_reconciliation_phase/migration.sql`
+- Added persisted finance ledgers:
+  - `ServiceChargeEntry`
+  - `FinalReconciliation`
+  - `FinalReconciliationLine`
+- `Demand` now marks reconciliation-generated buyer receivables with:
+  - `demandType = FINAL_RECONCILIATION`
+  - `finalReconciliationId`
+- Service charge now supports:
+  - calculate
+  - approve
+  - reverse
+  - phase/project report visibility
+- Final reconciliation now supports:
+  - preview
+  - posting
+  - posted status visibility
+  - reversal with collection guardrails
+  - generated demand traceability
+- Finance hub and reports now use one shared finance helper for:
+  - buyer due / advance
+  - service charge totals
+  - phase balance summary
+  - final surplus / deficit
+  - finance readiness checklist
+
+## Current Final Finance Limitations
+
+- Service charge is ledger-backed, but no separate service-charge collection or settlement flow exists yet.
+- Final reconciliation surplus posts buyer credit lines but not a dedicated refund payment workflow.
+- Relax Tower seed data still needs unit ownership assignment before final reconciliation can be posted from the seeded project itself.
+- CSV remains the real export path; no native XLSX workbook or server-side PDF has been added.
+
 ## Current Finance Limitations
 
 - Final reconciliation is preview-only in this pass; it does not yet post buyer demand rows.

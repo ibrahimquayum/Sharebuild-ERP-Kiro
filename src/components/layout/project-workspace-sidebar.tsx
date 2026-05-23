@@ -82,6 +82,8 @@ function buildNav(projectId: string): NavItem[] {
         { label: 'Subcontractor Payments', href: `${base}/payables/payments?type=subcontractor` },
         { label: 'Cash / Bank', href: `${base}/finance/cash-bank` },
         { label: 'Cheques', href: `${base}/finance/cheques` },
+        { label: 'Service Charge', href: `${base}/finance/service-charge` },
+        { label: 'Final Reconciliation', href: `${base}/finance/final-reconciliation` },
         { label: 'Project Balance', href: `${base}/reports/top-sheet` },
       ],
     },

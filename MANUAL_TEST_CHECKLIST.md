@@ -225,3 +225,18 @@ Login: `admin@relaxdevelopers.com` / `admin123`
   - Income: 100,143,800
   - Expense: 104,659,890.40
   - Balance: -4,516,090.40
+
+## Q. Final Finance QA / Reconciliation
+
+- [ ] `/projects/[id]/finance/service-charge` opens and shows phase-wise service charge rows.
+- [ ] `POST /api/projects/[id]/service-charge` can calculate service charge rows without crashing.
+- [ ] Approved service charge rows appear in finance hub, service charge report, and complete project report.
+- [ ] `/projects/[id]/finance/final-reconciliation` opens and shows finance readiness plus buyer distribution preview.
+- [ ] Final reconciliation posting is blocked when no ownership rows exist.
+- [ ] After assigning unit ownership, final reconciliation posting succeeds once.
+- [ ] Posted final reconciliation creates `FINAL_RECONCILIATION` demand rows for deficit posting.
+- [ ] Generated reconciliation demands carry `finalReconciliationId`.
+- [ ] Reversing a posted reconciliation is blocked if generated reconciliation demands already have collected allocations.
+- [ ] `/projects/[id]/reports/service-charge` opens and CSV export returns real rows.
+- [ ] `/projects/[id]/reports/final-reconciliation` opens and CSV export returns posted reconciliation metadata when available.
+- [ ] Buyer detail, buyer due report, finance hub, and complete project report all show the same due/advance totals after reconciliation posting.

@@ -93,3 +93,15 @@
   - final reconciliation is preview/export only in this pass and does not post buyer demand records
   - cheque clearance now controls treasury posting state, while business posting is reversed on bounced/cancelled buyer collections and supplier/subcontractor payments
   - direct-expense bounced cheques cancel treasury movement without deleting the cost record
+
+### Superseded By Final Finance QA Pass
+
+This document remains accurate for the tax, retention, transfer, and cheque phase, but two areas have now moved forward:
+
+- service charge is no longer preview-only; it now has a persisted `ServiceChargeEntry` ledger and approval/reversal workflow
+- final reconciliation is no longer preview-only; it now supports controlled posting and reversal through:
+  - `FinalReconciliation`
+  - `FinalReconciliationLine`
+  - `Demand.demandType = FINAL_RECONCILIATION`
+
+See `FINAL_FINANCE_QA_RECONCILIATION_PHASE.md` for the current source of truth on those two ledgers.

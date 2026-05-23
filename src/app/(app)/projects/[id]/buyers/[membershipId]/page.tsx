@@ -3,9 +3,10 @@ import { notFound } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { ArrowLeft, FileText } from 'lucide-react';
 import { authOptions } from '@/lib/auth';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { getProjectBuyerLedger } from '@/lib/project-finance';
 import { prisma } from '@/lib/prisma';
 import { formatBDT, formatDate } from '@/lib/utils';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,14 +29,14 @@ export default async function ProjectBuyerDetailPage({ params }: { params: { id:
             include: { unit: true },
           },
           demands: {
-            where: { unit: { projectId: params.id } },
+            where: { unit: { projectId: params.id }, status: { not: 'CANCELLED' } },
             include: {
               collections: { where: { status: { not: 'REVERSED' } } },
               allocations: { where: { collection: { status: { not: 'REVERSED' } } }, select: { amount: true } },
               phase: { select: { name: true } },
               unit: { select: { unitNo: true } },
             },
-            orderBy: { createdAt: 'desc' },
+            orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
           },
           collections: {
             where: { phase: { projectId: params.id }, status: { not: 'REVERSED' } },
@@ -53,8 +54,13 @@ export default async function ProjectBuyerDetailPage({ params }: { params: { id:
   if (!membership) notFound();
 
   const buyer = membership.buyer;
-  const totalDemand = buyer.demands.reduce((sum, demand) => sum + Number(demand.amount), 0);
-  const totalPaid = buyer.collections.reduce((sum, collection) => sum + Number(collection.amount), 0);
+  const ledgerRows = await getProjectBuyerLedger(params.id);
+  const buyerLedger = ledgerRows.find((row) => row.buyerId === buyer.id);
+  const totalDemand = buyerLedger?.demanded ?? 0;
+  const totalPaid = buyerLedger?.allocated ?? 0;
+  const totalDue = buyerLedger?.due ?? 0;
+  const totalAdvance = buyerLedger?.advance ?? 0;
+  const reconciliationCredit = buyerLedger?.reconciliationCredit ?? 0;
 
   return (
     <div className="p-5 space-y-5">
@@ -86,24 +92,29 @@ export default async function ProjectBuyerDetailPage({ params }: { params: { id:
                     <th className="px-4 py-2.5 text-left text-xs uppercase text-muted-foreground">Date</th>
                     <th className="px-4 py-2.5 text-left text-xs uppercase text-muted-foreground">Description</th>
                     <th className="px-4 py-2.5 text-right text-xs uppercase text-muted-foreground">Demand</th>
-                    <th className="px-4 py-2.5 text-right text-xs uppercase text-muted-foreground">Paid</th>
+                    <th className="px-4 py-2.5 text-right text-xs uppercase text-muted-foreground">Allocated Paid</th>
                   </tr>
                 </thead>
                 <tbody>
                   {buyer.demands.map((demand) => (
                     <tr key={demand.id} className="border-b">
                       <td className="px-4 py-2 text-xs text-muted-foreground">{formatDate(demand.createdAt)}</td>
-                      <td className="px-4 py-2">{demand.title}<div className="text-xs text-muted-foreground">{demand.phase?.name} · Unit {demand.unit.unitNo}</div></td>
+                      <td className="px-4 py-2">
+                        {demand.title}
+                        <div className="text-xs text-muted-foreground">
+                          {demand.phase?.name ?? 'Project level'} | Unit {demand.unit.unitNo} | {demand.demandType.replaceAll('_', ' ')}
+                        </div>
+                      </td>
                       <td className="px-4 py-2 text-right font-medium">{formatBDT(Number(demand.amount))}</td>
                       <td className="px-4 py-2 text-right text-green-600">
-                        {formatBDT((demand.allocations.length > 0 ? demand.allocations : demand.collections).reduce((sum, c) => sum + Number(c.amount), 0))}
+                        {formatBDT((demand.allocations.length > 0 ? demand.allocations : demand.collections).reduce((sum, row) => sum + Number(row.amount), 0))}
                       </td>
                     </tr>
                   ))}
-                  {buyer.collections.filter((c) => !c.demandId).map((collection) => (
+                  {buyer.collections.filter((collection) => !collection.demandId).map((collection) => (
                     <tr key={collection.id} className="border-b">
                       <td className="px-4 py-2 text-xs text-muted-foreground">{formatDate(collection.receivedDate)}</td>
-                      <td className="px-4 py-2">Collection<div className="text-xs text-muted-foreground">{collection.phase.name}</div></td>
+                      <td className="px-4 py-2">Unallocated collection<div className="text-xs text-muted-foreground">{collection.phase.name}</div></td>
                       <td className="px-4 py-2 text-right">-</td>
                       <td className="px-4 py-2 text-right text-green-600">{formatBDT(Number(collection.amount))}</td>
                     </tr>
@@ -126,8 +137,10 @@ export default async function ProjectBuyerDetailPage({ params }: { params: { id:
             <CardHeader><CardTitle className="text-sm">Project Balance</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">Demand</span><span>{formatBDT(totalDemand)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Paid</span><span className="text-green-600">{formatBDT(totalPaid)}</span></div>
-              <div className="flex justify-between border-t pt-2 font-bold"><span>Due / Advance</span><span>{formatBDT(totalDemand - totalPaid)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Allocated paid</span><span className="text-green-600">{formatBDT(totalPaid)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Reconciliation credit</span><span>{formatBDT(reconciliationCredit)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Advance</span><span>{formatBDT(totalAdvance)}</span></div>
+              <div className="flex justify-between border-t pt-2 font-bold"><span>Due</span><span>{formatBDT(totalDue)}</span></div>
             </CardContent>
           </Card>
 
@@ -137,7 +150,7 @@ export default async function ProjectBuyerDetailPage({ params }: { params: { id:
               {buyer.unitAllocations.map((allocation) => (
                 <Link key={allocation.id} href={`/projects/${membership.project.id}/units/${allocation.unit.id}`} className="block rounded-md border p-3 hover:bg-muted/40">
                   <div className="font-semibold">Unit {allocation.unit.unitNo}</div>
-                  <div className="text-xs text-muted-foreground">{Number(allocation.sharePercent)}% · {allocation.relationship?.replaceAll('_', ' ')} · {allocation.isPayer ? 'payer' : 'payer differs'}</div>
+                  <div className="text-xs text-muted-foreground">{Number(allocation.sharePercent)}% | {allocation.relationship?.replaceAll('_', ' ')} | {allocation.isPayer ? 'payer' : 'payer differs'}</div>
                 </Link>
               ))}
             </CardContent>
@@ -149,7 +162,7 @@ export default async function ProjectBuyerDetailPage({ params }: { params: { id:
               {buyer.documents.length === 0 ? <p className="text-sm text-muted-foreground">No project buyer documents.</p> : buyer.documents.map((doc) => (
                 <a key={doc.id} href={doc.fileUrl} target="_blank" rel="noreferrer" className="block rounded-md border p-2 text-sm hover:bg-muted/40">
                   <div className="font-medium">{doc.title ?? doc.fileName}</div>
-                  <div className="text-xs text-muted-foreground">{doc.category ?? 'other'} · {formatDate(doc.uploadedAt)}</div>
+                  <div className="text-xs text-muted-foreground">{doc.category ?? 'other'} | {formatDate(doc.uploadedAt)}</div>
                 </a>
               ))}
               <Link href={`/projects/${membership.project.id}/documents/upload?buyerId=${buyer.id}`} className="text-xs text-primary hover:underline">Upload buyer document</Link>

@@ -103,6 +103,43 @@ This branch now has a buildable project-first finance foundation with vendor con
 - direct-expense bounced cheque handling cancels treasury movement but keeps expense cost
 - native XLSX workbook export and server PDF export are still future work
 
+## Final Finance QA / Reconciliation Pass - May 23, 2026
+
+### Added
+
+- `FINAL_FINANCE_QA_RECONCILIATION_PHASE.md`
+- migration `20260523095713_final_finance_qa_reconciliation_phase`
+- persisted service charge ledger through `ServiceChargeEntry`
+- persisted final reconciliation header/line ledgers through:
+  - `FinalReconciliation`
+  - `FinalReconciliationLine`
+- explicit demand typing through:
+  - `Demand.demandType`
+  - `Demand.finalReconciliationId`
+- service charge workflow:
+  - `GET/POST /api/projects/[id]/service-charge`
+  - `/projects/[id]/finance/service-charge`
+  - `/projects/[id]/reports/service-charge`
+  - `/api/projects/[id]/reports/service-charge/excel`
+- final reconciliation workflow:
+  - `GET/POST /api/projects/[id]/final-reconciliation`
+  - `/projects/[id]/finance/final-reconciliation`
+  - `/projects/[id]/reports/final-reconciliation`
+  - `/api/projects/[id]/reports/final-reconciliation/excel`
+
+### Improved
+
+- finance hub now shows service charge, final surplus/deficit, and finance readiness from shared formulas
+- buyer detail and buyer due views now include posted reconciliation effect
+- complete project report now uses the shared buyer/service-charge finance truth
+- reconciliation posting is blocked when no unit ownership exists, preventing empty posted headers
+
+### Remaining
+
+- seeded Relax Tower data still needs unit ownership assignment before reconciliation posting from the seeded workspace
+- service charge has no separate collection/settlement flow yet
+- surplus reconciliation posts credit lines, not a separate refund payment workflow
+
 ## Schema Changes
 
 Yes. One migration was added in the module completion pass:

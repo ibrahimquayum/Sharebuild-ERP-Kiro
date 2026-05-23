@@ -153,6 +153,22 @@ Remaining finance audit gaps:
 - Bulk expense bill/voucher number remains visible and submitted per row.
 - Schema unchanged: current implementation uses existing supplier/payable/payment/document tables.
 
+## Final Finance QA Update - May 23, 2026
+
+- Service charge is no longer just computed preview data:
+  - `ServiceChargeEntry` now persists calculated/approved/reversed rows
+  - service charge shows in finance hub, service charge page, complete project report, and CSV export
+- Final reconciliation is no longer preview-only:
+  - `FinalReconciliation` and `FinalReconciliationLine` persist posted results
+  - reconciliation posting can generate `FINAL_RECONCILIATION` demand rows
+  - reconciliation reversal is guarded if generated demands have already been collected
+- Buyer due and advance reporting now reads one shared project finance helper instead of page-local math
+- Remaining finance audit gaps after this pass:
+  - seeded Relax Tower project has no ownership rows by default, so posted reconciliation from seed requires unit assignment first
+  - no dedicated service-charge cash settlement flow yet
+  - surplus reconciliation credits are posted in the ledger but not yet paid/refunded through a dedicated workflow
+  - no native XLSX workbook or server-generated PDF
+
 ## Schema Recommendation
 
 The accounting hardening pass required one clean schema migration for allocation, reversal metadata, cheque state, and phase audit locks. Future phases should consider dedicated tables for material masters, payment methods, dynamic permissions, local shops, subcontractor bills, adjustment entries, reconciliation snapshots, and report export jobs.

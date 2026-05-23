@@ -54,6 +54,8 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
     { label: 'Subcontractor Ledger', href: `/projects/${project.id}/reports/subcontractor-ledger`, icon: FileText },
     { label: 'Tax / Deduction Report', href: `/projects/${project.id}/reports/tax-deductions`, icon: FileText },
     { label: 'Retention Report', href: `/projects/${project.id}/reports/retention`, icon: FileText },
+    { label: 'Service Charge', href: `/projects/${project.id}/finance/service-charge`, icon: FileText },
+    { label: 'Service Charge Report', href: `/projects/${project.id}/reports/service-charge`, icon: FileText },
     { label: 'Final Reconciliation', href: `/projects/${project.id}/finance/final-reconciliation`, icon: FileText },
     { label: 'Complete Project Report', href: `/projects/${project.id}/reports/complete-project`, icon: FileText },
     { label: 'Project Balance', href: `/projects/${project.id}/reports/top-sheet`, icon: TrendingUp },
@@ -102,7 +104,7 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
         <StatCard
           title="Project Cost"
           value={formatBDTCompact(summary.projectCostTotal)}
-          subtitle={`Direct ${formatBDT(summary.directExpenseTotal)} | Service ${formatBDT(summary.serviceChargeAccrued)}`}
+          subtitle={`Direct ${formatBDT(summary.directExpenseTotal)} | Supplier ${formatBDT(summary.supplierBillCost)}`}
           icon={ShoppingCart}
           iconColor="text-red-500"
           iconBg="bg-red-50"
@@ -146,6 +148,14 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
           icon={Banknote}
           iconColor="text-cyan-600"
           iconBg="bg-cyan-50"
+        />
+        <StatCard
+          title="Service Charge"
+          value={formatBDTCompact(summary.serviceChargeAccrued)}
+          subtitle={summary.serviceChargeApproved > 0 ? `${formatBDT(summary.serviceChargeApproved)} approved` : 'Uses approved or calculated ledger'}
+          icon={CircleDollarSign}
+          iconColor="text-purple-600"
+          iconBg="bg-purple-50"
         />
         <StatCard
           title="Cash In"
@@ -204,7 +214,7 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
               <span>{formatBDT(summary.subcontractorBillCost)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Service charge (info)</span>
+              <span className="text-muted-foreground">Service charge</span>
               <span>{formatBDT(summary.serviceChargeAccrued)}</span>
             </div>
             <div className="flex justify-between">
@@ -234,6 +244,10 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
             <div className="flex justify-between border-t pt-3">
               <span>Project surplus / deficit</span>
               <span className={`font-bold ${balanceColor(summary.surplusDeficit)}`}>{formatBDT(summary.surplusDeficit)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Final surplus / deficit</span>
+              <span className={`font-bold ${balanceColor(summary.finalSurplusDeficit)}`}>{formatBDT(summary.finalSurplusDeficit)}</span>
             </div>
             <div className="text-xs text-muted-foreground">
               Default service charge: {project.defaultServiceChargePct?.toString() ?? '0'}%
@@ -298,6 +312,23 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
               </tbody>
             </table>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Finance Readiness Checklist</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          {summary.financeReadiness.ready ? (
+            <p className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-emerald-800">Finance core is ready for final close review.</p>
+          ) : (
+            <ul className="list-disc pl-5 text-muted-foreground">
+              {summary.financeReadiness.issues.map((issue) => (
+                <li key={issue}>{issue}</li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
     </div>

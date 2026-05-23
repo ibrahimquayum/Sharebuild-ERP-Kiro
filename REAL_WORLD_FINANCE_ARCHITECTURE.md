@@ -55,6 +55,23 @@ Remaining gaps from this architecture:
 - no full replacement-cheque workflow yet
 - no true XLSX workbook or server-generated PDF yet
 
+## Phase 4 Status Update
+
+The finance QA, service charge, and final reconciliation pass is now implemented in code on `feat/erp-v1`:
+
+- `ServiceChargeEntry` now provides a persisted service charge ledger with calculate, approve, and reverse workflow.
+- `FinalReconciliation` and `FinalReconciliationLine` now provide controlled project-level posting and reversal.
+- `Demand` now distinguishes regular demand from `FINAL_RECONCILIATION` demand.
+- Buyer due and buyer advance views now read posted reconciliation impact from the shared finance helper.
+- Finance hub, complete project report, service charge report, and final reconciliation report now use the same ledger-backed formulas.
+
+Remaining gaps from this architecture:
+
+- service charge collection and separate income settlement workflow still remain future
+- surplus reconciliation still posts buyer credit lines without a dedicated refund payment workflow
+- project closing and finance-ready workflow is still checklist-based, not a full close process
+- no true XLSX workbook or server-generated PDF yet
+
 ## 1. Finance Philosophy
 
 Sharebuild ERP should treat project finance as five separate truths that must reconcile but must not be merged:

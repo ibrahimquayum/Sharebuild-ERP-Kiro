@@ -15,15 +15,17 @@ export default async function FinalReconciliationReportPage({ params }: { params
   return (
     <div className="p-5 space-y-5 print:p-0">
       <div className="flex justify-end"><ReportActions excelHref={`/api/projects/${project.id}/reports/final-reconciliation/excel`} /></div>
-      <ReportHeader branding={branding} project={project} title="Final Reconciliation Preview" subtitle="Ownership-based preview before any buyer-side posting" />
+      <ReportHeader branding={branding} project={project} title="Final Reconciliation Report" subtitle="Ownership-based preview and posted reconciliation status" />
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="rounded-md border p-3 text-sm"><div className="text-xs text-muted-foreground">Project Balance</div><div className={`mt-1 font-bold ${balanceColor(preview.summary.projectBalance)}`}>{formatBDT(preview.summary.projectBalance)}</div></div>
-        <div className="rounded-md border p-3 text-sm"><div className="text-xs text-muted-foreground">Service Charge (info)</div><div className="mt-1 font-bold">{formatBDT(preview.summary.serviceChargeAccrued)}</div></div>
+        <div className="rounded-md border p-3 text-sm"><div className="text-xs text-muted-foreground">Service Charge</div><div className="mt-1 font-bold">{formatBDT(preview.summary.serviceChargeAccrued)}</div></div>
         <div className="rounded-md border p-3 text-sm"><div className="text-xs text-muted-foreground">Retention Held</div><div className="mt-1 font-bold">{formatBDT(preview.summary.retentionHeld)}</div></div>
         <div className="rounded-md border p-3 text-sm"><div className="text-xs text-muted-foreground">Final Result</div><div className={`mt-1 font-bold ${balanceColor(preview.finalSurplusDeficit)}`}>{formatBDT(preview.finalSurplusDeficit)}</div></div>
       </div>
-      <div className="rounded-md border p-3 text-xs text-amber-800 bg-amber-50">
-        Preview only. Final reconciliation posting is intentionally held for a guarded follow-up step so buyer allocations are reviewed before demand records are created.
+      <div className={`rounded-md border p-3 text-xs ${preview.posted ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+        {preview.posted
+          ? `Posted reconciliation: ${preview.posted.type.replaceAll('_', ' ')} for ${formatBDT(Number(preview.posted.finalAmount))}. Generated demand rows: ${preview.posted.demands.length}.`
+          : 'Preview only. Post final reconciliation from the finance page after management review.'}
       </div>
       <div className="overflow-x-auto rounded-md border">
         <table className="w-full text-sm">

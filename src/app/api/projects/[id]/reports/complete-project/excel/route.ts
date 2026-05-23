@@ -27,7 +27,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       ['Buyer Receivable', data.summary.buyerReceivable],
       ['Buyer Advance', data.summary.buyerAdvance],
       ['Approved Expense', data.summary.totalExpense],
-      ['Service Charge (Info)', data.summary.serviceChargeAccrued],
+      ['Service Charge', data.summary.serviceChargeAccrued],
       ['Tax / Deductions', data.summary.taxDeductionTotal],
       ['Retention Held', data.summary.retentionHeld],
       ['Supplier Payable', data.summary.supplierPayable],
@@ -72,7 +72,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     ]),
     csvSection('Buyer Due', [
       ['Buyer', 'Phone', 'Units', 'Demanded', 'Paid', 'Allocated', 'Due', 'Advance', 'Oldest Due'],
-      ...data.buyerDue.map((row) => [row.buyerName, row.phone ?? '', row.units, row.demanded, row.paid, row.allocated, row.due, row.advance, formatDate(row.oldestDue)]),
+      ...data.buyerDue.map((row) => [row.buyerName, row.phone ?? '', row.unitsText || '', row.demanded, row.paid, row.allocated, row.due, row.advance, formatDate(row.oldestDue)]),
     ]),
     csvSection('Audit Summary', [
       ['Type', 'Label', 'Amount', 'Reason'],

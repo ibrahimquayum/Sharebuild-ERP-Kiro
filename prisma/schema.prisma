@@ -293,6 +293,30 @@ enum ServiceChargeBasis {
   MANUAL
 }
 
+enum ServiceChargeStatus {
+  DRAFT
+  CALCULATED
+  APPROVED
+  REVERSED
+}
+
+enum DemandType {
+  REGULAR
+  FINAL_RECONCILIATION
+}
+
+enum FinalReconciliationType {
+  DEFICIT_DEMAND
+  SURPLUS_CREDIT
+  ZERO_BALANCE
+}
+
+enum FinalReconciliationStatus {
+  DRAFT
+  POSTED
+  REVERSED
+}
+
 // ─────────────────────────────────────────────
 // TENANT: COMPANY
 // ─────────────────────────────────────────────
@@ -325,6 +349,8 @@ model Company {
   cashBankTransactions  CashBankTransaction[]
   chequeLogs            ChequeLog[]
   accountTransfers      AccountTransfer[]
+  serviceChargeEntries  ServiceChargeEntry[]
+  finalReconciliations  FinalReconciliation[]
 
   @@map("companies")
 }
@@ -371,6 +397,10 @@ model User {
   createdCashBankTransactions  CashBankTransaction[]    @relation("CashBankTransactionCreatedBy")
   reversedCashBankTransactions CashBankTransaction[]    @relation("CashBankTransactionReversedBy")
   createdAccountTransfers      AccountTransfer[]        @relation("AccountTransferCreatedBy")
+  approvedServiceCharges       ServiceChargeEntry[]     @relation("ServiceChargeApprovedBy")
+  reversedServiceCharges       ServiceChargeEntry[]     @relation("ServiceChargeReversedBy")
+  postedFinalReconciliations   FinalReconciliation[]    @relation("FinalReconciliationPostedBy")
+  reversedFinalReconciliations FinalReconciliation[]    @relation("FinalReconciliationReversedBy")
 
   @@map("users")
 }
@@ -435,6 +465,8 @@ model Project {
   staffAssignments      ProjectStaffAssignment[]
   cashBankTransactions  CashBankTransaction[]
   chequeLogs            ChequeLog[]
+  serviceChargeEntries  ServiceChargeEntry[]
+  finalReconciliations  FinalReconciliation[]
 
   @@map("projects")
 }
@@ -500,6 +532,7 @@ model Unit {
   buyerAllocations UnitBuyer[]
   demands          Demand[]
   documents        Document[]
+  finalReconciliationLines FinalReconciliationLine[]
 
   @@map("units")
 }
@@ -550,6 +583,7 @@ model Buyer {
   collections     Collection[]
   demands         Demand[]
   documents       Document[]
+  finalReconciliationLines FinalReconciliationLine[]
 
   @@map("buyers")
 }
@@ -563,6 +597,7 @@ model ProjectBuyer {
 
   project Project @relation(fields: [projectId], references: [id])
   buyer   Buyer   @relation(fields: [buyerId], references: [id])
+  finalReconciliationLines FinalReconciliationLine[]
 
   @@unique([projectId, buyerId])
   @@map("project_buyers")
@@ -573,27 +608,31 @@ model ProjectBuyer {
 // ─────────────────────────────────────────────
 
 model Demand {
-  id        String       @id @default(cuid())
-  unitId    String
-  buyerId   String
-  phaseId   String?
-  demandNo  String? // e.g. DN-2024-001
-  title     String
-  titleBn   String?
-  amount    Decimal
-  dueDate   DateTime?
-  status    DemandStatus @default(DRAFT)
-  issuedAt  DateTime?
-  notes     String?
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id                    String       @id @default(cuid())
+  unitId                String
+  buyerId               String
+  phaseId               String?
+  demandNo              String? // e.g. DN-2024-001
+  title                 String
+  titleBn               String?
+  amount                Decimal
+  dueDate               DateTime?
+  demandType            DemandType   @default(REGULAR)
+  finalReconciliationId String?
+  status                DemandStatus @default(DRAFT)
+  issuedAt              DateTime?
+  notes                 String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
 
-  unit        Unit                   @relation(fields: [unitId], references: [id])
-  buyer       Buyer                  @relation(fields: [buyerId], references: [id])
-  phase       Phase?                 @relation(fields: [phaseId], references: [id])
-  collections Collection[]
-  allocations CollectionAllocation[]
+  unit                Unit                   @relation(fields: [unitId], references: [id])
+  buyer               Buyer                  @relation(fields: [buyerId], references: [id])
+  phase               Phase?                 @relation(fields: [phaseId], references: [id])
+  finalReconciliation FinalReconciliation?   @relation(fields: [finalReconciliationId], references: [id])
+  collections         Collection[]
+  allocations         CollectionAllocation[]
 
+  @@index([demandType, finalReconciliationId])
   @@map("demands")
 }
 
@@ -631,6 +670,7 @@ model Phase {
   supplierPayables      SupplierPayable[]
   projectSubcontractors ProjectSubcontractor[]
   documents             Document[]
+  serviceChargeEntries  ServiceChargeEntry[]
 
   @@map("phases")
 }
@@ -1084,6 +1124,95 @@ model AccountTransfer {
 
   @@index([companyId, status])
   @@map("account_transfers")
+}
+
+model ServiceChargeEntry {
+  id                  String              @id @default(cuid())
+  companyId           String
+  projectId           String
+  phaseId             String?
+  basisType           ServiceChargeBasis
+  basisAmount         Decimal
+  percentage          Decimal?
+  manualAmount        Decimal?
+  serviceChargeAmount Decimal
+  includedInDemand    Boolean             @default(false)
+  status              ServiceChargeStatus @default(DRAFT)
+  calculatedAt        DateTime?
+  approvedAt          DateTime?
+  approvedById        String?
+  reversedAt          DateTime?
+  reversedById        String?
+  reversalReason      String?
+  notes               String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  company    Company @relation(fields: [companyId], references: [id])
+  project    Project @relation(fields: [projectId], references: [id])
+  phase      Phase?  @relation(fields: [phaseId], references: [id])
+  approvedBy User?   @relation("ServiceChargeApprovedBy", fields: [approvedById], references: [id])
+  reversedBy User?   @relation("ServiceChargeReversedBy", fields: [reversedById], references: [id])
+
+  @@index([projectId, status])
+  @@index([projectId, phaseId])
+  @@map("service_charge_entries")
+}
+
+model FinalReconciliation {
+  id                 String                    @id @default(cuid())
+  companyId          String
+  projectId          String
+  type               FinalReconciliationType
+  status             FinalReconciliationStatus @default(DRAFT)
+  totalDemand        Decimal                   @default(0)
+  totalCollection    Decimal                   @default(0)
+  totalCost          Decimal                   @default(0)
+  totalPayable       Decimal                   @default(0)
+  totalRetention     Decimal                   @default(0)
+  totalServiceCharge Decimal                   @default(0)
+  totalTaxDeduction  Decimal                   @default(0)
+  finalAmount        Decimal                   @default(0)
+  postedAt           DateTime?
+  postedById         String?
+  reversedAt         DateTime?
+  reversedById       String?
+  reversalReason     String?
+  notes              String?
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+
+  company    Company                    @relation(fields: [companyId], references: [id])
+  project    Project                    @relation(fields: [projectId], references: [id])
+  postedBy   User?                      @relation("FinalReconciliationPostedBy", fields: [postedById], references: [id])
+  reversedBy User?                      @relation("FinalReconciliationReversedBy", fields: [reversedById], references: [id])
+  lines      FinalReconciliationLine[]
+  demands    Demand[]
+
+  @@index([projectId, status])
+  @@map("final_reconciliations")
+}
+
+model FinalReconciliationLine {
+  id               String              @id @default(cuid())
+  reconciliationId String
+  buyerId          String
+  projectBuyerId   String?
+  unitId           String?
+  ownershipShare   Decimal             @default(0)
+  amount           Decimal
+  notes            String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  reconciliation FinalReconciliation @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
+  buyer          Buyer               @relation(fields: [buyerId], references: [id])
+  projectBuyer   ProjectBuyer?       @relation(fields: [projectBuyerId], references: [id])
+  unit           Unit?               @relation(fields: [unitId], references: [id])
+
+  @@index([reconciliationId])
+  @@index([buyerId])
+  @@map("final_reconciliation_lines")
 }
 
 // ─────────────────────────────────────────────

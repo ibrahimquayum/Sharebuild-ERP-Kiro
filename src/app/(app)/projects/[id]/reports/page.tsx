@@ -22,6 +22,7 @@ const reports = [
   { title: 'Cheque Register', href: 'cheque-register', status: 'Ready' },
   { title: 'Tax / Deduction Report', href: 'tax-deductions', status: 'Ready' },
   { title: 'Retention Report', href: 'retention', status: 'Ready' },
+  { title: 'Service Charge Report', href: 'service-charge', status: 'Ready' },
   { title: 'Final Reconciliation', href: 'final-reconciliation', status: 'Ready' },
   { title: 'Due Report', href: 'due-report', status: 'Foundation' },
   { title: 'Audit Report', href: 'audit-report', status: 'Foundation' },

@@ -1,14 +1,14 @@
 import { prisma } from '@/lib/prisma';
 import { getCompanyBranding } from '@/lib/branding';
 import { FINAL_EXPENSE_STATUSES } from '@/lib/accounting';
-import { getProjectFinanceSummary } from '@/lib/project-finance';
+import { getProjectBuyerLedger, getProjectFinanceSummary, getProjectServiceChargeLedger } from '@/lib/project-finance';
 import { getProjectSupplierAssignments, getProjectSubcontractorAssignments, isSubcontractorSupplierType } from '@/lib/project-vendor-ledger';
 
 export async function getCompleteProjectReportData(companyId: string, projectId: string) {
   const project = await prisma.project.findFirst({ where: { id: projectId, companyId } });
   if (!project) return null;
 
-  const [branding, summary, phases, expenses, payables, projectBuyers, auditLogs, projectSupplierAssignments, projectSubcontractorAssignments] = await Promise.all([
+  const [branding, summary, phases, expenses, payables, auditLogs, projectSupplierAssignments, projectSubcontractorAssignments, buyerDue, serviceChargeLedger] = await Promise.all([
     getCompanyBranding(companyId),
     getProjectFinanceSummary(project.id),
     prisma.phase.findMany({
@@ -36,25 +36,6 @@ export async function getCompleteProjectReportData(companyId: string, projectId:
       },
       orderBy: [{ phase: { sequence: 'asc' } }, { billDate: 'asc' }],
     }),
-    prisma.projectBuyer.findMany({
-      where: { projectId: project.id },
-      include: {
-        buyer: {
-          include: {
-            unitAllocations: { where: { unit: { projectId: project.id } }, include: { unit: { select: { unitNo: true } } } },
-            demands: {
-              where: { unit: { projectId: project.id }, status: { not: 'CANCELLED' } },
-              include: {
-                allocations: { where: { collection: { status: { not: 'REVERSED' } } }, select: { amount: true } },
-                collections: { where: { status: { not: 'REVERSED' } }, select: { amount: true } },
-              },
-            },
-            collections: { where: { phase: { projectId: project.id }, status: { not: 'REVERSED' } }, select: { amount: true, receivedDate: true } },
-          },
-        },
-      },
-      orderBy: { joinedAt: 'asc' },
-    }),
     prisma.auditLog.findMany({
       where: { projectId: project.id },
       orderBy: { createdAt: 'desc' },
@@ -62,6 +43,8 @@ export async function getCompleteProjectReportData(companyId: string, projectId:
     }),
     getProjectSupplierAssignments(project.id, companyId),
     getProjectSubcontractorAssignments(project.id, companyId),
+    getProjectBuyerLedger(project.id),
+    getProjectServiceChargeLedger(project.id),
   ]);
 
   const phaseSummary = summary.phaseBalances.map((phase) => ({
@@ -82,31 +65,6 @@ export async function getCompleteProjectReportData(companyId: string, projectId:
         balance: row?.carryOut ?? 0,
       };
     });
-
-  const buyerDue = projectBuyers.map(({ buyer }) => {
-    const demanded = buyer.demands.reduce((sum, demand) => sum + Number(demand.amount), 0);
-    const allocated = buyer.demands.reduce((sum, demand) => {
-      const allocationTotal = demand.allocations.reduce((s, allocation) => s + Number(allocation.amount), 0);
-      const legacyTotal = demand.collections.reduce((s, collection) => s + Number(collection.amount), 0);
-      return sum + (allocationTotal > 0 ? allocationTotal : legacyTotal);
-    }, 0);
-    const collected = buyer.collections.reduce((sum, collection) => sum + Number(collection.amount), 0);
-    const oldestDue = buyer.demands
-      .filter((demand) => demand.dueDate && demand.status !== 'FULLY_PAID')
-      .sort((a, b) => Number(a.dueDate) - Number(b.dueDate))[0]?.dueDate ?? null;
-    return {
-      buyerId: buyer.id,
-      buyerName: buyer.name,
-      phone: buyer.phone,
-      units: buyer.unitAllocations.map((allocation) => `${allocation.unit.unitNo} (${Number(allocation.sharePercent)}%)`).join(', '),
-      demanded,
-      paid: collected,
-      allocated,
-      due: Math.max(demanded - allocated, 0),
-      advance: Math.max(collected - allocated, 0),
-      oldestDue,
-    };
-  });
 
   const supplierSummary = payables
     .filter((payable) => !isSubcontractorSupplierType(payable.supplier.supplierType))
@@ -138,6 +96,7 @@ export async function getCompleteProjectReportData(companyId: string, projectId:
     projectSupplierAssignments,
     projectSubcontractorAssignments,
     buyerDue,
+    serviceChargeLedger,
     auditLogs,
     auditSummary: {
       reversedRecords,
