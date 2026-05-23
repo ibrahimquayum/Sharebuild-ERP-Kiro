@@ -17,7 +17,7 @@ export default async function ProjectChequeRegisterReportPage({ params }: { para
 
   return (
     <div className="p-5 space-y-5 print:p-0">
-      <div className="flex justify-end"><ReportActions /></div>
+      <div className="flex justify-end"><ReportActions excelHref={`/api/projects/${project.id}/reports/cheque-register/excel`} /></div>
       <ReportHeader branding={branding} project={project} title="Cheque Register" subtitle="Issued and received cheque tracking for this project" />
       <div className="overflow-x-auto rounded-md border">
         <table className="w-full text-sm">

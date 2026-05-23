@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2, Plus, Trash2 } from 'lucide-react';
@@ -60,6 +60,17 @@ export default function ProjectPayableNewPage() {
   const [billNo, setBillNo] = useState('');
   const [billDate, setBillDate] = useState(today());
   const [totalAmount, setTotalAmount] = useState('');
+  const [vatPct, setVatPct] = useState('');
+  const [vatAmount, setVatAmount] = useState('');
+  const [aitTdsPct, setAitTdsPct] = useState('');
+  const [aitTdsAmount, setAitTdsAmount] = useState('');
+  const [otherDeductionAmount, setOtherDeductionAmount] = useState('');
+  const [deductionReference, setDeductionReference] = useState('');
+  const [deductionNote, setDeductionNote] = useState('');
+  const [retentionType, setRetentionType] = useState<'NONE' | 'FIXED' | 'PERCENTAGE'>('NONE');
+  const [retentionPct, setRetentionPct] = useState('');
+  const [retentionAmount, setRetentionAmount] = useState('');
+  const [retentionReleaseDate, setRetentionReleaseDate] = useState('');
   const [paidAmount, setPaidAmount] = useState('');
   const [accountId, setAccountId] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('BANK_TRANSFER');
@@ -73,6 +84,33 @@ export default function ProjectPayableNewPage() {
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState([emptyItem()]);
   const [invoiceFiles, setInvoiceFiles] = useState<File[]>([]);
+
+  const computedVatAmount = useMemo(() => {
+    if (vatAmount) return Number(vatAmount) || 0;
+    const total = Number(totalAmount) || 0;
+    const pct = Number(vatPct) || 0;
+    return total > 0 && pct > 0 ? Number(((total * pct) / 100).toFixed(2)) : 0;
+  }, [totalAmount, vatAmount, vatPct]);
+
+  const computedAitAmount = useMemo(() => {
+    if (aitTdsAmount) return Number(aitTdsAmount) || 0;
+    const total = Number(totalAmount) || 0;
+    const pct = Number(aitTdsPct) || 0;
+    return total > 0 && pct > 0 ? Number(((total * pct) / 100).toFixed(2)) : 0;
+  }, [totalAmount, aitTdsAmount, aitTdsPct]);
+
+  const computedRetentionAmount = useMemo(() => {
+    if (retentionType === 'NONE') return 0;
+    if (retentionAmount) return Number(retentionAmount) || 0;
+    const total = Number(totalAmount) || 0;
+    const pct = Number(retentionPct) || 0;
+    return retentionType === 'PERCENTAGE' && total > 0 && pct > 0 ? Number(((total * pct) / 100).toFixed(2)) : 0;
+  }, [retentionAmount, retentionPct, retentionType, totalAmount]);
+
+  const computedNetPayable = useMemo(() => {
+    const total = Number(totalAmount) || 0;
+    return Math.max(total - computedVatAmount - computedAitAmount - (Number(otherDeductionAmount) || 0) - computedRetentionAmount, 0);
+  }, [computedAitAmount, computedRetentionAmount, computedVatAmount, otherDeductionAmount, totalAmount]);
 
   useEffect(() => {
     Promise.all([
@@ -110,8 +148,12 @@ export default function ProjectPayableNewPage() {
     const amount = Number(totalAmount);
     if (!totalAmount || Number.isNaN(amount) || amount <= 0) e.totalAmount = 'Enter a valid bill amount.';
     const paid = Number(paidAmount || 0);
-    if (paid < 0 || paid > amount) e.paidAmount = 'Paid amount cannot exceed total bill amount.';
+    if (paid < 0 || paid > computedNetPayable) e.paidAmount = 'Paid amount cannot exceed current net payable.';
     if (paid > 0 && !accountId) e.accountId = 'Select the paying account for the initial payment.';
+    if (Number(vatPct || 0) < 0) e.vatPct = 'VAT percent cannot be negative.';
+    if (Number(aitTdsPct || 0) < 0) e.aitTdsPct = 'AIT/TDS percent cannot be negative.';
+    if (retentionType === 'PERCENTAGE' && (Number(retentionPct || 0) < 0 || Number(retentionPct || 0) > 100)) e.retentionPct = 'Retention percentage must stay between 0 and 100.';
+    if (computedNetPayable < 0) e.totalAmount = 'Net payable cannot be negative.';
     items.forEach((item, index) => {
       const hasAny = item.description || item.amount || item.quantity || item.unitPrice;
       if (!hasAny) return;
@@ -147,6 +189,17 @@ export default function ProjectPayableNewPage() {
         projectId,
         billDate,
         totalAmount: Number(totalAmount),
+        ...(vatPct || vatAmount ? { vatPct: vatPct ? Number(vatPct) : undefined, vatAmount: vatAmount ? Number(vatAmount) : undefined } : {}),
+        ...(aitTdsPct || aitTdsAmount ? { aitTdsPct: aitTdsPct ? Number(aitTdsPct) : undefined, aitTdsAmount: aitTdsAmount ? Number(aitTdsAmount) : undefined } : {}),
+        ...(otherDeductionAmount ? { otherDeductionAmount: Number(otherDeductionAmount) } : {}),
+        ...(deductionReference.trim() ? { deductionReference: deductionReference.trim() } : {}),
+        ...(deductionNote.trim() ? { deductionNote: deductionNote.trim() } : {}),
+        ...(retentionType !== 'NONE' ? {
+          retentionType,
+          retentionPct: retentionPct ? Number(retentionPct) : undefined,
+          retentionAmount: retentionAmount ? Number(retentionAmount) : undefined,
+          retentionReleaseDate: retentionReleaseDate || undefined,
+        } : {}),
         ...(paidAmount ? { paidAmount: Number(paidAmount) } : {}),
         ...(paidAmount ? {
           accountId,
@@ -287,6 +340,42 @@ export default function ProjectPayableNewPage() {
                     <TextField label="Maturity Date" id="chequeMaturityDate" type="date" value={chequeMaturityDate} onChange={(e) => setChequeMaturityDate(e.target.value)} />
                   </>
                 )}
+              </div>
+            </FormSection>
+
+            <FormSection title="Tax / Deduction">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <TextField label="VAT %" id="vatPct" type="number" min={0} step="0.01" value={vatPct} onChange={(e) => setVatPct(e.target.value)} error={errors.vatPct} />
+                <TextField label="VAT Amount" id="vatAmount" type="number" min={0} step="0.01" value={vatAmount} onChange={(e) => setVatAmount(e.target.value)} />
+                <TextField label="AIT / TDS %" id="aitTdsPct" type="number" min={0} step="0.01" value={aitTdsPct} onChange={(e) => setAitTdsPct(e.target.value)} error={errors.aitTdsPct} />
+                <TextField label="AIT / TDS Amount" id="aitTdsAmount" type="number" min={0} step="0.01" value={aitTdsAmount} onChange={(e) => setAitTdsAmount(e.target.value)} />
+                <TextField label="Other Deduction" id="otherDeductionAmount" type="number" min={0} step="0.01" value={otherDeductionAmount} onChange={(e) => setOtherDeductionAmount(e.target.value)} />
+                <TextField label="Tax Reference / Challan No" id="deductionReference" value={deductionReference} onChange={(e) => setDeductionReference(e.target.value)} />
+              </div>
+              <TextareaField label="Tax / Deduction Note" id="deductionNote" value={deductionNote} onChange={(e) => setDeductionNote(e.target.value)} rows={2} />
+            </FormSection>
+
+            <FormSection title="Retention / Security">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Field label="Retention Type" htmlFor="retentionType">
+                  <Select value={retentionType} onValueChange={(value: 'NONE' | 'FIXED' | 'PERCENTAGE') => setRetentionType(value)}>
+                    <SelectTrigger id="retentionType"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NONE">No retention</SelectItem>
+                      <SelectItem value="FIXED">Fixed amount</SelectItem>
+                      <SelectItem value="PERCENTAGE">Percentage</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                {retentionType === 'PERCENTAGE' ? (
+                  <TextField label="Retention %" id="retentionPct" type="number" min={0} max={100} step="0.01" value={retentionPct} onChange={(e) => setRetentionPct(e.target.value)} error={errors.retentionPct} />
+                ) : (
+                  <TextField label="Retention Amount" id="retentionAmount" type="number" min={0} step="0.01" value={retentionAmount} onChange={(e) => setRetentionAmount(e.target.value)} />
+                )}
+                <TextField label="Retention Release Date" id="retentionReleaseDate" type="date" value={retentionReleaseDate} onChange={(e) => setRetentionReleaseDate(e.target.value)} />
+              </div>
+              <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
+                Gross bill {totalAmount || '0'} BDT - deductions {computedVatAmount + computedAitAmount + (Number(otherDeductionAmount) || 0)} BDT - retention {computedRetentionAmount} BDT = current net payable {computedNetPayable.toFixed(2)} BDT.
               </div>
             </FormSection>
 

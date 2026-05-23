@@ -57,13 +57,15 @@ export default async function SubcontractorLedgerPage({
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
-              <thead><tr className="border-b bg-muted/40"><th className="px-3 py-2 text-left">Bill</th><th className="text-left">Phase</th><th className="text-right">Amount</th><th className="text-right">Paid</th><th className="text-right">Due</th><th className="text-right">Docs</th></tr></thead>
+              <thead><tr className="border-b bg-muted/40"><th className="px-3 py-2 text-left">Bill</th><th className="text-left">Phase</th><th className="text-right">Gross</th><th className="text-right">Tax</th><th className="text-right">Retention</th><th className="text-right">Paid</th><th className="text-right">Due</th><th className="text-right">Docs</th></tr></thead>
               <tbody>
-                {assignment.payables.length === 0 ? <tr><td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">No subcontractor bills yet.</td></tr> : assignment.payables.map((payable) => (
+                {assignment.payables.length === 0 ? <tr><td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">No subcontractor bills yet.</td></tr> : assignment.payables.map((payable) => (
                   <tr key={payable.id} className="border-b">
                     <td className="px-3 py-2">{payable.billNo || 'Subcontractor bill'}<div className="text-[11px] text-muted-foreground">{formatDate(payable.billDate)}</div></td>
                     <td>{payable.phase?.name || 'Project general'}</td>
                     <td className="text-right">{formatBDT(Number(payable.totalAmount))}</td>
+                    <td className="text-right">{formatBDT(Number(payable.vatAmount ?? 0) + Number(payable.aitTdsAmount ?? 0) + Number(payable.otherDeductionAmount ?? 0))}</td>
+                    <td className="text-right">{formatBDT(Number(payable.retentionAmount ?? 0))}</td>
                     <td className="text-right text-green-600">{formatBDT(payable.payments.reduce((sum, payment) => sum + Number(payment.amount), 0))}</td>
                     <td className="text-right text-red-600">{formatBDT(Number(payable.dueAmount))}</td>
                     <td className="text-right">{payable.documents.length}</td>

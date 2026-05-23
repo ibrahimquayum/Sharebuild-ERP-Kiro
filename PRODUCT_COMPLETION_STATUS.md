@@ -89,8 +89,8 @@
 
 ## Known Incomplete Areas
 
-- Real PDF export.
-- Real Excel export.
+- True server-generated PDF export.
+- True XLSX workbook export.
 - Full buyer statement/unit statement/ledger report calculations.
 - Demand payment allocation and reversal workflow.
 - Manual collection allocation and reversal workflow.
@@ -101,6 +101,52 @@
 - Dedicated local shop / one-time vendor purchase flow.
 - Local shop flow is implemented for expenses, but not yet for supplier payable bills.
 - Full carry-forward/final reconciliation accounting.
+
+## Finance Completion Update - May 23, 2026
+
+- Added `FINANCE_COMPLETION_PHASE.md`.
+- Added migration `0008_finance_completion_phase`.
+- Supplier and subcontractor bills now support:
+  - VAT %
+  - VAT amount
+  - AIT/TDS %
+  - AIT/TDS amount
+  - other deduction
+  - deduction reference/note
+  - retention/security type
+  - retention amount/percent
+  - retention release date
+- Retention release workflow now exists at:
+  - `/projects/[id]/payables/[payableId]/retention-release`
+  - `POST /api/suppliers/payables/[id]/retention-release`
+- Account transfer workflow now exists at:
+  - `/company/accounts/transfers`
+  - `/company/accounts/transfers/new`
+  - `GET/POST /api/company/accounts/transfers`
+- Strict cheque treasury behavior now exists:
+  - cheque-backed treasury rows stay pending until cleared
+  - bounced/cancelled buyer cheque collections reverse buyer-side business effect
+  - bounced/cancelled supplier/subcontractor cheque payments restore payable
+- Finance hub now shows tax/deduction and retention summaries alongside treasury totals.
+- New print/export-ready finance reports now exist:
+  - cash / bank book
+  - cheque register
+  - tax / deduction report
+  - retention report
+  - final reconciliation preview
+- Excel-compatible CSV export now exists for:
+  - cash / bank book
+  - cheque register
+  - tax / deduction report
+  - retention report
+  - final reconciliation preview
+
+## Current Finance Limitations
+
+- Final reconciliation is preview-only in this pass; it does not yet post buyer demand rows.
+- Service charge is currently computed for reporting from phase/project percentages; it is not yet persisted as a dedicated ledger entry.
+- Direct-expense cheque bounce/cancel cancels treasury movement but keeps the approved cost record.
+- CSV is the real finance export path today; native XLSX and server PDF remain future work.
 
 ## Next Safest Build Step
 

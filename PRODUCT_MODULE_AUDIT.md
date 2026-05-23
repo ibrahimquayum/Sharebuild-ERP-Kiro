@@ -118,6 +118,33 @@ Current highest-risk gaps are save-flow consistency, document upload completenes
 ## Vendor/Subcontractor Completion Update - May 18, 2026
 
 - Added `VENDOR_SUBCONTRACTOR_COMPLETION_PLAN.md`.
+
+## Finance Completion Update - May 23, 2026
+
+- Treasury and cheque workflow is now materially stronger:
+  - company accounts exist
+  - company account transfers exist
+  - cheque status changes now affect treasury posting state
+  - bounced/cancelled buyer cheque collections reverse buyer-side business effect
+  - bounced/cancelled supplier/subcontractor cheque payments restore payable
+- Supplier/subcontractor bill accounting is now closer to real-world practice:
+  - bill-level VAT/AIT-TDS/other deduction fields exist
+  - bill-level retention/security fields exist
+  - net payable is separated from gross bill cost
+  - retention release has its own workflow
+- Finance/reporting coverage improved:
+  - tax / deduction report page and CSV export
+  - retention report page and CSV export
+  - final reconciliation preview page and CSV export
+  - cash / bank book and cheque register now have CSV export endpoints
+
+Remaining finance audit gaps:
+
+- no dedicated tax liability ledger
+- no persisted service charge ledger entry model
+- final reconciliation is preview-only, not posted demand creation
+- no replacement-cheque workflow
+- no native XLSX workbook or server-generated PDF
 - Added project-local create/reuse flows for suppliers and subcontractors.
 - Project Vendors page now exposes supplier/subcontractor add, bill, and ledger actions without forcing users to leave the project workspace.
 - Supplier bill creation now supports invoice/voucher upload during create.

@@ -60,6 +60,9 @@ export default async function CompleteProjectReportPage({ params }: { params: { 
           <MiniStat label="Buyer Due" value={formatBDT(data.summary.buyerReceivable)} tone="text-red-600" />
           <MiniStat label="Buyer Advance" value={formatBDT(data.summary.buyerAdvance)} tone="text-blue-600" />
           <MiniStat label="Approved Expense" value={formatBDT(data.summary.totalExpense)} tone="text-red-600" />
+          <MiniStat label="Service Charge (Info)" value={formatBDT(data.summary.serviceChargeAccrued)} />
+          <MiniStat label="Tax / Deduction" value={formatBDT(data.summary.taxDeductionTotal)} tone="text-fuchsia-600" />
+          <MiniStat label="Retention Held" value={formatBDT(data.summary.retentionHeld)} tone="text-cyan-600" />
           <MiniStat label="Supplier Payable" value={formatBDT(data.summary.supplierPayable)} />
           <MiniStat label="Subcontractor Payable" value={formatBDT(data.summary.subcontractorPayable)} />
           <MiniStat label="Project Balance" value={formatBDT(data.summary.projectBalance)} tone={balanceColor(data.summary.projectBalance)} />
@@ -135,6 +138,15 @@ export default async function CompleteProjectReportPage({ params }: { params: { 
           <Card><CardContent className="p-0 overflow-x-auto"><table className="w-full text-xs"><thead><tr className="border-b bg-muted/40"><th className="px-3 py-2 text-left">Subcontractor</th><th>Work Type</th><th className="text-right">Contract</th><th className="text-right">Billed</th><th className="text-right">Paid</th><th className="text-right">Due</th></tr></thead><tbody>{data.projectSubcontractorAssignments.map((assignment) => <tr key={assignment.id} className="border-b"><td className="px-3 py-2">{assignment.supplier.name}</td><td>{assignment.workType.replaceAll('_', ' ')}</td><td className="text-right">{formatBDT(Number(assignment.contractAmount ?? 0) + Number(assignment.extraWorkAmount ?? 0))}</td><td className="text-right">{formatBDT(assignment.summary.totalBilled)}</td><td className="text-right">{formatBDT(assignment.summary.totalPaid)}</td><td className="text-right">{formatBDT(assignment.summary.totalDue)}</td></tr>)}</tbody></table></CardContent></Card>
         </ReportSection>
       </div>
+
+      <ReportSection title="Treasury Snapshot">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <MiniStat label="Cash In" value={formatBDT(data.summary.cashIn)} tone="text-green-600" />
+          <MiniStat label="Cash Out" value={formatBDT(data.summary.cashOut)} tone="text-red-600" />
+          <MiniStat label="Pending Received Cheques" value={formatBDT(data.summary.pendingReceivedCheques)} />
+          <MiniStat label="Pending Issued Cheques" value={formatBDT(data.summary.pendingIssuedCheques)} />
+        </div>
+      </ReportSection>
 
       <ReportSection title="Buyer Due Summary">
         <Card><CardContent className="p-0 overflow-x-auto"><table className="w-full text-xs"><thead><tr className="border-b bg-muted/40"><th className="px-3 py-2 text-left">Buyer</th><th>Units</th><th className="text-right">Demanded</th><th className="text-right">Paid</th><th className="text-right">Due</th><th className="text-right">Advance</th><th>Oldest Due</th></tr></thead><tbody>{data.buyerDue.map((row) => <tr key={row.buyerId} className="border-b"><td className="px-3 py-2">{row.buyerName}</td><td>{row.units || '-'}</td><td className="text-right">{formatBDT(row.demanded)}</td><td className="text-right">{formatBDT(row.paid)}</td><td className="text-right">{formatBDT(row.due)}</td><td className="text-right">{formatBDT(row.advance)}</td><td>{formatDate(row.oldestDue)}</td></tr>)}</tbody></table></CardContent></Card>

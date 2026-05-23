@@ -67,6 +67,17 @@ export function SubcontractorBillForm({
   const [billNo, setBillNo] = useState('');
   const [billDate, setBillDate] = useState(today());
   const [billAmount, setBillAmount] = useState('');
+  const [vatPct, setVatPct] = useState('');
+  const [vatAmount, setVatAmount] = useState('');
+  const [aitTdsPct, setAitTdsPct] = useState('');
+  const [aitTdsAmount, setAitTdsAmount] = useState('');
+  const [otherDeductionAmount, setOtherDeductionAmount] = useState('');
+  const [deductionReference, setDeductionReference] = useState('');
+  const [deductionNote, setDeductionNote] = useState('');
+  const [retentionType, setRetentionType] = useState<'NONE' | 'FIXED' | 'PERCENTAGE'>('NONE');
+  const [retentionPct, setRetentionPct] = useState('');
+  const [retentionAmount, setRetentionAmount] = useState('');
+  const [retentionReleaseDate, setRetentionReleaseDate] = useState('');
   const [paidAmount, setPaidAmount] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? '');
@@ -93,6 +104,32 @@ export function SubcontractorBillForm({
   }, [selectedAssignment]);
 
   const workTypeLabel = useMemo(() => WORK_TYPES.find(([value]) => value === workType)?.[1] ?? workType, [workType]);
+  const computedVatAmount = useMemo(() => {
+    if (vatAmount) return Number(vatAmount) || 0;
+    const total = Number(billAmount) || 0;
+    const pct = Number(vatPct) || 0;
+    return total > 0 && pct > 0 ? Number(((total * pct) / 100).toFixed(2)) : 0;
+  }, [billAmount, vatAmount, vatPct]);
+
+  const computedAitAmount = useMemo(() => {
+    if (aitTdsAmount) return Number(aitTdsAmount) || 0;
+    const total = Number(billAmount) || 0;
+    const pct = Number(aitTdsPct) || 0;
+    return total > 0 && pct > 0 ? Number(((total * pct) / 100).toFixed(2)) : 0;
+  }, [aitTdsAmount, aitTdsPct, billAmount]);
+
+  const computedRetentionAmount = useMemo(() => {
+    if (retentionType === 'NONE') return 0;
+    if (retentionAmount) return Number(retentionAmount) || 0;
+    const total = Number(billAmount) || 0;
+    const pct = Number(retentionPct) || 0;
+    return retentionType === 'PERCENTAGE' && total > 0 && pct > 0 ? Number(((total * pct) / 100).toFixed(2)) : 0;
+  }, [billAmount, retentionAmount, retentionPct, retentionType]);
+
+  const computedNetPayable = useMemo(() => {
+    const total = Number(billAmount) || 0;
+    return Math.max(total - computedVatAmount - computedAitAmount - (Number(otherDeductionAmount) || 0) - computedRetentionAmount, 0);
+  }, [billAmount, computedAitAmount, computedRetentionAmount, computedVatAmount, otherDeductionAmount]);
 
   function validate() {
     const nextErrors: Record<string, string> = {};
@@ -101,9 +138,11 @@ export function SubcontractorBillForm({
     if (!projectSubcontractorId && !selectedAssignment) nextErrors.subcontractorId = 'Select a project subcontractor.';
     if (!billDate) nextErrors.billDate = 'Bill date is required.';
     if (!billAmount || Number.isNaN(total) || total <= 0) nextErrors.billAmount = 'Enter a valid bill amount.';
-    if (paid < 0 || paid > total) nextErrors.paidAmount = 'Paid amount cannot exceed bill amount.';
+    if (paid < 0 || paid > computedNetPayable) nextErrors.paidAmount = 'Paid amount cannot exceed current net payable.';
     if (paid > 0 && !accountId) nextErrors.accountId = 'Select the paying account for the initial payment.';
     if (contractAmount && Number(contractAmount) < 0) nextErrors.contractAmount = 'Contract amount cannot be negative.';
+    if (retentionType === 'PERCENTAGE' && (Number(retentionPct || 0) < 0 || Number(retentionPct || 0) > 100)) nextErrors.retentionPct = 'Retention percentage must stay between 0 and 100.';
+    if (computedNetPayable < 0) nextErrors.billAmount = 'Net payable cannot be negative.';
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   }
@@ -128,6 +167,17 @@ export function SubcontractorBillForm({
         projectId,
         billDate,
         totalAmount: Number(billAmount),
+        ...(vatPct || vatAmount ? { vatPct: vatPct ? Number(vatPct) : undefined, vatAmount: vatAmount ? Number(vatAmount) : undefined } : {}),
+        ...(aitTdsPct || aitTdsAmount ? { aitTdsPct: aitTdsPct ? Number(aitTdsPct) : undefined, aitTdsAmount: aitTdsAmount ? Number(aitTdsAmount) : undefined } : {}),
+        ...(otherDeductionAmount ? { otherDeductionAmount: Number(otherDeductionAmount) } : {}),
+        ...(deductionReference.trim() ? { deductionReference: deductionReference.trim() } : {}),
+        ...(deductionNote.trim() ? { deductionNote: deductionNote.trim() } : {}),
+        ...(retentionType !== 'NONE' ? {
+          retentionType,
+          retentionPct: retentionPct ? Number(retentionPct) : undefined,
+          retentionAmount: retentionAmount ? Number(retentionAmount) : undefined,
+          retentionReleaseDate: retentionReleaseDate || undefined,
+        } : {}),
         paidAmount: paidAmount ? Number(paidAmount) : 0,
         accountId: paidAmount ? accountId : undefined,
         paymentMethod,
@@ -272,6 +322,42 @@ export function SubcontractorBillForm({
               <TextField label="Maturity Date" id="chequeMaturityDate" type="date" value={chequeMaturityDate} onChange={(event) => setChequeMaturityDate(event.target.value)} />
             </>
           )}
+        </div>
+      </FormSection>
+
+      <FormSection title="Tax / Deduction">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <TextField label="VAT %" id="vatPct" type="number" min={0} step="0.01" value={vatPct} onChange={(event) => setVatPct(event.target.value)} />
+          <TextField label="VAT Amount" id="vatAmount" type="number" min={0} step="0.01" value={vatAmount} onChange={(event) => setVatAmount(event.target.value)} />
+          <TextField label="AIT / TDS %" id="aitTdsPct" type="number" min={0} step="0.01" value={aitTdsPct} onChange={(event) => setAitTdsPct(event.target.value)} />
+          <TextField label="AIT / TDS Amount" id="aitTdsAmount" type="number" min={0} step="0.01" value={aitTdsAmount} onChange={(event) => setAitTdsAmount(event.target.value)} />
+          <TextField label="Other Deduction" id="otherDeductionAmount" type="number" min={0} step="0.01" value={otherDeductionAmount} onChange={(event) => setOtherDeductionAmount(event.target.value)} />
+          <TextField label="Tax Reference / Challan No" id="deductionReference" value={deductionReference} onChange={(event) => setDeductionReference(event.target.value)} />
+        </div>
+        <TextareaField label="Tax / Deduction Note" id="deductionNote" value={deductionNote} onChange={(event) => setDeductionNote(event.target.value)} rows={2} />
+      </FormSection>
+
+      <FormSection title="Retention / Security">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Retention Type" htmlFor="retentionType">
+            <Select value={retentionType} onValueChange={(value: 'NONE' | 'FIXED' | 'PERCENTAGE') => setRetentionType(value)}>
+              <SelectTrigger id="retentionType"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="NONE">No retention</SelectItem>
+                <SelectItem value="FIXED">Fixed amount</SelectItem>
+                <SelectItem value="PERCENTAGE">Percentage</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          {retentionType === 'PERCENTAGE' ? (
+            <TextField label="Retention %" id="retentionPct" type="number" min={0} max={100} step="0.01" value={retentionPct} onChange={(event) => setRetentionPct(event.target.value)} error={errors.retentionPct} />
+          ) : (
+            <TextField label="Retention Amount" id="retentionAmount" type="number" min={0} step="0.01" value={retentionAmount} onChange={(event) => setRetentionAmount(event.target.value)} />
+          )}
+          <TextField label="Retention Release Date" id="retentionReleaseDate" type="date" value={retentionReleaseDate} onChange={(event) => setRetentionReleaseDate(event.target.value)} />
+        </div>
+        <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
+          Gross bill {billAmount || '0'} BDT - deductions {computedVatAmount + computedAitAmount + (Number(otherDeductionAmount) || 0)} BDT - retention {computedRetentionAmount} BDT = current net payable {computedNetPayable.toFixed(2)} BDT.
         </div>
       </FormSection>
 

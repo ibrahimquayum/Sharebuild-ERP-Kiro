@@ -45,13 +45,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string;
       },
     });
     const newPaid = Math.max(Number(payment.payable.paidAmount) - Number(payment.amount), 0);
-    const newDue = Math.max(Number(payment.payable.totalAmount) - newPaid, 0);
+    const netPayable = Number(payment.payable.netPayableAmount ?? payment.payable.totalAmount);
+    const retentionRemaining = Math.max(Number(payment.payable.retentionAmount ?? 0) - Number(payment.payable.retentionReleasedAmount ?? 0), 0);
+    const newDue = Math.max(netPayable - retentionRemaining - newPaid, 0);
     await tx.supplierPayable.update({
       where: { id: payment.payableId },
       data: {
         paidAmount: newPaid,
         dueAmount: newDue,
-        status: newDue <= 0 ? 'PAID' : newPaid > 0 ? 'PARTIALLY_PAID' : 'UNPAID',
+        status: newDue <= 0 && retentionRemaining <= 0 ? 'PAID' : newPaid > 0 ? 'PARTIALLY_PAID' : 'UNPAID',
       },
     });
     await reverseCashBankTransaction(tx, {

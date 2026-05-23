@@ -31,6 +31,7 @@ export default async function PayableDetailPage({ params }: { params: { id: stri
   const isSubcontractor = ['LABOUR_CONTRACTOR', 'SERVICE_PROVIDER'].includes(payable.supplier.supplierType);
   const module = isSubcontractor ? 'subcontractors' : 'suppliers';
   const canReverse = can(role, module, 'reverseAdjust') && !payable.reversedAt && payable.status !== 'WRITTEN_OFF' && !payable.phase?.auditLockedAt;
+  const retentionOutstanding = Math.max(Number(payable.retentionAmount ?? 0) - Number(payable.retentionReleasedAmount ?? 0), 0);
   const backHref = isSubcontractor ? `/projects/${params.id}/subcontractors/bills` : `/projects/${params.id}/payables`;
   const uploadHref = `/projects/${params.id}/documents/upload?payableId=${payable.id}&scope=${isSubcontractor ? 'SUBCONTRACTOR_BILL' : 'SUPPLIER_BILL'}&category=${encodeURIComponent(isSubcontractor ? 'subcontractor invoice' : 'supplier invoice')}&returnTo=${encodeURIComponent(`/projects/${params.id}/payables/${payable.id}`)}`;
 
@@ -45,9 +46,16 @@ export default async function PayableDetailPage({ params }: { params: { id: stri
           <p className="text-xs text-muted-foreground">{payable.supplier.name} · Bill {payable.billNo ?? payable.id}</p>
         </div>
         {canReverse && (
-          <Link href={`/projects/${params.id}/payables/${payable.id}/reverse`} className="inline-flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50">
-            <RotateCcw className="h-3.5 w-3.5" /> Reverse Bill
-          </Link>
+          <div className="flex gap-2">
+            {retentionOutstanding > 0 && (
+              <Link href={`/projects/${params.id}/payables/${payable.id}/retention-release`} className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted">
+                Release Retention
+              </Link>
+            )}
+            <Link href={`/projects/${params.id}/payables/${payable.id}/reverse`} className="inline-flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50">
+              <RotateCcw className="h-3.5 w-3.5" /> Reverse Bill
+            </Link>
+          </div>
         )}
       </div>
 
@@ -62,10 +70,22 @@ export default async function PayableDetailPage({ params }: { params: { id: stri
             <div><span className="text-muted-foreground">Bill Date</span><div className="font-medium">{formatDate(payable.billDate)}</div></div>
             <div><span className="text-muted-foreground">Status</span><div><StatusBadge status={payable.status} tone={payable.status === 'WRITTEN_OFF' ? 'danger' : payable.status === 'PAID' ? 'success' : 'warning'} /></div></div>
             <div><span className="text-muted-foreground">Total</span><div className="font-bold">{formatBDT(Number(payable.totalAmount))}</div></div>
+            <div><span className="text-muted-foreground">Net payable after tax</span><div className="font-bold">{formatBDT(Number(payable.netPayableAmount ?? payable.totalAmount))}</div></div>
             <div><span className="text-muted-foreground">Paid</span><div className="font-bold text-green-600">{formatBDT(Number(payable.paidAmount))}</div></div>
             <div><span className="text-muted-foreground">Due</span><div className="font-bold text-red-600">{formatBDT(Number(payable.dueAmount))}</div></div>
+            <div><span className="text-muted-foreground">VAT / deduction</span><div className="font-medium">{formatBDT(Number(payable.vatAmount ?? 0) + Number(payable.aitTdsAmount ?? 0) + Number(payable.otherDeductionAmount ?? 0))}</div></div>
+            <div><span className="text-muted-foreground">Retention held</span><div className="font-medium">{formatBDT(Number(payable.retentionAmount ?? 0))}</div></div>
+            <div><span className="text-muted-foreground">Retention released</span><div className="font-medium">{formatBDT(Number(payable.retentionReleasedAmount ?? 0))}</div></div>
+            <div><span className="text-muted-foreground">Retention outstanding</span><div className="font-medium">{formatBDT(retentionOutstanding)}</div></div>
             <div><span className="text-muted-foreground">Due Date</span><div className="font-medium">{formatDate(payable.dueDate)}</div></div>
+            <div><span className="text-muted-foreground">Tax reference</span><div className="font-medium">{payable.deductionReference ?? '-'}</div></div>
+            <div><span className="text-muted-foreground">Retention release date</span><div className="font-medium">{formatDate(payable.retentionReleaseDate)}</div></div>
             <div className="md:col-span-2"><span className="text-muted-foreground">Notes</span><div className="font-medium">{payable.notes ?? '-'}</div></div>
+            {(Number(payable.vatAmount ?? 0) > 0 || Number(payable.aitTdsAmount ?? 0) > 0 || Number(payable.otherDeductionAmount ?? 0) > 0 || Number(payable.retentionAmount ?? 0) > 0) && (
+              <div className="md:col-span-2 rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
+                Gross bill {formatBDT(Number(payable.totalAmount))} - tax/deduction {formatBDT(Number(payable.vatAmount ?? 0) + Number(payable.aitTdsAmount ?? 0) + Number(payable.otherDeductionAmount ?? 0))} - currently held retention {formatBDT(Number(payable.retentionAmount ?? 0))} = current payable {formatBDT(Number(payable.dueAmount) + Number(payable.paidAmount))}.
+              </div>
+            )}
             {payable.reversedAt && <div className="md:col-span-2 rounded-md border border-red-200 bg-red-50 p-3 text-red-700">Reversed on {formatDate(payable.reversedAt)}. Reason: {payable.reversalReason ?? '-'}</div>}
           </CardContent>
         </Card>

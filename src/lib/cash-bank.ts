@@ -25,6 +25,10 @@ function pendingChequeStatus(paymentMethod: PaymentMethod) {
   return paymentMethod === 'CHEQUE' ? 'PENDING' : undefined;
 }
 
+function postedTransactionStatus(paymentMethod: PaymentMethod): CashBankTransactionStatus {
+  return paymentMethod === 'CHEQUE' ? 'DRAFT' : 'POSTED';
+}
+
 export async function getActiveCompanyAccounts(companyId: string) {
   return prisma.cashBankAccount.findMany({
     where: { companyId, isActive: true },
@@ -271,6 +275,7 @@ async function createCashBankTransaction(
     referenceNo?: string | null;
     description?: string | null;
     createdById?: string | null;
+    status?: CashBankTransactionStatus;
   },
 ) {
   const existing = await tx.cashBankTransaction.findFirst({
@@ -298,7 +303,7 @@ async function createCashBankTransaction(
       paymentMethod: input.paymentMethod,
       referenceNo: input.referenceNo ?? undefined,
       description: input.description ?? undefined,
-      status: 'POSTED',
+      status: input.status ?? postedTransactionStatus(input.paymentMethod),
       createdById: input.createdById ?? undefined,
     },
   });
@@ -499,6 +504,58 @@ export async function createCashBankTransactionFromSupplierPayment(
   return transaction;
 }
 
+export async function createAccountTransferEntries(
+  tx: TxClient,
+  transferId: string,
+  createdById?: string | null,
+) {
+  const transfer = await tx.accountTransfer.findUnique({
+    where: { id: transferId },
+    include: {
+      company: { select: { id: true } },
+      fromAccount: { select: { id: true, name: true } },
+      toAccount: { select: { id: true, name: true } },
+    },
+  });
+  if (!transfer || transfer.status !== 'POSTED') return null;
+
+  const outTransaction = await createCashBankTransaction(tx, {
+    companyId: transfer.companyId,
+    accountId: transfer.fromAccountId,
+    type: 'TRANSFER_OUT',
+    sourceType: 'ACCOUNT_TRANSFER',
+    sourceId: `${transfer.id}:OUT`,
+    partyType: 'COMPANY',
+    partyName: `Transfer to ${transfer.toAccount.name}`,
+    amount: numberValue(transfer.amount),
+    transactionDate: transfer.transferDate,
+    paymentMethod: 'OTHER',
+    referenceNo: transfer.referenceNo,
+    description: transfer.notes ?? 'Account transfer out',
+    createdById,
+    status: 'POSTED',
+  });
+
+  const inTransaction = await createCashBankTransaction(tx, {
+    companyId: transfer.companyId,
+    accountId: transfer.toAccountId,
+    type: 'TRANSFER_IN',
+    sourceType: 'ACCOUNT_TRANSFER',
+    sourceId: `${transfer.id}:IN`,
+    partyType: 'COMPANY',
+    partyName: `Transfer from ${transfer.fromAccount.name}`,
+    amount: numberValue(transfer.amount),
+    transactionDate: transfer.transferDate,
+    paymentMethod: 'OTHER',
+    referenceNo: transfer.referenceNo,
+    description: transfer.notes ?? 'Account transfer in',
+    createdById,
+    status: 'POSTED',
+  });
+
+  return { outTransaction, inTransaction };
+}
+
 export async function reverseCashBankTransaction(
   tx: TxClient,
   input: {
@@ -557,4 +614,3 @@ export async function getChequeSummary(companyId: string, projectId?: string) {
 export function cashBankTransactionStatusLabel(status: CashBankTransactionStatus) {
   return status.replaceAll('_', ' ');
 }
-

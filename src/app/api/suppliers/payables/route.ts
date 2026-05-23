@@ -16,6 +16,17 @@ const createSchema = z.object({
   billNo:      z.string().optional(),
   billDate:    z.string(),
   totalAmount: z.number().positive(),
+  vatPct: z.number().min(0).optional(),
+  vatAmount: z.number().min(0).optional(),
+  aitTdsPct: z.number().min(0).optional(),
+  aitTdsAmount: z.number().min(0).optional(),
+  otherDeductionAmount: z.number().min(0).optional(),
+  deductionReference: z.string().optional(),
+  deductionNote: z.string().optional(),
+  retentionType: z.enum(['NONE', 'FIXED', 'PERCENTAGE']).optional(),
+  retentionPct: z.number().min(0).max(100).optional(),
+  retentionAmount: z.number().min(0).optional(),
+  retentionReleaseDate: z.string().optional(),
   dueDate:     z.string().optional(),
   notes:       z.string().optional(),
   paidAmount:  z.number().min(0).optional(),
@@ -130,8 +141,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Supplier bill line total must equal the bill total.' }, { status: 400 });
   }
   const totalAmount = d.totalAmount;
+  const vatAmount = d.vatAmount ?? (d.vatPct ? Number(((totalAmount * d.vatPct) / 100).toFixed(2)) : 0);
+  const aitTdsAmount = d.aitTdsAmount ?? (d.aitTdsPct ? Number(((totalAmount * d.aitTdsPct) / 100).toFixed(2)) : 0);
+  const otherDeductionAmount = d.otherDeductionAmount ?? 0;
+  const retentionAmount = d.retentionAmount ?? (d.retentionType === 'PERCENTAGE' && d.retentionPct ? Number(((totalAmount * d.retentionPct) / 100).toFixed(2)) : 0);
+  const netPayableAmount = totalAmount - vatAmount - aitTdsAmount - otherDeductionAmount;
+  const currentPayableAmount = netPayableAmount - retentionAmount;
+  if (currentPayableAmount < 0) return NextResponse.json({ error: 'Current payable cannot be negative after tax/deduction and retention.' }, { status: 400 });
   const paidAmount = d.paidAmount ?? 0;
-  if (paidAmount > totalAmount) return NextResponse.json({ error: 'Paid amount cannot exceed total bill amount.' }, { status: 400 });
+  if (paidAmount > currentPayableAmount) return NextResponse.json({ error: 'Paid amount cannot exceed current net payable.' }, { status: 400 });
   if (paidAmount > 0 && !d.accountId) return NextResponse.json({ error: 'Select a cash/bank account for the initial payment.' }, { status: 400 });
   if (paidAmount > 0 && d.accountId) await assertAccountBelongsToCompany(d.accountId, companyId);
 
@@ -146,10 +164,23 @@ export async function POST(req: NextRequest) {
         billNo:      d.billNo,
         billDate:    new Date(d.billDate),
         totalAmount,
+        vatPct: d.vatPct,
+        vatAmount,
+        aitTdsPct: d.aitTdsPct,
+        aitTdsAmount,
+        otherDeductionAmount,
+        deductionReference: d.deductionReference,
+        deductionNote: d.deductionNote,
+        retentionType: d.retentionType ?? 'NONE',
+        retentionPct: d.retentionPct,
+        retentionAmount,
+        retentionReleaseDate: d.retentionReleaseDate ? new Date(d.retentionReleaseDate) : undefined,
+        retentionStatus: retentionAmount > 0 ? 'HELD' : 'NOT_APPLICABLE',
+        netPayableAmount,
         paidAmount,
-        dueAmount:   totalAmount - paidAmount,
+        dueAmount:   currentPayableAmount - paidAmount,
         dueDate:     d.dueDate ? new Date(d.dueDate) : undefined,
-        status:      paidAmount >= totalAmount ? 'PAID' : paidAmount > 0 ? 'PARTIALLY_PAID' : 'UNPAID',
+        status:      paidAmount >= currentPayableAmount && retentionAmount <= 0 ? 'PAID' : paidAmount > 0 ? 'PARTIALLY_PAID' : 'UNPAID',
         notes:       d.notes,
         ...(d.items?.length ? {
           billItems: {

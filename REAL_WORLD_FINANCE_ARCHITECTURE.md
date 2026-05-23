@@ -32,6 +32,29 @@ Phase 2 of this architecture is now implemented in code on `feat/erp-v1`:
 
 The remaining roadmap phases below are still the source of truth for tax, retention, service charge, and final reconciliation work.
 
+## Phase 3+ Status Update
+
+The next finance completion pass is now partially implemented in code on `feat/erp-v1`:
+
+- Bill-level VAT/AIT/TDS/other deduction fields now exist on supplier and subcontractor bills.
+- Bill-level retention/security fields now exist on supplier and subcontractor bills.
+- Retention release now has a guarded workflow that creates treasury/payment effect without double-counting cost.
+- Account transfer workflow is now live for company treasury accounts.
+- Cheque lifecycle is now stricter:
+  - cheque-backed treasury rows stay pending until cleared
+  - bounced/cancelled buyer cheque collections reverse the collection effect
+  - bounced/cancelled supplier/subcontractor cheque payments restore payable
+- Final reconciliation now has a project-scoped preview page and CSV export foundation.
+- Tax, retention, cash/bank book, cheque register, and final reconciliation now have print-ready report pages and Excel-compatible CSV export endpoints.
+
+Remaining gaps from this architecture:
+
+- no dedicated VAT/AIT/TDS liability ledger yet
+- no dedicated service charge entry ledger yet
+- no final reconciliation posting that creates buyer demand rows yet
+- no full replacement-cheque workflow yet
+- no true XLSX workbook or server-generated PDF yet
+
 ## 1. Finance Philosophy
 
 Sharebuild ERP should treat project finance as five separate truths that must reconcile but must not be merged:

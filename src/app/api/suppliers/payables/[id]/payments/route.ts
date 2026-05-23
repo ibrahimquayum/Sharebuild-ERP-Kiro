@@ -104,8 +104,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         dueAmount: { decrement: data.amount },
         status: (() => {
           const newPaid = Number(payable.paidAmount) + data.amount;
-          const total = Number(payable.totalAmount);
-          if (newPaid >= total) return 'PAID';
+          const total = Number(payable.netPayableAmount ?? payable.totalAmount);
+          const retentionRemaining = Math.max(Number(payable.retentionAmount ?? 0) - Number(payable.retentionReleasedAmount ?? 0), 0);
+          if (newPaid >= total && retentionRemaining <= 0) return 'PAID';
           if (newPaid > 0) return 'PARTIALLY_PAID';
           return 'UNPAID';
         })(),

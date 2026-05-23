@@ -118,6 +118,21 @@ Manual checks:
 - Verify finance summary shows cash in/out separately from project cost.
 - Verify Top Sheet totals remain unchanged.
 
+## Completion Update - May 23, 2026
+
+- Company cash/bank account management is now live.
+- Company account transfer UI and API are now live.
+- Project cash/bank book and cheque register are live and print-ready.
+- Buyer collections, approved direct expenses, supplier payments, and subcontractor payments now post treasury transactions through `CashBankTransaction`.
+- Cheque-backed treasury rows now stay `DRAFT` until the cheque is cleared.
+- Cheque status transitions now validate pending-only updates and can:
+  - post linked treasury movement on clear
+  - cancel linked treasury movement on bounce/cancel
+  - reverse buyer collection business effect on bounced/cancelled received cheques
+  - reverse supplier/subcontractor payment business effect on bounced/cancelled issued cheques
+- Known simplification:
+  - direct-expense cheque bounce/cancel currently cancels treasury movement but keeps the expense cost record, because the expense itself may still be a valid project cost even when payment failed.
+
 ### Implementation Status
 
 Implemented in this pass:

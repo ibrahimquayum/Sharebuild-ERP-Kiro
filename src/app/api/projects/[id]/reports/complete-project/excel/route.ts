@@ -27,9 +27,16 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       ['Buyer Receivable', data.summary.buyerReceivable],
       ['Buyer Advance', data.summary.buyerAdvance],
       ['Approved Expense', data.summary.totalExpense],
+      ['Service Charge (Info)', data.summary.serviceChargeAccrued],
+      ['Tax / Deductions', data.summary.taxDeductionTotal],
+      ['Retention Held', data.summary.retentionHeld],
       ['Supplier Payable', data.summary.supplierPayable],
       ['Subcontractor Payable', data.summary.subcontractorPayable],
       ['Project Balance', data.summary.projectBalance],
+      ['Cash In', data.summary.cashIn],
+      ['Cash Out', data.summary.cashOut],
+      ['Pending Received Cheques', data.summary.pendingReceivedCheques],
+      ['Pending Issued Cheques', data.summary.pendingIssuedCheques],
     ]),
     csvSection('Top Sheet', [
       ['Phase', 'Type', 'Income', 'Expense', 'Balance'],
@@ -50,6 +57,18 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     csvSection('Subcontractor Summary', [
       ['Subcontractor', 'Phase', 'Bill No', 'Bill Date', 'Bill Total', 'Paid', 'Due', 'Status', 'Documents'],
       ...data.subcontractorSummary.map((payable) => [payable.supplier.name, payable.phase?.name ?? 'Project general', payable.billNo ?? '', formatDate(payable.billDate), Number(payable.totalAmount), payable.validPaid, Number(payable.dueAmount), payable.status, payable.documents.length]),
+    ]),
+    csvSection('Tax Deductions', [
+      ['Party', 'Bill No', 'VAT', 'AIT/TDS', 'Other Deduction', 'Reference'],
+      ...[...data.supplierSummary, ...data.subcontractorSummary]
+        .filter((payable) => Number(payable.vatAmount ?? 0) > 0 || Number(payable.aitTdsAmount ?? 0) > 0 || Number(payable.otherDeductionAmount ?? 0) > 0)
+        .map((payable) => [payable.supplier.name, payable.billNo ?? '', Number(payable.vatAmount ?? 0), Number(payable.aitTdsAmount ?? 0), Number(payable.otherDeductionAmount ?? 0), payable.deductionReference ?? '']),
+    ]),
+    csvSection('Retention', [
+      ['Party', 'Bill No', 'Held', 'Released', 'Outstanding', 'Status'],
+      ...[...data.supplierSummary, ...data.subcontractorSummary]
+        .filter((payable) => Number(payable.retentionAmount ?? 0) > 0)
+        .map((payable) => [payable.supplier.name, payable.billNo ?? '', Number(payable.retentionAmount ?? 0), Number(payable.retentionReleasedAmount ?? 0), Math.max(Number(payable.retentionAmount ?? 0) - Number(payable.retentionReleasedAmount ?? 0), 0), payable.retentionStatus]),
     ]),
     csvSection('Buyer Due', [
       ['Buyer', 'Phone', 'Units', 'Demanded', 'Paid', 'Allocated', 'Due', 'Advance', 'Oldest Due'],

@@ -16,7 +16,7 @@ datasource db {
 // ─────────────────────────────────────────────
 
 enum UserRole {
-  SUPER_ADMIN   // SaaS platform owner
+  SUPER_ADMIN // SaaS platform owner
   COMPANY_ADMIN // Owner/MD of a construction company
   MANAGEMENT
   ACCOUNTS
@@ -25,10 +25,10 @@ enum UserRole {
   SITE_SUPERVISOR
   DOCUMENT_OFFICER
   AUDITOR
-  MANAGER       // Project manager
-  ACCOUNTANT    // Finance/accounts staff
+  MANAGER // Project manager
+  ACCOUNTANT // Finance/accounts staff
   SITE_ENGINEER // Can log expenses, progress
-  VIEWER        // Read-only access
+  VIEWER // Read-only access
 }
 
 enum ProjectStatus {
@@ -42,9 +42,9 @@ enum ProjectStatus {
 enum PhaseType {
   PILING
   BASEMENT
-  SLAB          // General floor slab (1st, 2nd, ... 10th)
+  SLAB // General floor slab (1st, 2nd, ... 10th)
   HALF_SLAB
-  GATHUNI       // Finishing work per floor (Gatoni/Gathuni)
+  GATHUNI // Finishing work per floor (Gatoni/Gathuni)
   SANITARY
   FINISHING
   CUSTOM
@@ -92,14 +92,14 @@ enum PaymentMethod {
   CASH
   CHEQUE
   BANK_TRANSFER
-  MOBILE_BANKING  // bKash, Nagad, etc.
+  MOBILE_BANKING // bKash, Nagad, etc.
   OTHER
 }
 
 enum TransactionType {
-  COLLECTION      // Money received from buyer
-  REFUND          // Refund to buyer
-  ADJUSTMENT      // Manual correction
+  COLLECTION // Money received from buyer
+  REFUND // Refund to buyer
+  ADJUSTMENT // Manual correction
 }
 
 enum ExpenseCategory {
@@ -270,50 +270,73 @@ enum AccountTransferStatus {
   CANCELLED
 }
 
+enum RetentionType {
+  NONE
+  FIXED
+  PERCENTAGE
+}
+
+enum RetentionStatus {
+  NOT_APPLICABLE
+  HELD
+  PARTIALLY_RELEASED
+  RELEASED
+  FORFEITED
+}
+
+enum ServiceChargeBasis {
+  PROJECT_DEFAULT
+  PHASE_TOTAL_COST
+  DIRECT_EXPENSE
+  SUPPLIER_BILLS
+  SUBCONTRACTOR_BILLS
+  MANUAL
+}
+
 // ─────────────────────────────────────────────
 // TENANT: COMPANY
 // ─────────────────────────────────────────────
 
 model Company {
-  id              String   @id @default(cuid())
-  name            String
-  nameBn          String?  // Bangla name
-  registrationNo  String?
-  address         String?
-  addressBn       String?
-  phone           String?
-  email           String?
-  logoUrl         String?
-  website         String?
-  taxId           String?
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  name           String
+  nameBn         String? // Bangla name
+  registrationNo String?
+  address        String?
+  addressBn      String?
+  phone          String?
+  email          String?
+  logoUrl        String?
+  website        String?
+  taxId          String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Relations
-  users           User[]
-  projects        Project[]
-  suppliers       Supplier[]
-  projectSuppliers ProjectSupplier[]
+  users                 User[]
+  projects              Project[]
+  suppliers             Supplier[]
+  projectSuppliers      ProjectSupplier[]
   projectSubcontractors ProjectSubcontractor[]
-  buyers          Buyer[]
-  settings        CompanySetting[]
-  cashBankAccounts CashBankAccount[]
-  cashBankTransactions CashBankTransaction[]
-  chequeLogs      ChequeLog[]
-  accountTransfers AccountTransfer[]
+  buyers                Buyer[]
+  settings              CompanySetting[]
+  cashBankAccounts      CashBankAccount[]
+  cashBankTransactions  CashBankTransaction[]
+  chequeLogs            ChequeLog[]
+  accountTransfers      AccountTransfer[]
 
   @@map("companies")
 }
 
 model CompanySetting {
-  id          String  @id @default(cuid())
-  companyId   String
-  key         String
-  value       String
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  companyId String
+  key       String
+  value     String
+  updatedAt DateTime @updatedAt
 
-  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, key])
   @@map("company_settings")
@@ -324,30 +347,30 @@ model CompanySetting {
 // ─────────────────────────────────────────────
 
 model User {
-  id            String    @id @default(cuid())
-  companyId     String?
-  name          String
-  nameBn        String?
-  email         String    @unique
-  phone         String?
-  passwordHash  String
-  role          UserRole  @default(VIEWER)
-  isActive      Boolean   @default(true)
-  lastLoginAt   DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  companyId    String?
+  name         String
+  nameBn       String?
+  email        String    @unique
+  phone        String?
+  passwordHash String
+  role         UserRole  @default(VIEWER)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  company         Company?          @relation(fields: [companyId], references: [id])
-  projectAccess   ProjectUserAccess[]
-  auditLogs       AuditLog[]
-  approvals       Approval[]
-  createdExpenses Expense[]         @relation("ExpenseCreatedBy")
-  approvedExpenses Expense[]        @relation("ExpenseApprovedBy")
-  staffAssignments ProjectStaffAssignment[]
-  uploadedDocuments Document[]        @relation("DocumentUploadedBy")
-  createdCashBankTransactions CashBankTransaction[] @relation("CashBankTransactionCreatedBy")
-  reversedCashBankTransactions CashBankTransaction[] @relation("CashBankTransactionReversedBy")
-  createdAccountTransfers AccountTransfer[] @relation("AccountTransferCreatedBy")
+  company                      Company?                 @relation(fields: [companyId], references: [id])
+  projectAccess                ProjectUserAccess[]
+  auditLogs                    AuditLog[]
+  approvals                    Approval[]
+  createdExpenses              Expense[]                @relation("ExpenseCreatedBy")
+  approvedExpenses             Expense[]                @relation("ExpenseApprovedBy")
+  staffAssignments             ProjectStaffAssignment[]
+  uploadedDocuments            Document[]               @relation("DocumentUploadedBy")
+  createdCashBankTransactions  CashBankTransaction[]    @relation("CashBankTransactionCreatedBy")
+  reversedCashBankTransactions CashBankTransaction[]    @relation("CashBankTransactionReversedBy")
+  createdAccountTransfers      AccountTransfer[]        @relation("AccountTransferCreatedBy")
 
   @@map("users")
 }
@@ -371,84 +394,84 @@ model ProjectUserAccess {
 // ─────────────────────────────────────────────
 
 model Project {
-  id              String        @id @default(cuid())
-  companyId       String
-  name            String
-  nameBn          String?
-  code            String?       // e.g. RT-2023
-  address         String?
-  addressBn       String?       // Unicode Bangla address
-  area            String?       // e.g. Kawlar, Dakkhinkhan
-  city            String?       @default("Dhaka")
-  postCode        String?
-  phone           String?       // e.g. 01712553110
-  landSize        String?
-  totalFloors     Int?
-  residentialFloors Int?
-  unitsPerFloor   Int?
-  totalPlannedUnits Int?
-  parkingUtilityNote String?
-  defaultServiceChargePct Decimal? @default(0)
-  notes           String?
-  status          ProjectStatus @default(ACTIVE)
-  startDate       DateTime?
-  expectedEndDate DateTime?
-  actualEndDate   DateTime?
-  description     String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id                      String        @id @default(cuid())
+  companyId               String
+  name                    String
+  nameBn                  String?
+  code                    String? // e.g. RT-2023
+  address                 String?
+  addressBn               String? // Unicode Bangla address
+  area                    String? // e.g. Kawlar, Dakkhinkhan
+  city                    String?       @default("Dhaka")
+  postCode                String?
+  phone                   String? // e.g. 01712553110
+  landSize                String?
+  totalFloors             Int?
+  residentialFloors       Int?
+  unitsPerFloor           Int?
+  totalPlannedUnits       Int?
+  parkingUtilityNote      String?
+  defaultServiceChargePct Decimal?      @default(0)
+  notes                   String?
+  status                  ProjectStatus @default(ACTIVE)
+  startDate               DateTime?
+  expectedEndDate         DateTime?
+  actualEndDate           DateTime?
+  description             String?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
 
-  company         Company              @relation(fields: [companyId], references: [id])
-  lands           Land[]
-  units           Unit[]
-  phases          Phase[]
-  buyers          ProjectBuyer[]
-  userAccess      ProjectUserAccess[]
-  documents       Document[]
-  auditLogs       AuditLog[]
-  supplierPayables SupplierPayable[]
-  projectSuppliers ProjectSupplier[]
+  company               Company                  @relation(fields: [companyId], references: [id])
+  lands                 Land[]
+  units                 Unit[]
+  phases                Phase[]
+  buyers                ProjectBuyer[]
+  userAccess            ProjectUserAccess[]
+  documents             Document[]
+  auditLogs             AuditLog[]
+  supplierPayables      SupplierPayable[]
+  projectSuppliers      ProjectSupplier[]
   projectSubcontractors ProjectSubcontractor[]
-  staffAssignments ProjectStaffAssignment[]
-  cashBankTransactions CashBankTransaction[]
-  chequeLogs       ChequeLog[]
+  staffAssignments      ProjectStaffAssignment[]
+  cashBankTransactions  CashBankTransaction[]
+  chequeLogs            ChequeLog[]
 
   @@map("projects")
 }
 
 model Land {
-  id            String   @id @default(cuid())
-  projectId     String
-  plotNo        String?
-  mouza         String?
-  khatian       String?
-  dag           String?
-  totalArea     Decimal? // in decimal/katha/sqft
-  areaUnit      String?  @default("katha")
-  ownerShares   LandShare[]
-  purchasePrice Decimal?
+  id               String      @id @default(cuid())
+  projectId        String
+  plotNo           String?
+  mouza            String?
+  khatian          String?
+  dag              String?
+  totalArea        Decimal? // in decimal/katha/sqft
+  areaUnit         String?     @default("katha")
+  ownerShares      LandShare[]
+  purchasePrice    Decimal?
   registrationDate DateTime?
   registrationCost Decimal?
-  notes         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  notes            String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
-  project       Project  @relation(fields: [projectId], references: [id])
+  project Project @relation(fields: [projectId], references: [id])
 
   @@map("lands")
 }
 
 model LandShare {
-  id          String  @id @default(cuid())
-  landId      String
-  buyerId     String
+  id           String   @id @default(cuid())
+  landId       String
+  buyerId      String
   sharePercent Decimal
-  shareArea   Decimal?
-  salePrice   Decimal?
-  notes       String?
+  shareArea    Decimal?
+  salePrice    Decimal?
+  notes        String?
 
-  land        Land    @relation(fields: [landId], references: [id])
-  buyer       Buyer   @relation(fields: [buyerId], references: [id])
+  land  Land  @relation(fields: [landId], references: [id])
+  buyer Buyer @relation(fields: [buyerId], references: [id])
 
   @@map("land_shares")
 }
@@ -461,19 +484,19 @@ model Unit {
   id              String     @id @default(cuid())
   projectId       String
   floor           Int?
-  unitNo          String     // e.g. A1, B2, 3rd Floor East
+  unitNo          String // e.g. A1, B2, 3rd Floor East
   unitType        UnitType   @default(FLAT)
   status          UnitStatus @default(AVAILABLE)
   sizesqft        Decimal?
-  facing          String?    // North, South, East, West
-  agreedPrice     Decimal?   // Total sale price
+  facing          String? // North, South, East, West
+  agreedPrice     Decimal? // Total sale price
   registrationFee Decimal?
   utilityCharge   Decimal?
   notes           String?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
-  project         Project    @relation(fields: [projectId], references: [id])
+  project          Project     @relation(fields: [projectId], references: [id])
   buyerAllocations UnitBuyer[]
   demands          Demand[]
   documents        Document[]
@@ -487,13 +510,13 @@ model UnitBuyer {
   buyerId      String
   sharePercent Decimal  @default(100)
   isPrimary    Boolean  @default(true)
-  isPayer       Boolean  @default(true)
-  relationship  String?  @default("OWNER")
-  notes         String?
+  isPayer      Boolean  @default(true)
+  relationship String?  @default("OWNER")
+  notes        String?
   assignedAt   DateTime @default(now())
 
-  unit   Unit  @relation(fields: [unitId], references: [id])
-  buyer  Buyer @relation(fields: [buyerId], references: [id])
+  unit  Unit  @relation(fields: [unitId], references: [id])
+  buyer Buyer @relation(fields: [buyerId], references: [id])
 
   @@unique([unitId, buyerId])
   @@map("unit_buyers")
@@ -504,29 +527,29 @@ model UnitBuyer {
 // ─────────────────────────────────────────────
 
 model Buyer {
-  id           String      @id @default(cuid())
-  companyId    String
-  name         String
-  nameBn       String?
-  fatherName   String?
-  phone        String?
-  phone2       String?
-  email        String?
-  nidNo        String?
-  address      String?
-  addressBn    String?
-  status       BuyerStatus @default(ACTIVE)
-  notes        String?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id         String      @id @default(cuid())
+  companyId  String
+  name       String
+  nameBn     String?
+  fatherName String?
+  phone      String?
+  phone2     String?
+  email      String?
+  nidNo      String?
+  address    String?
+  addressBn  String?
+  status     BuyerStatus @default(ACTIVE)
+  notes      String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 
-  company        Company         @relation(fields: [companyId], references: [id])
-  projectLinks   ProjectBuyer[]
+  company         Company        @relation(fields: [companyId], references: [id])
+  projectLinks    ProjectBuyer[]
   unitAllocations UnitBuyer[]
-  landShares     LandShare[]
-  collections    Collection[]
-  demands        Demand[]
-  documents      Document[]
+  landShares      LandShare[]
+  collections     Collection[]
+  demands         Demand[]
+  documents       Document[]
 
   @@map("buyers")
 }
@@ -550,26 +573,26 @@ model ProjectBuyer {
 // ─────────────────────────────────────────────
 
 model Demand {
-  id           String       @id @default(cuid())
-  unitId       String
-  buyerId      String
-  phaseId      String?
-  demandNo     String?      // e.g. DN-2024-001
-  title        String
-  titleBn      String?
-  amount       Decimal
-  dueDate      DateTime?
-  status       DemandStatus @default(DRAFT)
-  issuedAt     DateTime?
-  notes        String?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  id        String       @id @default(cuid())
+  unitId    String
+  buyerId   String
+  phaseId   String?
+  demandNo  String? // e.g. DN-2024-001
+  title     String
+  titleBn   String?
+  amount    Decimal
+  dueDate   DateTime?
+  status    DemandStatus @default(DRAFT)
+  issuedAt  DateTime?
+  notes     String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
-  unit         Unit         @relation(fields: [unitId], references: [id])
-  buyer        Buyer        @relation(fields: [buyerId], references: [id])
-  phase        Phase?       @relation(fields: [phaseId], references: [id])
-  collections  Collection[]
-  allocations  CollectionAllocation[]
+  unit        Unit                   @relation(fields: [unitId], references: [id])
+  buyer       Buyer                  @relation(fields: [buyerId], references: [id])
+  phase       Phase?                 @relation(fields: [phaseId], references: [id])
+  collections Collection[]
+  allocations CollectionAllocation[]
 
   @@map("demands")
 }
@@ -579,35 +602,35 @@ model Demand {
 // ─────────────────────────────────────────────
 
 model Phase {
-  id            String      @id @default(cuid())
-  projectId     String
-  name          String      // e.g. "Piling", "Basement", "1st Floor Slab"
-  nameBn        String?
-  phaseType     PhaseType   @default(SLAB)
-  floorNo       Int?        // for slab/gathuni phases
-  status        PhaseStatus @default(DRAFT)
-  sequence      Int         @default(0)  // ordering
-  workDesc      String?
-  workDescBn    String?
-  startDate     DateTime?
-  endDate       DateTime?
-  serviceChargePct Decimal? @default(0)  // e.g. 5%
-  notes         String?
-  auditLockedAt DateTime?
-  auditLockedById String?
-  auditLockReason String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id               String      @id @default(cuid())
+  projectId        String
+  name             String // e.g. "Piling", "Basement", "1st Floor Slab"
+  nameBn           String?
+  phaseType        PhaseType   @default(SLAB)
+  floorNo          Int? // for slab/gathuni phases
+  status           PhaseStatus @default(DRAFT)
+  sequence         Int         @default(0) // ordering
+  workDesc         String?
+  workDescBn       String?
+  startDate        DateTime?
+  endDate          DateTime?
+  serviceChargePct Decimal?    @default(0) // e.g. 5%
+  notes            String?
+  auditLockedAt    DateTime?
+  auditLockedById  String?
+  auditLockReason  String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
-  project       Project     @relation(fields: [projectId], references: [id])
-  collections   Collection[]
-  expenses      Expense[]
-  demands       Demand[]
-  materialItems MaterialItem[]
-  approvals     Approval[]
-  supplierPayables SupplierPayable[]
+  project               Project                @relation(fields: [projectId], references: [id])
+  collections           Collection[]
+  expenses              Expense[]
+  demands               Demand[]
+  materialItems         MaterialItem[]
+  approvals             Approval[]
+  supplierPayables      SupplierPayable[]
   projectSubcontractors ProjectSubcontractor[]
-  documents     Document[]
+  documents             Document[]
 
   @@map("phases")
 }
@@ -617,45 +640,45 @@ model Phase {
 // ─────────────────────────────────────────────
 
 model Collection {
-  id              String          @id @default(cuid())
-  phaseId         String
-  buyerId         String
-  demandId        String?
-  accountId       String?
-  receiptNo       String?         // e.g. RCP-2024-001
-  amount          Decimal
-  paymentMethod   PaymentMethod   @default(CASH)
-  transactionType TransactionType @default(COLLECTION)
-  chequeNo        String?
-  chequeDate      DateTime?
-  bankName        String?
-  chequeBranchName String?
+  id                 String          @id @default(cuid())
+  phaseId            String
+  buyerId            String
+  demandId           String?
+  accountId          String?
+  receiptNo          String? // e.g. RCP-2024-001
+  amount             Decimal
+  paymentMethod      PaymentMethod   @default(CASH)
+  transactionType    TransactionType @default(COLLECTION)
+  chequeNo           String?
+  chequeDate         DateTime?
+  bankName           String?
+  chequeBranchName   String?
   chequeMaturityDate DateTime?
-  reference       String?
-  receivedDate    DateTime        @default(now())
-  notes           String?
-  status          String          @default("APPROVED")
-  reversedAt      DateTime?
-  reversedById    String?
-  reversalReason  String?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  reference          String?
+  receivedDate       DateTime        @default(now())
+  notes              String?
+  status             String          @default("APPROVED")
+  reversedAt         DateTime?
+  reversedById       String?
+  reversalReason     String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
 
-  phase   Phase   @relation(fields: [phaseId], references: [id])
-  buyer   Buyer   @relation(fields: [buyerId], references: [id])
-  demand  Demand? @relation(fields: [demandId], references: [id])
-  account CashBankAccount? @relation(fields: [accountId], references: [id])
+  phase       Phase                  @relation(fields: [phaseId], references: [id])
+  buyer       Buyer                  @relation(fields: [buyerId], references: [id])
+  demand      Demand?                @relation(fields: [demandId], references: [id])
+  account     CashBankAccount?       @relation(fields: [accountId], references: [id])
   allocations CollectionAllocation[]
 
   @@map("collections")
 }
 
 model CollectionAllocation {
-  id           String     @id @default(cuid())
+  id           String   @id @default(cuid())
   collectionId String
   demandId     String
   amount       Decimal
-  createdAt    DateTime   @default(now())
+  createdAt    DateTime @default(now())
 
   collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   demand     Demand     @relation(fields: [demandId], references: [id], onDelete: Cascade)
@@ -670,48 +693,48 @@ model CollectionAllocation {
 // ─────────────────────────────────────────────
 
 model Expense {
-  id            String          @id @default(cuid())
-  phaseId       String
-  supplierId    String?
-  accountId     String?
-  category      ExpenseCategory
-  description   String
-  descriptionBn String?
-  amount        Decimal
-  paymentMethod PaymentMethod    @default(CASH)
-  supplierMode  String?          @default("NO_SUPPLIER")
-  localShopName String?
-  localShopPhone String?
-  quantity      Decimal?
-  unit          String?         // kg, bags, cft, trucks, etc.
-  unitPrice     Decimal?
-  status        ExpenseStatus   @default(PENDING_APPROVAL)
-  expenseDate   DateTime        @default(now())
-  billNo        String?
-  referenceNo   String?
-  chequeNo      String?
-  chequeDate    DateTime?
-  chequeBankName String?
-  chequeBranchName String?
+  id                 String          @id @default(cuid())
+  phaseId            String
+  supplierId         String?
+  accountId          String?
+  category           ExpenseCategory
+  description        String
+  descriptionBn      String?
+  amount             Decimal
+  paymentMethod      PaymentMethod   @default(CASH)
+  supplierMode       String?         @default("NO_SUPPLIER")
+  localShopName      String?
+  localShopPhone     String?
+  quantity           Decimal?
+  unit               String? // kg, bags, cft, trucks, etc.
+  unitPrice          Decimal?
+  status             ExpenseStatus   @default(PENDING_APPROVAL)
+  expenseDate        DateTime        @default(now())
+  billNo             String?
+  referenceNo        String?
+  chequeNo           String?
+  chequeDate         DateTime?
+  chequeBankName     String?
+  chequeBranchName   String?
   chequeMaturityDate DateTime?
-  payableId     String?
-  createdById   String
-  approvedById  String?
-  approvedAt    DateTime?
-  notes         String?
-  reversedAt    DateTime?
-  reversedById  String?
-  reversalReason String?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  payableId          String?
+  createdById        String
+  approvedById       String?
+  approvedAt         DateTime?
+  notes              String?
+  reversedAt         DateTime?
+  reversedById       String?
+  reversalReason     String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
 
-  phase       Phase      @relation(fields: [phaseId], references: [id])
-  supplier    Supplier?  @relation(fields: [supplierId], references: [id])
-  account     CashBankAccount? @relation(fields: [accountId], references: [id])
-  createdBy   User       @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
-  approvedBy  User?      @relation("ExpenseApprovedBy", fields: [approvedById], references: [id])
-  payable     SupplierPayable? @relation(fields: [payableId], references: [id])
-  documents   Document[]
+  phase      Phase            @relation(fields: [phaseId], references: [id])
+  supplier   Supplier?        @relation(fields: [supplierId], references: [id])
+  account    CashBankAccount? @relation(fields: [accountId], references: [id])
+  createdBy  User             @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
+  approvedBy User?            @relation("ExpenseApprovedBy", fields: [approvedById], references: [id])
+  payable    SupplierPayable? @relation(fields: [payableId], references: [id])
+  documents  Document[]
 
   @@map("expenses")
 }
@@ -728,7 +751,7 @@ model MaterialItem {
   description   String
   descriptionBn String?
   quantity      Decimal
-  unit          String          // kg, bag, cft, pcs, truck, etc.
+  unit          String // kg, bag, cft, pcs, truck, etc.
   unitPrice     Decimal
   totalAmount   Decimal
   purchaseDate  DateTime        @default(now())
@@ -748,27 +771,27 @@ model MaterialItem {
 // ─────────────────────────────────────────────
 
 model Supplier {
-  id           String       @id @default(cuid())
-  companyId    String
-  name         String
-  nameBn       String?
-  supplierType SupplierType @default(MATERIAL_SUPPLIER)
-  phone        String?
-  email        String?
-  address      String?
+  id            String       @id @default(cuid())
+  companyId     String
+  name          String
+  nameBn        String?
+  supplierType  SupplierType @default(MATERIAL_SUPPLIER)
+  phone         String?
+  email         String?
+  address       String?
   contactPerson String?
-  bankName     String?
-  bankAccount  String?
-  notes        String?
-  isActive     Boolean      @default(true)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  bankName      String?
+  bankAccount   String?
+  notes         String?
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
-  company    Company           @relation(fields: [companyId], references: [id])
-  expenses   Expense[]
-  materials  MaterialItem[]
-  payables   SupplierPayable[]
-  projectSuppliers ProjectSupplier[]
+  company               Company                @relation(fields: [companyId], references: [id])
+  expenses              Expense[]
+  materials             MaterialItem[]
+  payables              SupplierPayable[]
+  projectSuppliers      ProjectSupplier[]
   projectSubcontractors ProjectSubcontractor[]
 
   @@map("suppliers")
@@ -809,28 +832,28 @@ model ProjectSupplier {
 }
 
 model ProjectSubcontractor {
-  id               String              @id @default(cuid())
-  companyId        String
-  projectId        String
-  supplierId       String
-  workType         String
-  assignedPhaseId  String?
-  contractAmount   Decimal?
-  extraWorkAmount  Decimal             @default(0)
-  paymentTerms     String?
-  contractNo       String?
-  contractDate     DateTime?
-  startDate        DateTime?
-  deadline         DateTime?
-  status           ProjectVendorStatus @default(ACTIVE)
-  notes            String?
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
+  id              String              @id @default(cuid())
+  companyId       String
+  projectId       String
+  supplierId      String
+  workType        String
+  assignedPhaseId String?
+  contractAmount  Decimal?
+  extraWorkAmount Decimal             @default(0)
+  paymentTerms    String?
+  contractNo      String?
+  contractDate    DateTime?
+  startDate       DateTime?
+  deadline        DateTime?
+  status          ProjectVendorStatus @default(ACTIVE)
+  notes           String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 
-  company       Company              @relation(fields: [companyId], references: [id])
-  project       Project              @relation(fields: [projectId], references: [id])
-  supplier      Supplier             @relation(fields: [supplierId], references: [id])
-  assignedPhase Phase?               @relation(fields: [assignedPhaseId], references: [id])
+  company       Company           @relation(fields: [companyId], references: [id])
+  project       Project           @relation(fields: [projectId], references: [id])
+  supplier      Supplier          @relation(fields: [supplierId], references: [id])
+  assignedPhase Phase?            @relation(fields: [assignedPhaseId], references: [id])
   documents     Document[]
   payables      SupplierPayable[]
 
@@ -840,35 +863,52 @@ model ProjectSubcontractor {
 }
 
 model SupplierPayable {
-  id           String        @id @default(cuid())
-  supplierId   String
-  projectId    String        // required — every bill belongs to a project
-  phaseId      String?       // optional — bill may be project-general
-  projectSupplierId String?
-  projectSubcontractorId String?
-  billNo       String?
-  billDate     DateTime
-  totalAmount  Decimal
-  paidAmount   Decimal       @default(0)
-  dueAmount    Decimal
-  dueDate      DateTime?
-  status       PayableStatus @default(UNPAID)
-  notes        String?
-  reversedAt   DateTime?
-  reversedById String?
-  reversalReason String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id                      String              @id @default(cuid())
+  supplierId              String
+  projectId               String // required — every bill belongs to a project
+  phaseId                 String? // optional — bill may be project-general
+  projectSupplierId       String?
+  projectSubcontractorId  String?
+  billNo                  String?
+  billDate                DateTime
+  totalAmount             Decimal
+  vatPct                  Decimal?            @default(0)
+  vatAmount               Decimal             @default(0)
+  aitTdsPct               Decimal?            @default(0)
+  aitTdsAmount            Decimal             @default(0)
+  otherDeductionAmount    Decimal             @default(0)
+  deductionReference      String?
+  deductionNote           String?
+  retentionType           RetentionType       @default(NONE)
+  retentionPct            Decimal?            @default(0)
+  retentionAmount         Decimal             @default(0)
+  retentionReleaseDate    DateTime?
+  retentionStatus         RetentionStatus     @default(NOT_APPLICABLE)
+  retentionReleasedAmount Decimal             @default(0)
+  serviceChargeBasis      ServiceChargeBasis?
+  serviceChargeAmount     Decimal             @default(0)
+  includedInBuyerDemand   Boolean             @default(false)
+  netPayableAmount        Decimal?
+  paidAmount              Decimal             @default(0)
+  dueAmount               Decimal
+  dueDate                 DateTime?
+  status                  PayableStatus       @default(UNPAID)
+  notes                   String?
+  reversedAt              DateTime?
+  reversedById            String?
+  reversalReason          String?
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
 
-  supplier  Supplier          @relation(fields: [supplierId], references: [id])
-  project   Project           @relation(fields: [projectId], references: [id])
-  phase     Phase?            @relation(fields: [phaseId], references: [id])
-  projectSupplier ProjectSupplier? @relation(fields: [projectSupplierId], references: [id])
+  supplier             Supplier              @relation(fields: [supplierId], references: [id])
+  project              Project               @relation(fields: [projectId], references: [id])
+  phase                Phase?                @relation(fields: [phaseId], references: [id])
+  projectSupplier      ProjectSupplier?      @relation(fields: [projectSupplierId], references: [id])
   projectSubcontractor ProjectSubcontractor? @relation(fields: [projectSubcontractorId], references: [id])
-  payments  SupplierPayment[]
-  expenses  Expense[]
-  billItems SupplierBillItem[]
-  documents Document[]
+  payments             SupplierPayment[]
+  expenses             Expense[]
+  billItems            SupplierBillItem[]
+  documents            Document[]
 
   @@index([projectSupplierId])
   @@index([projectSubcontractorId])
@@ -886,40 +926,40 @@ model SupplierBillItem {
   amount      Decimal
   createdAt   DateTime        @default(now())
 
-  payable     SupplierPayable @relation(fields: [payableId], references: [id], onDelete: Cascade)
+  payable SupplierPayable @relation(fields: [payableId], references: [id], onDelete: Cascade)
 
   @@map("supplier_bill_items")
 }
 
 model SupplierPayment {
-  id            String        @id @default(cuid())
-  payableId     String
-  accountId     String?
-  amount        Decimal
-  paymentMethod PaymentMethod @default(BANK_TRANSFER)
-  chequeNo      String?
-  chequeDate    DateTime?
-  bankName      String?
-  chequeBranchName String?
+  id                 String        @id @default(cuid())
+  payableId          String
+  accountId          String?
+  amount             Decimal
+  paymentMethod      PaymentMethod @default(BANK_TRANSFER)
+  chequeNo           String?
+  chequeDate         DateTime?
+  bankName           String?
+  chequeBranchName   String?
   chequeMaturityDate DateTime?
-  reference     String?
-  paidAt        DateTime      @default(now())
-  notes         String?
-  status        String        @default("CLEARED")
-  chequeStatus  String?
-  reversedAt    DateTime?
-  reversedById  String?
-  reversalReason String?
-  createdAt     DateTime      @default(now())
+  reference          String?
+  paidAt             DateTime      @default(now())
+  notes              String?
+  status             String        @default("CLEARED")
+  chequeStatus       String?
+  reversedAt         DateTime?
+  reversedById       String?
+  reversalReason     String?
+  createdAt          DateTime      @default(now())
 
-  payable SupplierPayable @relation(fields: [payableId], references: [id])
+  payable SupplierPayable  @relation(fields: [payableId], references: [id])
   account CashBankAccount? @relation(fields: [accountId], references: [id])
 
   @@map("supplier_payments")
 }
 
 model CashBankAccount {
-  id                String                @id @default(cuid())
+  id                String                 @id @default(cuid())
   companyId         String
   name              String
   type              CashBankAccountType
@@ -928,50 +968,50 @@ model CashBankAccount {
   accountNumber     String?
   accountHolderName String?
   mobileProvider    MobileBankingProvider?
-  openingBalance    Decimal               @default(0)
-  currency          String                @default("BDT")
-  isDefault         Boolean               @default(false)
-  isActive          Boolean               @default(true)
+  openingBalance    Decimal                @default(0)
+  currency          String                 @default("BDT")
+  isDefault         Boolean                @default(false)
+  isActive          Boolean                @default(true)
   notes             String?
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
 
-  company      Company               @relation(fields: [companyId], references: [id])
-  collections  Collection[]
-  expenses     Expense[]
-  supplierPayments SupplierPayment[]
-  transactions CashBankTransaction[]
-  cheques      ChequeLog[]
-  outgoingTransfers AccountTransfer[] @relation("AccountTransferFrom")
-  incomingTransfers AccountTransfer[] @relation("AccountTransferTo")
+  company           Company               @relation(fields: [companyId], references: [id])
+  collections       Collection[]
+  expenses          Expense[]
+  supplierPayments  SupplierPayment[]
+  transactions      CashBankTransaction[]
+  cheques           ChequeLog[]
+  outgoingTransfers AccountTransfer[]     @relation("AccountTransferFrom")
+  incomingTransfers AccountTransfer[]     @relation("AccountTransferTo")
 
   @@index([companyId, isActive])
   @@map("cash_bank_accounts")
 }
 
 model CashBankTransaction {
-  id             String                    @id @default(cuid())
-  companyId      String
-  projectId      String?
-  accountId      String
-  type           CashBankTransactionType
-  sourceType     CashBankSourceType
-  sourceId       String?
-  partyType      CashBankPartyType?
-  partyId        String?
-  partyName      String?
-  amount         Decimal
+  id              String                    @id @default(cuid())
+  companyId       String
+  projectId       String?
+  accountId       String
+  type            CashBankTransactionType
+  sourceType      CashBankSourceType
+  sourceId        String?
+  partyType       CashBankPartyType?
+  partyId         String?
+  partyName       String?
+  amount          Decimal
   transactionDate DateTime
-  paymentMethod  PaymentMethod            @default(CASH)
-  referenceNo    String?
-  description    String?
-  status         CashBankTransactionStatus @default(POSTED)
-  createdById    String?
-  reversedAt     DateTime?
-  reversedById   String?
-  reversalReason String?
-  createdAt      DateTime                 @default(now())
-  updatedAt      DateTime                 @updatedAt
+  paymentMethod   PaymentMethod             @default(CASH)
+  referenceNo     String?
+  description     String?
+  status          CashBankTransactionStatus @default(POSTED)
+  createdById     String?
+  reversedAt      DateTime?
+  reversedById    String?
+  reversalReason  String?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
 
   company    Company         @relation(fields: [companyId], references: [id])
   project    Project?        @relation(fields: [projectId], references: [id])
@@ -986,36 +1026,36 @@ model CashBankTransaction {
 }
 
 model ChequeLog {
-  id                String        @id @default(cuid())
-  companyId         String
-  projectId         String?
-  accountId         String?
-  chequeType        ChequeType
-  chequeNo          String
-  bankName          String
-  branchName        String?
-  chequeDate        DateTime
-  maturityDate      DateTime?
-  amount            Decimal
-  partyType         CashBankPartyType
-  partyId           String?
-  partyName         String?
-  sourceType        CashBankSourceType
-  sourceId          String?
-  status            ChequeStatus  @default(PENDING)
-  clearedDate       DateTime?
-  bouncedDate       DateTime?
-  cancelledDate     DateTime?
+  id                  String             @id @default(cuid())
+  companyId           String
+  projectId           String?
+  accountId           String?
+  chequeType          ChequeType
+  chequeNo            String
+  bankName            String
+  branchName          String?
+  chequeDate          DateTime
+  maturityDate        DateTime?
+  amount              Decimal
+  partyType           CashBankPartyType
+  partyId             String?
+  partyName           String?
+  sourceType          CashBankSourceType
+  sourceId            String?
+  status              ChequeStatus       @default(PENDING)
+  clearedDate         DateTime?
+  bouncedDate         DateTime?
+  cancelledDate       DateTime?
   replacementChequeId String?
-  notes             String?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  notes               String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
 
-  company          Company          @relation(fields: [companyId], references: [id])
-  project          Project?         @relation(fields: [projectId], references: [id])
-  account          CashBankAccount? @relation(fields: [accountId], references: [id])
-  replacementCheque ChequeLog?      @relation("ChequeReplacement", fields: [replacementChequeId], references: [id])
-  replacedBy       ChequeLog[]      @relation("ChequeReplacement")
+  company           Company          @relation(fields: [companyId], references: [id])
+  project           Project?         @relation(fields: [projectId], references: [id])
+  account           CashBankAccount? @relation(fields: [accountId], references: [id])
+  replacementCheque ChequeLog?       @relation("ChequeReplacement", fields: [replacementChequeId], references: [id])
+  replacedBy        ChequeLog[]      @relation("ChequeReplacement")
 
   @@index([companyId, status])
   @@index([projectId, status])
@@ -1051,37 +1091,37 @@ model AccountTransfer {
 // ─────────────────────────────────────────────
 
 model Document {
-  id          String   @id @default(cuid())
-  projectId   String?
-  buyerId     String?
-  unitId      String?
-  phaseId     String?
-  expenseId   String?
-  payableId   String?
-  projectSupplierId String?
+  id                     String         @id @default(cuid())
+  projectId              String?
+  buyerId                String?
+  unitId                 String?
+  phaseId                String?
+  expenseId              String?
+  payableId              String?
+  projectSupplierId      String?
   projectSubcontractorId String?
-  uploadedById String?
-  title       String?
-  category    String?
-  scope       DocumentScope @default(PROJECT)
-  status      DocumentStatus @default(DRAFT)
-  sortOrder   Int      @default(0)
-  fileName    String
-  fileUrl     String
-  fileType    String?
-  fileSize    Int?
-  description String?
-  uploadedAt  DateTime @default(now())
+  uploadedById           String?
+  title                  String?
+  category               String?
+  scope                  DocumentScope  @default(PROJECT)
+  status                 DocumentStatus @default(DRAFT)
+  sortOrder              Int            @default(0)
+  fileName               String
+  fileUrl                String
+  fileType               String?
+  fileSize               Int?
+  description            String?
+  uploadedAt             DateTime       @default(now())
 
-  project Project? @relation(fields: [projectId], references: [id])
-  buyer   Buyer?   @relation(fields: [buyerId], references: [id])
-  unit    Unit?    @relation(fields: [unitId], references: [id])
-  phase   Phase?   @relation(fields: [phaseId], references: [id])
-  expense Expense? @relation(fields: [expenseId], references: [id])
-  payable SupplierPayable? @relation(fields: [payableId], references: [id])
-  projectSupplier ProjectSupplier? @relation(fields: [projectSupplierId], references: [id])
+  project              Project?              @relation(fields: [projectId], references: [id])
+  buyer                Buyer?                @relation(fields: [buyerId], references: [id])
+  unit                 Unit?                 @relation(fields: [unitId], references: [id])
+  phase                Phase?                @relation(fields: [phaseId], references: [id])
+  expense              Expense?              @relation(fields: [expenseId], references: [id])
+  payable              SupplierPayable?      @relation(fields: [payableId], references: [id])
+  projectSupplier      ProjectSupplier?      @relation(fields: [projectSupplierId], references: [id])
   projectSubcontractor ProjectSubcontractor? @relation(fields: [projectSubcontractorId], references: [id])
-  uploadedBy User? @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+  uploadedBy           User?                 @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
 
   @@index([projectId, scope])
   @@index([buyerId])
@@ -1091,7 +1131,6 @@ model Document {
   @@index([payableId])
   @@index([projectSupplierId])
   @@index([projectSubcontractorId])
-
   @@map("documents")
 }
 
@@ -1100,19 +1139,19 @@ model Document {
 // ─────────────────────────────────────────────
 
 model Approval {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   phaseId     String?
-  entityType  String   // "expense" | "phase" | "demand"
+  entityType  String // "expense" | "phase" | "demand"
   entityId    String
-  status      String   // "pending" | "approved" | "rejected"
+  status      String // "pending" | "approved" | "rejected"
   requestedBy String
   reviewedBy  String?
   reviewNote  String?
-  requestedAt DateTime @default(now())
+  requestedAt DateTime  @default(now())
   reviewedAt  DateTime?
 
-  phase      Phase? @relation(fields: [phaseId], references: [id])
-  reviewer   User?  @relation(fields: [reviewedBy], references: [id])
+  phase    Phase? @relation(fields: [phaseId], references: [id])
+  reviewer User?  @relation(fields: [reviewedBy], references: [id])
 
   @@map("approvals")
 }
@@ -1122,13 +1161,13 @@ model Approval {
 // ─────────────────────────────────────────────
 
 enum ProjectStaffRole {
-  PROJECT_MANAGER     // Full access within assigned project
-  SITE_ENGINEER       // Phases, expenses, material receipts
-  SITE_SUPERVISOR     // Expenses only, no approvals
-  ACCOUNTS_OFFICER    // Collections, expenses, suppliers, reports
-  COLLECTION_OFFICER  // Collections and due follow-up only
-  DOCUMENT_OFFICER    // Uploads and documents only
-  AUDITOR             // Read-only + audit lock ability
+  PROJECT_MANAGER // Full access within assigned project
+  SITE_ENGINEER // Phases, expenses, material receipts
+  SITE_SUPERVISOR // Expenses only, no approvals
+  ACCOUNTS_OFFICER // Collections, expenses, suppliers, reports
+  COLLECTION_OFFICER // Collections and due follow-up only
+  DOCUMENT_OFFICER // Uploads and documents only
+  AUDITOR // Read-only + audit lock ability
 }
 
 model ProjectStaffAssignment {
@@ -1160,7 +1199,7 @@ model AuditLog {
   userId     String?
   projectId  String?
   action     AuditAction
-  entityType String      // "expense" | "collection" | "phase" | "buyer" etc.
+  entityType String // "expense" | "collection" | "phase" | "buyer" etc.
   entityId   String?
   oldValues  Json?
   newValues  Json?

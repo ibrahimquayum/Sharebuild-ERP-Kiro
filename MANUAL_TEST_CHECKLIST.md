@@ -118,6 +118,22 @@ Login: `admin@relaxdevelopers.com` / `admin123`
 - [ ] Phase audit lock through `POST /api/phases/[id]/audit-lock` blocks new demand, collection, expense, bulk expense, supplier bill, and supplier payment writes for that phase.
 - [ ] Supplier bill line-item total must equal bill total.
 - [ ] Cheque supplier payment stores cheque/payment status.
+
+## L. Finance Completion
+
+- [ ] Supplier bill form accepts VAT/AIT-TDS/other deduction values and saves them on the bill detail page.
+- [ ] Subcontractor bill form accepts VAT/AIT-TDS plus retention/security values and saves them on the bill detail page.
+- [ ] `/company/accounts/transfers` opens.
+- [ ] `/company/accounts/transfers/new` posts a transfer between two different accounts.
+- [ ] Transfer creates matching `TRANSFER_OUT` and `TRANSFER_IN` treasury rows.
+- [ ] Cheque-backed collection creates a pending cheque register row and treasury row stays pending until cleared.
+- [ ] Marking a received cheque cleared posts the treasury inflow.
+- [ ] Marking a received cheque bounced or cancelled reverses the collection effect and restores buyer due.
+- [ ] Marking an issued supplier/subcontractor cheque bounced or cancelled restores payable.
+- [ ] `/projects/[id]/reports/tax-deductions` opens and shows real bill data when deductions exist.
+- [ ] `/projects/[id]/reports/retention` opens and shows real bill data when retention exists.
+- [ ] `/projects/[id]/finance/final-reconciliation` opens and shows ownership-based preview amounts.
+- [ ] CSV export works for cash/bank book, cheque register, tax/deduction report, retention report, and final reconciliation preview.
 - [ ] `/projects/[id]/finance` shows buyer receivable, buyer advance, approved expenses, pending expenses, and phase carry-forward.
 - [ ] Top Sheet still verifies:
   - Income: 100,143,800

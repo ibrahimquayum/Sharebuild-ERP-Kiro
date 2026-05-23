@@ -18,6 +18,11 @@ const reports = [
   { title: 'Expense Report', href: 'expense-report', status: 'Foundation' },
   { title: 'Supplier Ledger', href: 'supplier-ledger', status: 'Foundation' },
   { title: 'Subcontractor Ledger', href: 'subcontractor-ledger', status: 'Foundation' },
+  { title: 'Cash / Bank Book', href: 'cash-bank-book', status: 'Ready' },
+  { title: 'Cheque Register', href: 'cheque-register', status: 'Ready' },
+  { title: 'Tax / Deduction Report', href: 'tax-deductions', status: 'Ready' },
+  { title: 'Retention Report', href: 'retention', status: 'Ready' },
+  { title: 'Final Reconciliation', href: 'final-reconciliation', status: 'Ready' },
   { title: 'Due Report', href: 'due-report', status: 'Foundation' },
   { title: 'Audit Report', href: 'audit-report', status: 'Foundation' },
 ];

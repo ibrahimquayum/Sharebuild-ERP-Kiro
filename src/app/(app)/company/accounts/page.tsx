@@ -22,6 +22,10 @@ export default async function CompanyAccountsPage() {
     <div className="space-y-5 p-5">
       <Header title="Cash & Bank Accounts" />
       <PageHeader title="Accounts / Cash & Bank" subtitle="Company-level accounts used for collections, direct expenses, and supplier or subcontractor payments." action={{ label: 'New Account', href: '/company/accounts/new' }} />
+      <div className="flex gap-4 text-xs">
+        <Link href="/company/accounts/transfers" className="text-primary hover:underline">View account transfers</Link>
+        <Link href="/company/cheques" className="text-primary hover:underline">Open cheque register</Link>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Active Accounts</div><div className="mt-1 text-lg font-bold">{accounts.filter((account) => account.isActive).length}</div></CardContent></Card>

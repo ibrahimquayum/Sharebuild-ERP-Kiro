@@ -4,6 +4,7 @@ import { getProjectCashBankSummary } from '@/lib/cash-bank';
 
 export async function getProjectFinanceSummary(projectId: string) {
   const [
+    project,
     demandAgg,
     collectionAgg,
     approvedExpenseAgg,
@@ -12,10 +13,16 @@ export async function getProjectFinanceSummary(projectId: string) {
     assignedSubcontractorCount,
     supplierPayableAgg,
     subcontractorPayableAgg,
+    taxDeductionAgg,
+    retentionAgg,
     allocationAgg,
     pendingApprovalCount,
     missingVoucherCount,
   ] = await Promise.all([
+    prisma.project.findUnique({
+      where: { id: projectId },
+      select: { id: true, defaultServiceChargePct: true },
+    }),
     prisma.demand.aggregate({
       where: { unit: { projectId }, status: { not: 'CANCELLED' } },
       _sum: { amount: true },
@@ -54,6 +61,14 @@ export async function getProjectFinanceSummary(projectId: string) {
       },
       _sum: { dueAmount: true, totalAmount: true, paidAmount: true },
     }),
+    prisma.supplierPayable.aggregate({
+      where: { projectId, reversedAt: null },
+      _sum: { vatAmount: true, aitTdsAmount: true, otherDeductionAmount: true },
+    }),
+    prisma.supplierPayable.aggregate({
+      where: { projectId, reversedAt: null },
+      _sum: { retentionAmount: true, retentionReleasedAmount: true },
+    }),
     prisma.collectionAllocation.aggregate({
       where: { demand: { unit: { projectId } }, collection: { status: { not: 'REVERSED' } } },
       _sum: { amount: true },
@@ -80,6 +95,8 @@ export async function getProjectFinanceSummary(projectId: string) {
   const supplierBillCost = Number(supplierPayableAgg._sum.totalAmount ?? 0);
   const subcontractorBillCost = Number(subcontractorPayableAgg._sum.totalAmount ?? 0);
   const projectCostTotal = directExpenseTotal + supplierBillCost + subcontractorBillCost;
+  const taxDeductionTotal = Number(taxDeductionAgg._sum.vatAmount ?? 0) + Number(taxDeductionAgg._sum.aitTdsAmount ?? 0) + Number(taxDeductionAgg._sum.otherDeductionAmount ?? 0);
+  const retentionHeld = Math.max(Number(retentionAgg._sum.retentionAmount ?? 0) - Number(retentionAgg._sum.retentionReleasedAmount ?? 0), 0);
   const supplierPaid = Number(supplierPayableAgg._sum.paidAmount ?? 0);
   const subcontractorPaid = Number(subcontractorPayableAgg._sum.paidAmount ?? 0);
   const allocatedToDemand = Number(allocationAgg._sum.amount ?? 0);
@@ -95,6 +112,7 @@ export async function getProjectFinanceSummary(projectId: string) {
   const pendingIssuedCheques = cashBankSummary?.totals.pendingIssuedCheques ?? 0;
   const bouncedCheques = cashBankSummary?.totals.bouncedCheques ?? 0;
   const accountsUsed = cashBankSummary?.accountsUsed ?? [];
+  const serviceChargeAccrued = phaseBalances.reduce((sum, row) => sum + row.serviceCharge, 0);
 
   return {
     totalDemanded,
@@ -105,6 +123,9 @@ export async function getProjectFinanceSummary(projectId: string) {
     totalExpense: projectCostTotal,
     directExpenseTotal,
     pendingExpense,
+    taxDeductionTotal,
+    retentionHeld,
+    serviceChargeAccrued,
     supplierPayable,
     subcontractorPayable,
     projectBalance: totalCollected - projectCostTotal,
@@ -134,11 +155,17 @@ export async function getProjectFinanceSummary(projectId: string) {
 }
 
 export async function getProjectPhaseBalances(projectId: string) {
-  const phases = await prisma.phase.findMany({
-    where: { projectId, status: { notIn: ['CANCELLED', 'DUPLICATE'] } },
-    select: { id: true, name: true, sequence: true, auditLockedAt: true },
-    orderBy: [{ sequence: 'asc' }, { createdAt: 'asc' }],
-  });
+  const [project, phases] = await Promise.all([
+    prisma.project.findUnique({
+      where: { id: projectId },
+      select: { defaultServiceChargePct: true },
+    }),
+    prisma.phase.findMany({
+      where: { projectId, status: { notIn: ['CANCELLED', 'DUPLICATE'] } },
+      select: { id: true, name: true, sequence: true, auditLockedAt: true, serviceChargePct: true },
+      orderBy: [{ sequence: 'asc' }, { createdAt: 'asc' }],
+    }),
+  ]);
 
   let carryIn = 0;
   const rows = [];
@@ -155,6 +182,8 @@ export async function getProjectPhaseBalances(projectId: string) {
     const expense = Number(expenseAgg._sum.amount ?? 0);
     const supplierBill = Number(supplierAgg._sum.totalAmount ?? 0);
     const subcontractorBill = Number(subcontractorAgg._sum.totalAmount ?? 0);
+    const serviceChargePct = Number(phase.serviceChargePct ?? project?.defaultServiceChargePct ?? 0);
+    const serviceCharge = Number((((expense + supplierBill + subcontractorBill) * serviceChargePct) / 100).toFixed(2));
     const balance = collection + carryIn - expense - supplierBill - subcontractorBill;
     rows.push({
       phaseId: phase.id,
@@ -166,6 +195,8 @@ export async function getProjectPhaseBalances(projectId: string) {
       expense,
       supplierBill,
       subcontractorBill,
+      serviceChargePct,
+      serviceCharge,
       carryIn,
       balance,
       carryOut: balance,
@@ -173,4 +204,70 @@ export async function getProjectPhaseBalances(projectId: string) {
     carryIn = balance;
   }
   return rows;
+}
+
+export async function getFinalReconciliationPreview(projectId: string) {
+  const [summary, project, allocations] = await Promise.all([
+    getProjectFinanceSummary(projectId),
+    prisma.project.findUnique({
+      where: { id: projectId },
+      select: { id: true, name: true, code: true, defaultServiceChargePct: true },
+    }),
+    prisma.unitBuyer.findMany({
+      where: { unit: { projectId } },
+      include: {
+        buyer: { select: { id: true, name: true, phone: true } },
+        unit: { select: { id: true, unitNo: true } },
+      },
+      orderBy: [{ buyerId: 'asc' }],
+    }),
+  ]);
+
+  if (!project) return null;
+
+  const finalSurplusDeficit = summary.projectBalance - summary.serviceChargeAccrued;
+  const totals = allocations.reduce<Record<string, {
+    buyerId: string;
+    buyerName: string;
+    units: string[];
+    weight: number;
+  }>>((map, allocation) => {
+    const existing = map[allocation.buyerId] ?? {
+      buyerId: allocation.buyerId,
+      buyerName: allocation.buyer.name,
+      units: [],
+      weight: 0,
+    };
+    existing.units.push(`${allocation.unit.unitNo} (${Number(allocation.sharePercent)}%)`);
+    existing.weight += Number(allocation.sharePercent) / 100;
+    map[allocation.buyerId] = existing;
+    return map;
+  }, {});
+
+  const totalWeight = Object.values(totals).reduce((sum, row) => sum + row.weight, 0) || 1;
+  const absValue = Math.abs(finalSurplusDeficit);
+  const direction = finalSurplusDeficit < 0 ? 'DEFICIT' : finalSurplusDeficit > 0 ? 'SURPLUS' : 'BALANCED';
+
+  const distribution = Object.values(totals).map((row) => ({
+    buyerId: row.buyerId,
+    buyerName: row.buyerName,
+    units: row.units.join(', '),
+    weight: row.weight,
+    sharePercent: Number(((row.weight / totalWeight) * 100).toFixed(2)),
+    amount: Number(((absValue * row.weight) / totalWeight).toFixed(2)),
+  })).sort((a, b) => b.weight - a.weight || a.buyerName.localeCompare(b.buyerName));
+
+  return {
+    project,
+    summary,
+    direction,
+    finalSurplusDeficit,
+    recommendation:
+      direction === 'DEFICIT'
+        ? 'Collect a final reconciliation demand after review.'
+        : direction === 'SURPLUS'
+          ? 'Review refund or buyer adjustment options before posting.'
+          : 'No reconciliation demand is needed.',
+    distribution,
+  };
 }

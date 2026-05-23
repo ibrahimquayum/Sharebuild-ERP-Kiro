@@ -49,8 +49,12 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
     { label: 'Cash / Bank Book', href: `/projects/${project.id}/finance/cash-bank`, icon: CircleDollarSign },
     { label: 'Cheque Register', href: `/projects/${project.id}/finance/cheques`, icon: CreditCard },
     { label: 'Company Accounts', href: '/company/accounts', icon: CircleDollarSign },
+    { label: 'Account Transfers', href: '/company/accounts/transfers', icon: CircleDollarSign },
     { label: 'Supplier Ledger', href: `/projects/${project.id}/reports/supplier-ledger`, icon: FileText },
     { label: 'Subcontractor Ledger', href: `/projects/${project.id}/reports/subcontractor-ledger`, icon: FileText },
+    { label: 'Tax / Deduction Report', href: `/projects/${project.id}/reports/tax-deductions`, icon: FileText },
+    { label: 'Retention Report', href: `/projects/${project.id}/reports/retention`, icon: FileText },
+    { label: 'Final Reconciliation', href: `/projects/${project.id}/finance/final-reconciliation`, icon: FileText },
     { label: 'Complete Project Report', href: `/projects/${project.id}/reports/complete-project`, icon: FileText },
     { label: 'Project Balance', href: `/projects/${project.id}/reports/top-sheet`, icon: TrendingUp },
   ];
@@ -98,7 +102,7 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
         <StatCard
           title="Project Cost"
           value={formatBDTCompact(summary.projectCostTotal)}
-          subtitle={`Direct ${formatBDT(summary.directExpenseTotal)}`}
+          subtitle={`Direct ${formatBDT(summary.directExpenseTotal)} | Service ${formatBDT(summary.serviceChargeAccrued)}`}
           icon={ShoppingCart}
           iconColor="text-red-500"
           iconBg="bg-red-50"
@@ -126,6 +130,22 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
           icon={AlertCircle}
           iconColor="text-yellow-600"
           iconBg="bg-yellow-50"
+        />
+        <StatCard
+          title="Tax / Deduction"
+          value={formatBDTCompact(summary.taxDeductionTotal)}
+          subtitle={formatBDT(summary.taxDeductionTotal)}
+          icon={Receipt}
+          iconColor="text-fuchsia-600"
+          iconBg="bg-fuchsia-50"
+        />
+        <StatCard
+          title="Retention Held"
+          value={formatBDTCompact(summary.retentionHeld)}
+          subtitle={formatBDT(summary.retentionHeld)}
+          icon={Banknote}
+          iconColor="text-cyan-600"
+          iconBg="bg-cyan-50"
         />
         <StatCard
           title="Cash In"
@@ -182,6 +202,18 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
             <div className="flex justify-between">
               <span className="text-muted-foreground">Subcontractor bills</span>
               <span>{formatBDT(summary.subcontractorBillCost)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Service charge (info)</span>
+              <span>{formatBDT(summary.serviceChargeAccrued)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Tax / deduction</span>
+              <span>{formatBDT(summary.taxDeductionTotal)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Retention held</span>
+              <span>{formatBDT(summary.retentionHeld)}</span>
             </div>
             <div className="flex justify-between border-t pt-3">
               <span>Net cash movement</span>

@@ -7,7 +7,7 @@
 
 Sharebuild ERP now has a buildable project-first foundation. Sharebuild remains the platform brand, while tenant company branding is loaded from Company Settings for report/print surfaces.
 
-This pass added the required `PRODUCT_MODULE_AUDIT.md` and tightened the foundation without changing schema or seed totals.
+This branch now has a buildable project-first finance foundation with vendor contracts, treasury accounts, cheque lifecycle tracking, bill-level deduction/retention fields, transfer workflow, and finance report exports, while still preserving the Relax Tower seed totals.
 
 ## Verified
 
@@ -17,6 +17,7 @@ This pass added the required `PRODUCT_MODULE_AUDIT.md` and tightened the foundat
 | Production build | Pass | `npm run build` |
 | Migration reset | Pass | `npx prisma migrate reset --force --skip-seed` |
 | Seed | Pass | `npm run db:seed` |
+| Finance completion build | Pass | `npm run build` after tax/retention, transfer, cheque, and reconciliation work |
 | Project create/edit save | Pass | Authenticated API create returned 201 and update returned 200 |
 | Top Sheet totals | Pass | Income 100,143,800 / Expense 104,659,890.40 / Balance -4,516,090.40 |
 | Product foundation build | Pass | `npm run build` after save-flow and bulk/document fixes |
@@ -71,6 +72,36 @@ This pass added the required `PRODUCT_MODULE_AUDIT.md` and tightened the foundat
 - Company settings now includes report footer note.
 - Company settings now supports local logo upload, preview, remove, registration/trade license, and TIN/VAT fields using existing company columns.
 - Audit logging is best-effort on common save flows, so an audit failure no longer falsely marks the main save as failed.
+
+## Finance Completion Pass - May 23, 2026
+
+### Added
+
+- `FINANCE_COMPLETION_PHASE.md`
+- migration `0008_finance_completion_phase`
+- bill-level VAT / AIT-TDS / other deduction support on supplier and subcontractor bills
+- bill-level retention/security support on supplier and subcontractor bills
+- retention release workflow and treasury posting
+- company account transfer workflow
+- stricter cheque transition logic for pending/cleared/bounced/cancelled
+- final reconciliation preview page
+- print-ready finance report pages for:
+  - tax / deduction
+  - retention
+  - final reconciliation
+- Excel-compatible CSV export endpoints for:
+  - cash / bank book
+  - cheque register
+  - tax / deduction
+  - retention
+  - final reconciliation
+
+### Still Simplified
+
+- final reconciliation does not post buyer demand records yet
+- service charge is computed for reporting and preview, not yet stored as a dedicated ledger entry
+- direct-expense bounced cheque handling cancels treasury movement but keeps expense cost
+- native XLSX workbook export and server PDF export are still future work
 
 ## Schema Changes
 
