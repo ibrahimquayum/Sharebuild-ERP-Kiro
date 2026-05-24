@@ -206,3 +206,16 @@ This pass changes live finance truth tables, so the safest approach is:
   - generated demand rows are visible in `/projects/[id]/demands`
   - finance hub and reports reflect posted reconciliation totals consistently
 - Relax Tower was re-seeded after QA so the repo finishes in a clean baseline with realistic ownership preserved.
+
+## Access / Billing Alignment Update - May 24, 2026
+
+- Final reconciliation demand traceability is now exposed in the project demand API:
+  - `demandType`
+  - `demandBatchId`
+  - `finalReconciliationId`
+  - base / service-charge / adjustment / carry-forward portions
+- Demand batches now provide the buyer-facing bridge between:
+  - approved service charge
+  - phase billing
+  - project-scoped demand issuance
+- QA now includes a second seeded project (`Madina Garden`) so project-only access and unauthorized project routing can be tested without disturbing Relax Tower finance totals.

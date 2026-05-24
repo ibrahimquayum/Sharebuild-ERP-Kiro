@@ -200,6 +200,47 @@
 - Surplus credit/refund settlement exists in the ledger, but there is still no dedicated refund-operations screen beyond the reconciliation page actions.
 - CSV is the real export path; no native XLSX workbook or server-side PDF has been added.
 
+## Access / Reporting / Billing Completion - May 24, 2026
+
+- Added `ACCESS_REPORTING_BILLING_COMPLETION_PLAN.md`.
+- Added one clean migration:
+  - `prisma/migrations/20260524051702_access_reporting_billing_completion/migration.sql`
+- Access control is no longer just session-based:
+  - company roles are persisted through `CompanyRole`
+  - role actions are persisted through `RolePermission`
+  - users now bind to a company role through `User.companyRoleId`
+  - page/API access now combines company scope, role permissions, and active project assignment
+- Added user and role management UI:
+  - `/company/users`
+  - `/company/users/new`
+  - `/company/users/[userId]`
+  - `/company/users/[userId]/edit`
+  - `/company/roles`
+  - `/company/roles/new`
+  - `/company/roles/[roleId]`
+  - `/company/roles/[roleId]/edit`
+- Added `/access-denied` and enforced it on company-wide admin routes and unauthorized project URLs.
+- Added demand-batch based phase billing:
+  - `/projects/[id]/demands/batches`
+  - `/projects/[id]/demands/batches/new`
+  - `/projects/[id]/demands/batches/[batchId]`
+  - `/projects/[id]/demands/batches/[batchId]/print`
+- Demand rows now preserve billing breakdown:
+  - base cost
+  - service charge
+  - adjustment
+  - carry-forward
+- Report engine improvements in this pass:
+  - grouped project report index
+  - shared report layout components
+  - upgraded complete project report shell with print-friendly sections and signature block
+
+## Current Access / Reporting Limitations
+
+- Company/global legacy client-form pages like `/buyers/new`, `/collections/new`, `/expenses/new`, and `/suppliers/new` still need full server-wrapper conversion for first-load access-denied UX, even though the high-risk company/admin pages and newer APIs are now guarded.
+- Native XLSX workbook export is still not implemented; current finance/report export remains CSV.
+- Server-side PDF generation is still not implemented; browser print / Save as PDF is the supported path.
+
 ## Current Finance Limitations
 
 - Final reconciliation is preview-only in this pass; it does not yet post buyer demand rows.

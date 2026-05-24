@@ -1,6 +1,5 @@
 import Link from 'next/link';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { requireCompanyPageAccess } from '@/lib/access-control';
 import { prisma } from '@/lib/prisma';
 import { Header } from '@/components/layout/header';
 import { PageHeader } from '@/components/shared/page-header';
@@ -10,8 +9,8 @@ import { formatBDT } from '@/lib/utils';
 export const dynamic = 'force-dynamic';
 
 export default async function CompanySuppliersPage() {
-  const session = await getServerSession(authOptions);
-  const companyId = (session?.user as any)?.companyId ?? '';
+  const context = await requireCompanyPageAccess('suppliers', 'view');
+  const companyId = context.companyId;
   const suppliers = await prisma.supplier.findMany({
     where: { companyId, supplierType: { in: ['MATERIAL_SUPPLIER', 'EQUIPMENT_SUPPLIER'] } },
     include: { payables: true, _count: { select: { payables: true } } },
@@ -21,7 +20,7 @@ export default async function CompanySuppliersPage() {
   return (
     <div className="flex flex-col min-h-full">
       <Header title="Suppliers" />
-      <PageHeader title="Suppliers" subtitle="Company-level material and equipment providers." action={{ label: 'New Supplier', href: '/company/suppliers/new' }} />
+      <PageHeader title="Suppliers" subtitle="Company-level material and equipment providers." action={context.isCompanyWide ? { label: 'New Supplier', href: '/company/suppliers/new' } : undefined} />
       <div className="p-6">
         <Card>
           <CardContent className="p-0 overflow-x-auto">

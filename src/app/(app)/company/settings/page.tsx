@@ -1,6 +1,5 @@
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { requireCompanyPageAccess } from '@/lib/access-control';
 import { Header } from '@/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CompanySettingsForm } from '@/components/company/company-settings-form';
@@ -8,8 +7,8 @@ import { CompanySettingsForm } from '@/components/company/company-settings-form'
 export const dynamic = 'force-dynamic';
 
 export default async function CompanySettingsPage() {
-  const session = await getServerSession(authOptions);
-  const companyId = (session?.user as any)?.companyId ?? '';
+  const context = await requireCompanyPageAccess('settings', 'manageSettings');
+  const companyId = context.companyId;
 
   const [company, settings] = await Promise.all([
     prisma.company.findUnique({ where: { id: companyId } }),

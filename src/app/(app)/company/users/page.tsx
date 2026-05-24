@@ -1,48 +1,96 @@
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import Link from 'next/link';
+import { requireCompanyPageAccess } from '@/lib/access-control';
 import { prisma } from '@/lib/prisma';
 import { Header } from '@/components/layout/header';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { UserCreateForm } from '@/components/company/user-create-form';
+import { PageHeader } from '@/components/shared/page-header';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CompanyUsersPage() {
-  const session = await getServerSession(authOptions);
-  const companyId = (session?.user as any)?.companyId ?? '';
-  const [users, projects] = await Promise.all([
-    prisma.user.findMany({
-      where: { companyId },
-      include: { _count: { select: { staffAssignments: true } } },
-      orderBy: { createdAt: 'asc' },
-    }),
-    prisma.project.findMany({ where: { companyId }, select: { id: true, name: true }, orderBy: { name: 'asc' } }),
-  ]);
+  const context = await requireCompanyPageAccess('users', 'view');
+
+  const users = await prisma.user.findMany({
+    where: { companyId: context.companyId },
+    include: {
+      companyRole: { select: { id: true, name: true } },
+      staffAssignments: {
+        where: { isActive: true },
+        include: { project: { select: { id: true, name: true } } },
+        orderBy: { createdAt: 'asc' },
+      },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
 
   return (
     <div className="flex flex-col min-h-full">
-      <Header title="Users / Staff" />
+      <Header title="Users & Roles" />
+      <PageHeader
+        title="Company Users"
+        subtitle="Manage staff, company roles, and project assignments."
+        action={context.isCompanyWide ? { label: 'New User', href: '/company/users/new' } : undefined}
+      />
+
       <div className="p-6 space-y-6">
+        <div className="flex flex-wrap gap-3">
+          <Button asChild variant="outline">
+            <Link href="/company/roles">Open Roles</Link>
+          </Button>
+          {context.isCompanyWide ? (
+            <Button asChild>
+              <Link href="/company/users/new">Add User</Link>
+            </Button>
+          ) : null}
+        </div>
+
         <Card>
-          <CardHeader><CardTitle className="text-base">Create User</CardTitle></CardHeader>
-          <CardContent><UserCreateForm projects={projects} /></CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="text-base">Staff List</CardTitle></CardHeader>
           <CardContent className="p-0 overflow-x-auto">
             <table className="w-full text-sm">
-              <thead><tr className="border-b bg-muted/40">{['Name', 'Email', 'Phone', 'Company Role', 'Assigned Projects', 'Status'].map(h => <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase">{h}</th>)}</tr></thead>
+              <thead>
+                <tr className="border-b bg-muted/40">
+                  {['Name', 'Email', 'Phone', 'Role', 'Assigned Projects', 'Status', 'Actions'].map((heading) => (
+                    <th key={heading} className="px-4 py-3 text-left text-xs font-semibold uppercase text-muted-foreground">
+                      {heading}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
               <tbody>
-                {users.map((u) => (
-                  <tr key={u.id} className="border-b last:border-0">
-                    <td className="px-4 py-3 font-medium">{u.name}</td>
-                    <td className="px-4 py-3">{u.email}</td>
-                    <td className="px-4 py-3">{u.phone ?? '-'}</td>
-                    <td className="px-4 py-3">{u.role.replaceAll('_', ' ')}</td>
-                    <td className="px-4 py-3">{u._count.staffAssignments}</td>
-                    <td className="px-4 py-3">{u.isActive ? 'Active' : 'Inactive'}</td>
+                {users.map((user) => (
+                  <tr key={user.id} className="border-b last:border-0">
+                    <td className="px-4 py-3 font-medium">{user.name}</td>
+                    <td className="px-4 py-3">{user.email}</td>
+                    <td className="px-4 py-3">{user.phone ?? '-'}</td>
+                    <td className="px-4 py-3">{user.companyRole?.name ?? user.role.replaceAll('_', ' ')}</td>
+                    <td className="px-4 py-3">
+                      {user.staffAssignments.length > 0
+                        ? user.staffAssignments.map((assignment) => assignment.project.name).join(', ')
+                        : 'No project restriction'}
+                    </td>
+                    <td className="px-4 py-3">{user.isActive ? 'Active' : 'Inactive'}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2">
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/company/users/${user.id}`}>View</Link>
+                        </Button>
+                        {context.isCompanyWide ? (
+                          <Button asChild size="sm">
+                            <Link href={`/company/users/${user.id}/edit`}>Edit</Link>
+                          </Button>
+                        ) : null}
+                      </div>
+                    </td>
                   </tr>
                 ))}
+                {users.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
+                      No users found for this company yet.
+                    </td>
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           </CardContent>

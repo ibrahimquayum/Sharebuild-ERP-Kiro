@@ -3,8 +3,10 @@ import { ArrowLeft } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { AccountForm } from '@/components/company/account-form';
+import { requireCompanyWidePageAccess } from '@/lib/access-control';
 
-export default function NewAccountPage() {
+export default async function NewAccountPage() {
+  await requireCompanyWidePageAccess('accounts', 'create');
   return (
     <div className="p-5 max-w-3xl mx-auto space-y-4">
       <Header title="New Account" />

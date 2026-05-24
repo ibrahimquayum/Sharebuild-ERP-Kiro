@@ -3,21 +3,10 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getCompleteProjectReportData } from '@/lib/complete-project-report';
 import { balanceColor, cn, expenseCategoryLabel, formatBDT, formatDate } from '@/lib/utils';
-import { ReportActions } from '@/components/shared/report-actions';
-import { ReportHeader } from '@/components/shared/report-header';
-import { ReportFooter } from '@/components/shared/report-footer';
+import { ReportPageLayout, ReportSection, ReportSignatureBlock } from '@/components/reports/report-page-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export const dynamic = 'force-dynamic';
-
-function ReportSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="space-y-3 print:break-inside-avoid">
-      <h3 className="border-b pb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">{title}</h3>
-      {children}
-    </section>
-  );
-}
 
 function MiniStat({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
@@ -42,16 +31,13 @@ export default async function CompleteProjectReportPage({ params }: { params: { 
   }, {});
 
   return (
-    <div className="p-5 space-y-6 print:p-0 print:text-black">
-      <div className="flex justify-end">
-        <ReportActions pdfReady excelHref={`/api/projects/${data.project.id}/reports/complete-project/excel`} />
-      </div>
-      <ReportHeader
+    <ReportPageLayout
         branding={data.branding}
         project={data.project}
         title="Complete Project Report"
         subtitle="Executive summary, Top Sheet, phase balances, expenses, payables, buyer due, and audit summary"
-      />
+        excelHref={`/api/projects/${data.project.id}/reports/complete-project/excel`}
+      >
 
       <ReportSection title="Executive Summary">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -166,14 +152,8 @@ export default async function CompleteProjectReportPage({ params }: { params: { 
       </ReportSection>
 
       <ReportSection title="Signature">
-        <div className="grid grid-cols-3 gap-6 pt-10 text-center text-sm">
-          <div className="border-t pt-2">Prepared by</div>
-          <div className="border-t pt-2">Checked by</div>
-          <div className="border-t pt-2">Approved by / Seal</div>
-        </div>
+        <ReportSignatureBlock />
       </ReportSection>
-
-      <ReportFooter note={data.branding.reportFooterNote} />
-    </div>
+    </ReportPageLayout>
   );
 }

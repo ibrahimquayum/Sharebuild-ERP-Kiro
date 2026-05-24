@@ -1,6 +1,4 @@
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { Header } from '@/components/layout/header';
 import { PageHeader } from '@/components/shared/page-header';
 import { StatCard } from '@/components/shared/stat-card';
@@ -8,12 +6,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { formatBDT, cn } from '@/lib/utils';
 import { Truck, Package, Users, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
+import { requireCompanyWidePageAccess } from '@/lib/access-control';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SuppliersPage() {
-  const session = await getServerSession(authOptions);
-  const companyId = (session?.user as any)?.companyId ?? '';
+  const context = await requireCompanyWidePageAccess('suppliers', 'view');
+  const companyId = context.companyId;
 
   const suppliers = await prisma.supplier.findMany({
     where: { companyId },

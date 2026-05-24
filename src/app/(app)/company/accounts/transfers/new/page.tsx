@@ -1,17 +1,14 @@
-import { getServerSession } from 'next-auth';
-import { notFound } from 'next/navigation';
-import { authOptions } from '@/lib/auth';
 import { getActiveCompanyAccounts } from '@/lib/cash-bank';
 import { Header } from '@/components/layout/header';
 import { PageHeader } from '@/components/shared/page-header';
 import { AccountTransferForm } from '@/components/company/account-transfer-form';
+import { requireCompanyWidePageAccess } from '@/lib/access-control';
 
 export const dynamic = 'force-dynamic';
 
 export default async function NewAccountTransferPage() {
-  const session = await getServerSession(authOptions);
-  const companyId = (session?.user as any)?.companyId ?? '';
-  if (!companyId) notFound();
+  const context = await requireCompanyWidePageAccess('accounts', 'create');
+  const companyId = context.companyId;
 
   const accounts = await getActiveCompanyAccounts(companyId);
 

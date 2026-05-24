@@ -1,18 +1,17 @@
-import { getServerSession } from 'next-auth';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { Header } from '@/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AccountForm } from '@/components/company/account-form';
+import { requireCompanyWidePageAccess } from '@/lib/access-control';
 
 export const dynamic = 'force-dynamic';
 
 export default async function EditAccountPage({ params }: { params: { accountId: string } }) {
-  const session = await getServerSession(authOptions);
-  const companyId = (session?.user as any)?.companyId ?? '';
+  const context = await requireCompanyWidePageAccess('accounts', 'editDraft');
+  const companyId = context.companyId;
   const account = await prisma.cashBankAccount.findFirst({
     where: { id: params.accountId, companyId },
   });

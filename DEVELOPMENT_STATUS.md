@@ -169,6 +169,50 @@ This branch now has a buildable project-first finance foundation with vendor con
 - no dedicated service charge collection screen beyond service-charge settlement actions
 - no native XLSX workbook or server-side PDF export
 
+## Access Control / Reporting / Billing Pass - May 24, 2026
+
+### Added
+
+- `ACCESS_REPORTING_BILLING_COMPLETION_PLAN.md`
+- migration `20260524051702_access_reporting_billing_completion`
+- persisted dynamic permission foundation:
+  - `CompanyRole`
+  - `RolePermission`
+  - `User.companyRoleId`
+- persisted phase billing foundation:
+  - `DemandBatch`
+  - detailed demand portion fields for service-charge-aware billing
+- new access helper layer in `src/lib/access-control.ts`
+- new `/access-denied` page
+- user and role management routes under:
+  - `/company/users/*`
+  - `/company/roles/*`
+- demand batch routes under:
+  - `/projects/[id]/demands/batches/*`
+
+### Verified
+
+- `npx prisma validate`
+- `npx prisma generate`
+- `npm run build`
+- `npm run db:seed`
+- `npx prisma migrate reset --force --skip-seed`
+- `npx prisma migrate status`
+- authenticated route smoke:
+  - admin can access company users, roles, accounts, finance, and complete project report
+  - project-only engineer is redirected from company-wide pages
+  - project-only engineer is blocked from seeded unauthorized project `project-madina-garden`
+- live QA:
+  - service charge calculate / approve
+  - demand batch issue with service charge linked
+  - final reconciliation post created traceable final demand rows
+
+### Honest Remaining Gaps
+
+- Some legacy global create forms still need full server-wrapper guards for first-load access-denied UX.
+- CSV remains the real export path.
+- Browser print remains the PDF path.
+
 ## Schema Changes
 
 Yes. One migration was added in the module completion pass:

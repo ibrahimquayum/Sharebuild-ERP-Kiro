@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { z } from 'zod';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { can } from '@/lib/permissions';
 import { safeAuditLog } from '@/lib/audit';
+import { assertApiCompanyWidePermission } from '@/lib/access-control';
 
 const accountPatchSchema = z.object({
   name: z.string().trim().min(1),
@@ -22,11 +20,9 @@ const accountPatchSchema = z.object({
 });
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
-  const role = (session.user as any).role;
-  if (!can(role, 'accounts', 'view')) return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+  const access = await assertApiCompanyWidePermission('accounts', 'view');
+  if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
+  const companyId = access.context.companyId;
 
   const account = await prisma.cashBankAccount.findFirst({
     where: { id: params.id, companyId },
@@ -36,12 +32,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
-  const userId = (session.user as any).id;
-  const role = (session.user as any).role;
-  if (!can(role, 'accounts', 'editDraft')) return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+  const access = await assertApiCompanyWidePermission('accounts', 'editDraft');
+  if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
+  const companyId = access.context.companyId;
+  const userId = access.context.userId;
 
   const existing = await prisma.cashBankAccount.findFirst({
     where: { id: params.id, companyId },

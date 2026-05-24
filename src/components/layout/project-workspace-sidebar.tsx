@@ -38,85 +38,107 @@ const STATUS_COLOR: Record<string, string> = {
 interface SubItem {
   label: string;
   href: string;
+  module?: string;
 }
 
 interface NavItem {
   label: string;
   href?: string;
   icon: React.ElementType;
+  module?: string;
   end?: boolean;
   children?: SubItem[];
 }
 
-function buildNav(projectId: string): NavItem[] {
+function buildNav(projectId: string, allowedModules: string[]): NavItem[] {
   const base = `/projects/${projectId}`;
 
-  return [
+  const items: NavItem[] = [
     {
       label: 'Overview',
       href: base,
       icon: LayoutDashboard,
+      module: 'projects',
       end: true,
     },
     {
       label: 'Setup',
       icon: Building2,
       children: [
-        { label: 'Project Profile', href: `${base}/settings` },
-        { label: 'Land & Building', href: `${base}/settings#land-building` },
-        { label: 'Units', href: `${base}/units` },
-        { label: 'Buyers & Ownership', href: `${base}/buyers` },
+        { label: 'Project Profile', href: `${base}/settings`, module: 'projects' },
+        { label: 'Land & Building', href: `${base}/settings#land-building`, module: 'projects' },
+        { label: 'Units', href: `${base}/units`, module: 'units' },
+        { label: 'Buyers & Ownership', href: `${base}/buyers`, module: 'buyers' },
       ],
     },
     {
       label: 'Finance',
       icon: DollarSign,
       children: [
-        { label: 'Overview', href: `${base}/finance` },
-        { label: 'Demands & Due', href: `${base}/demands` },
-        { label: 'Collections', href: `${base}/collections` },
-        { label: 'Expenses', href: `${base}/expenses` },
-        { label: 'Supplier Bills', href: `${base}/payables` },
-        { label: 'Supplier Payments', href: `${base}/payables/payments` },
-        { label: 'Subcontractor Bills', href: `${base}/subcontractors/bills` },
-        { label: 'Subcontractor Payments', href: `${base}/payables/payments?type=subcontractor` },
-        { label: 'Cash / Bank', href: `${base}/finance/cash-bank` },
-        { label: 'Cheques', href: `${base}/finance/cheques` },
-        { label: 'Service Charge', href: `${base}/finance/service-charge` },
-        { label: 'Final Reconciliation', href: `${base}/finance/final-reconciliation` },
-        { label: 'Project Balance', href: `${base}/reports/top-sheet` },
+        { label: 'Overview', href: `${base}/finance`, module: 'projects' },
+        { label: 'Demands & Due', href: `${base}/demands`, module: 'demands' },
+        { label: 'Collections', href: `${base}/collections`, module: 'collections' },
+        { label: 'Expenses', href: `${base}/expenses`, module: 'expenses' },
+        { label: 'Supplier Bills', href: `${base}/payables`, module: 'suppliers' },
+        { label: 'Supplier Payments', href: `${base}/payables/payments`, module: 'suppliers' },
+        { label: 'Subcontractor Bills', href: `${base}/subcontractors/bills`, module: 'subcontractors' },
+        { label: 'Subcontractor Payments', href: `${base}/payables/payments?type=subcontractor`, module: 'subcontractors' },
+        { label: 'Cash / Bank', href: `${base}/finance/cash-bank`, module: 'accounts' },
+        { label: 'Cheques', href: `${base}/finance/cheques`, module: 'cheques' },
+        { label: 'Service Charge', href: `${base}/finance/service-charge`, module: 'serviceCharge' },
+        { label: 'Final Reconciliation', href: `${base}/finance/final-reconciliation`, module: 'finalReconciliation' },
+        { label: 'Project Balance', href: `${base}/reports/top-sheet`, module: 'reports' },
       ],
     },
     {
       label: 'Work',
       icon: Layers,
       children: [
-        { label: 'Phases', href: `${base}/phases` },
-        { label: 'Vendors', href: `${base}/vendors` },
-        { label: 'Subcontractors', href: `${base}/subcontractors` },
+        { label: 'Phases', href: `${base}/phases`, module: 'phases' },
+        { label: 'Vendors', href: `${base}/vendors`, module: 'suppliers' },
+        { label: 'Subcontractors', href: `${base}/subcontractors`, module: 'subcontractors' },
       ],
     },
     {
       label: 'Documents',
       href: `${base}/documents`,
       icon: FileText,
+      module: 'documents',
     },
     {
       label: 'Reports',
       href: `${base}/reports`,
       icon: BarChart3,
+      module: 'reports',
     },
     {
       label: 'Audit',
       href: `${base}/audit`,
       icon: Shield,
+      module: 'audit',
     },
     {
       label: 'Settings',
       href: `${base}/settings`,
       icon: Settings,
+      module: 'settings',
     },
   ];
+
+  return items
+    .map((item) => {
+      if (item.children) {
+        return {
+          ...item,
+          children: item.children.filter((child) => !child.module || allowedModules.includes(child.module)),
+        };
+      }
+      return item;
+    })
+    .filter((item) => {
+      if (item.children) return item.children.length > 0;
+      return !item.module || allowedModules.includes(item.module);
+    });
 }
 
 function NavItemRow({ item }: { item: NavItem }) {
@@ -180,8 +202,14 @@ function NavItemRow({ item }: { item: NavItem }) {
   );
 }
 
-export function ProjectWorkspaceSidebar({ project }: { project: ProjectMeta }) {
-  const navItems = buildNav(project.id);
+export function ProjectWorkspaceSidebar({
+  project,
+  allowedModules,
+}: {
+  project: ProjectMeta;
+  allowedModules: string[];
+}) {
+  const navItems = buildNav(project.id, allowedModules);
   const displayName = project.name.length > 30 ? `${project.name.slice(0, 30)}…` : project.name;
 
   return (

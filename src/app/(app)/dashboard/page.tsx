@@ -1,6 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { requireCompanyPageAccess } from '@/lib/access-control';
 import { Header } from '@/components/layout/header';
 import { StatCard } from '@/components/shared/stat-card';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -15,31 +14,31 @@ import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
-async function getDashboardData(companyId: string) {
+async function getDashboardData(companyId: string, projectIds?: string[]) {
   const [projects, buyers, phases, collections, expenses, pendingExpenses] = await Promise.all([
     prisma.project.findMany({
-      where: { companyId },
+      where: { companyId, ...(projectIds ? { id: { in: projectIds } } : {}) },
       include: { _count: { select: { phases: true, buyers: true } } },
     }),
-    prisma.buyer.count({ where: { companyId } }),
+    prisma.buyer.count({ where: { companyId, ...(projectIds ? { projectLinks: { some: { projectId: { in: projectIds } } } } : {}) } }),
     prisma.phase.findMany({
-      where: { project: { companyId } },
+      where: { project: { companyId, ...(projectIds ? { id: { in: projectIds } } : {}) } },
       include: {
         _count: { select: { collections: true, expenses: true } },
       },
       orderBy: { sequence: 'asc' },
     }),
     prisma.collection.aggregate({
-      where: { phase: { project: { companyId } } },
+      where: { phase: { project: { companyId, ...(projectIds ? { id: { in: projectIds } } : {}) } } },
       _sum: { amount: true },
     }),
     prisma.expense.aggregate({
-      where: { phase: { project: { companyId } } },
+      where: { phase: { project: { companyId, ...(projectIds ? { id: { in: projectIds } } : {}) } } },
       _sum: { amount: true },
     }),
     prisma.expense.count({
       where: {
-        phase: { project: { companyId } },
+        phase: { project: { companyId, ...(projectIds ? { id: { in: projectIds } } : {}) } },
         status: 'PENDING_APPROVAL',
       },
     }),
@@ -53,9 +52,9 @@ async function getDashboardData(companyId: string) {
 }
 
 export default async function DashboardPage() {
-  const session = await getServerSession(authOptions);
-  const companyId = (session?.user as any)?.companyId ?? '';
-  const data = await getDashboardData(companyId);
+  const context = await requireCompanyPageAccess('dashboard', 'view');
+  const scopedProjectIds = context.isCompanyWide ? undefined : context.activeProjectIds;
+  const data = await getDashboardData(context.companyId, scopedProjectIds);
 
   const activePhases = data.phases.filter((p) => p.status === 'ACTIVE' || p.status === 'INCLUDED_IN_SUMMARY');
   const recentPhases = data.phases.slice(0, 8);

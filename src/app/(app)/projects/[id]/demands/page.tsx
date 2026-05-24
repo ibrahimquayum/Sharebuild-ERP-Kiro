@@ -1,9 +1,6 @@
 import Link from 'next/link';
-import { getServerSession } from 'next-auth';
-import { notFound } from 'next/navigation';
 import { AlertCircle, CheckCircle2, Clock, FileText, Plus } from 'lucide-react';
-
-import { authOptions } from '@/lib/auth';
+import { getScopedProject } from '@/lib/access-control';
 import { prisma } from '@/lib/prisma';
 import { cn, formatBDT } from '@/lib/utils';
 import { StatCard } from '@/components/shared/stat-card';
@@ -21,14 +18,7 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
 };
 
 export default async function ProjectDemandsPage({ params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  const companyId = (session?.user as any)?.companyId ?? '';
-
-  const project = await prisma.project.findFirst({
-    where: { id: params.id, companyId },
-    select: { id: true, name: true },
-  });
-  if (!project) notFound();
+  const { project } = await getScopedProject(params.id, 'demands', 'view');
 
   const demands = await prisma.demand.findMany({
     where: {
@@ -67,47 +57,27 @@ export default async function ProjectDemandsPage({ params }: { params: { id: str
           <h2 className="text-base font-semibold">Demand Notices</h2>
           <p className="text-xs text-muted-foreground">{project.name} · {demands.length} demands</p>
         </div>
-        <Link
-          href={`/projects/${project.id}/demands/new`}
-          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          <Plus className="h-3.5 w-3.5" /> Issue Demand
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href={`/projects/${project.id}/demands/batches`}
+            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
+          >
+            <FileText className="h-3.5 w-3.5" /> Demand Batches
+          </Link>
+          <Link
+            href={`/projects/${project.id}/demands/new`}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            <Plus className="h-3.5 w-3.5" /> Issue Demand
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard
-          title="Total Demanded"
-          value={formatBDT(totalDemanded)}
-          subtitle={`${demands.length} notices`}
-          icon={FileText}
-          iconColor="text-blue-600"
-          iconBg="bg-blue-50"
-        />
-        <StatCard
-          title="Total Collected"
-          value={formatBDT(totalPaid)}
-          subtitle="Against demands"
-          icon={CheckCircle2}
-          iconColor="text-green-600"
-          iconBg="bg-green-50"
-        />
-        <StatCard
-          title="Overdue"
-          value={String(overdueCount)}
-          subtitle="Past due date"
-          icon={AlertCircle}
-          iconColor="text-red-500"
-          iconBg="bg-red-50"
-        />
-        <StatCard
-          title="Fully Paid"
-          value={String(paidCount)}
-          subtitle="Cleared demands"
-          icon={Clock}
-          iconColor="text-emerald-600"
-          iconBg="bg-emerald-50"
-        />
+        <StatCard title="Total Demanded" value={formatBDT(totalDemanded)} subtitle={`${demands.length} notices`} icon={FileText} iconColor="text-blue-600" iconBg="bg-blue-50" />
+        <StatCard title="Total Collected" value={formatBDT(totalPaid)} subtitle="Against demands" icon={CheckCircle2} iconColor="text-green-600" iconBg="bg-green-50" />
+        <StatCard title="Overdue" value={String(overdueCount)} subtitle="Past due date" icon={AlertCircle} iconColor="text-red-500" iconBg="bg-red-50" />
+        <StatCard title="Fully Paid" value={String(paidCount)} subtitle="Cleared demands" icon={Clock} iconColor="text-emerald-600" iconBg="bg-emerald-50" />
       </div>
 
       <Card>
@@ -129,49 +99,30 @@ export default async function ProjectDemandsPage({ params }: { params: { id: str
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
-                      No demand notices yet for this project.
-                    </td>
+                    <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">No demand notices yet for this project.</td>
                   </tr>
                 ) : (
                   rows.map(({ demand, paid, balance }, index) => {
-                    const statusMeta = STATUS_META[demand.status] ?? {
-                      label: demand.status,
-                      color: 'bg-gray-100 text-gray-600',
-                    };
+                    const statusMeta = STATUS_META[demand.status] ?? { label: demand.status, color: 'bg-gray-100 text-gray-600' };
 
                     return (
-                      <tr
-                        key={demand.id}
-                        className={cn('border-b last:border-0 hover:bg-muted/30', demand.status === 'OVERDUE' && 'bg-red-50/30')}
-                      >
+                      <tr key={demand.id} className={cn('border-b last:border-0 hover:bg-muted/30', demand.status === 'OVERDUE' && 'bg-red-50/30')}>
                         <td className="px-4 py-3 text-xs text-muted-foreground">{index + 1}</td>
                         <td className="px-4 py-3">
                           <div className="font-medium">{demand.title}</div>
-                          {demand.demandNo && (
-                            <div className="text-xs font-mono text-muted-foreground">{demand.demandNo}</div>
-                          )}
-                          {demand.demandType === 'FINAL_RECONCILIATION' && (
+                          {demand.demandNo ? <div className="text-xs font-mono text-muted-foreground">{demand.demandNo}</div> : null}
+                          {demand.demandType === 'FINAL_RECONCILIATION' ? (
                             <div className="text-[11px] font-medium text-amber-700">Final reconciliation demand</div>
-                          )}
+                          ) : null}
+                          {Number(demand.serviceChargeAmount ?? 0) > 0 ? (
+                            <div className="text-[11px] text-muted-foreground">
+                              Base {formatBDT(Number(demand.baseAmount ?? 0))} · Service charge {formatBDT(Number(demand.serviceChargeAmount ?? 0))}
+                            </div>
+                          ) : null}
                         </td>
-                        <td className="px-4 py-3">
-                          <Link href={`/buyers/${demand.buyer.id}`} className="text-sm hover:text-primary hover:underline">
-                            {demand.buyer.name}
-                          </Link>
-                        </td>
+                        <td className="px-4 py-3">{demand.buyer.name}</td>
                         <td className="px-4 py-3 text-xs text-muted-foreground">
-                          {demand.phase ? (
-                            <Link href={`/phases/${demand.phase.id}`} className="hover:text-primary hover:underline">
-                              {demand.phase.name}
-                            </Link>
-                          ) : demand.demandType === 'FINAL_RECONCILIATION' ? (
-                            <span>Final reconciliation{demand.unit ? ` · Unit ${demand.unit.unitNo}` : ''}</span>
-                          ) : demand.unit ? (
-                            <span>Unit {demand.unit.unitNo}</span>
-                          ) : (
-                            '-'
-                          )}
+                          {demand.phase ? demand.phase.name : demand.demandType === 'FINAL_RECONCILIATION' ? `Final reconciliation · Unit ${demand.unit?.unitNo ?? '-'}` : demand.unit ? `Unit ${demand.unit.unitNo}` : '-'}
                         </td>
                         <td className="px-4 py-3 text-right font-medium">{formatBDT(Number(demand.amount))}</td>
                         <td className="px-4 py-3 text-right font-medium text-green-600">{formatBDT(paid)}</td>
@@ -179,9 +130,7 @@ export default async function ProjectDemandsPage({ params }: { params: { id: str
                           {balance > 0 ? formatBDT(balance) : 'Paid'}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', statusMeta.color)}>
-                            {statusMeta.label}
-                          </span>
+                          <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', statusMeta.color)}>{statusMeta.label}</span>
                         </td>
                       </tr>
                     );

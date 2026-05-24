@@ -1,6 +1,4 @@
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { Header } from '@/components/layout/header';
 import { PageHeader } from '@/components/shared/page-header';
 import { StatCard } from '@/components/shared/stat-card';
@@ -8,12 +6,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { formatBDT, formatBDTCompact, formatDate, cn } from '@/lib/utils';
 import { Receipt, TrendingUp, Users, CreditCard, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
+import { requireCompanyWidePageAccess } from '@/lib/access-control';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CollectionsPage() {
-  const session = await getServerSession(authOptions);
-  const companyId = (session?.user as any)?.companyId ?? '';
+  const context = await requireCompanyWidePageAccess('collections', 'view');
+  const companyId = context.companyId;
 
   const collections = await prisma.collection.findMany({
     where: { phase: { project: { companyId } } },

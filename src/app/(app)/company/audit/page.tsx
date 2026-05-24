@@ -1,16 +1,15 @@
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { Header } from '@/components/layout/header';
 import { PageHeader } from '@/components/shared/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatDate } from '@/lib/utils';
+import { requireCompanyWidePageAccess } from '@/lib/access-control';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CompanyAuditPage() {
-  const session = await getServerSession(authOptions);
-  const companyId = (session?.user as any)?.companyId ?? '';
+  const context = await requireCompanyWidePageAccess('audit', 'auditAccess');
+  const companyId = context.companyId;
   const logs = await prisma.auditLog.findMany({
     where: { OR: [{ user: { companyId } }, { project: { companyId } }] },
     include: { user: { select: { name: true, email: true } }, project: { select: { name: true } } },

@@ -26,6 +26,7 @@ interface NavItem {
   title: string;
   href?: string;
   icon: React.ElementType;
+  module?: string;
   children?: NavItem[];
 }
 
@@ -40,26 +41,35 @@ const sections: { label: string; items: NavItem[] }[] = [
   {
     label: 'Company',
     items: [
-      { title: 'Company Profile', href: '/company/settings', icon: Settings },
-      { title: 'Users & Roles', href: '/company/users', icon: Shield },
-      { title: 'Contacts / Buyers', href: '/company/contacts', icon: Users },
-      { title: 'Suppliers', href: '/company/suppliers', icon: Truck },
-      { title: 'Subcontractors', href: '/company/subcontractors', icon: Receipt },
-      { title: 'Materials', href: '/company/materials', icon: Package },
-      { title: 'Categories', href: '/company/categories', icon: Tags },
-      { title: 'Payment Methods', href: '/company/payment-methods', icon: Receipt },
-      { title: 'Accounts / Cash & Bank', href: '/company/accounts', icon: CircleDollarSign },
-      { title: 'Cheques', href: '/company/cheques', icon: CircleDollarSign },
+      { title: 'Company Profile', href: '/company/settings', icon: Settings, module: 'settings' },
+      { title: 'Users & Roles', href: '/company/users', icon: Shield, module: 'users' },
+      { title: 'Contacts / Buyers', href: '/company/contacts', icon: Users, module: 'buyers' },
+      { title: 'Suppliers', href: '/company/suppliers', icon: Truck, module: 'suppliers' },
+      { title: 'Subcontractors', href: '/company/subcontractors', icon: Receipt, module: 'subcontractors' },
+      { title: 'Materials', href: '/company/materials', icon: Package, module: 'settings' },
+      { title: 'Categories', href: '/company/categories', icon: Tags, module: 'settings' },
+      { title: 'Payment Methods', href: '/company/payment-methods', icon: Receipt, module: 'settings' },
+      { title: 'Accounts / Cash & Bank', href: '/company/accounts', icon: CircleDollarSign, module: 'accounts' },
+      { title: 'Cheques', href: '/company/cheques', icon: CircleDollarSign, module: 'cheques' },
     ],
   },
   {
     label: 'Reports',
     items: [
-      { title: 'Company Reports', href: '/company/reports', icon: BarChart3 },
-      { title: 'Audit', href: '/company/audit', icon: AlertCircle },
+      { title: 'Company Reports', href: '/company/reports', icon: BarChart3, module: 'reports' },
+      { title: 'Audit', href: '/company/audit', icon: AlertCircle, module: 'audit' },
     ],
   },
 ];
+
+function filterSections(allowedModules: string[]) {
+  return sections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => !item.module || allowedModules.includes(item.module)),
+    }))
+    .filter((section) => section.items.length > 0);
+}
 
 function NavItemComponent({ item }: { item: NavItem }) {
   const pathname = usePathname();
@@ -104,7 +114,9 @@ function NavItemComponent({ item }: { item: NavItem }) {
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ allowedModules }: { allowedModules: string[] }) {
+  const visibleSections = filterSections(allowedModules);
+
   return (
     <aside className="w-60 shrink-0 h-screen sticky top-0 flex flex-col border-r bg-background">
       <div className="flex items-center gap-2 px-4 py-4 border-b">
@@ -117,7 +129,7 @@ export function Sidebar() {
         </div>
       </div>
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
-        {sections.map((section) => (
+        {visibleSections.map((section) => (
           <div key={section.label} className="space-y-1">
             <p className="px-3 text-[11px] font-semibold uppercase text-muted-foreground tracking-wide">
               {section.label}

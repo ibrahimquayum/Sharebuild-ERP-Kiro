@@ -1,8 +1,6 @@
 import Link from 'next/link';
-import { getServerSession } from 'next-auth';
-import { notFound } from 'next/navigation';
-import { authOptions } from '@/lib/auth';
 import { getCompanyAccountBalances } from '@/lib/cash-bank';
+import { requireCompanyPageAccess } from '@/lib/access-control';
 import { Header } from '@/components/layout/header';
 import { PageHeader } from '@/components/shared/page-header';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,9 +9,8 @@ import { formatBDT } from '@/lib/utils';
 export const dynamic = 'force-dynamic';
 
 export default async function CompanyAccountsPage() {
-  const session = await getServerSession(authOptions);
-  const companyId = (session?.user as any)?.companyId ?? '';
-  if (!companyId) notFound();
+  const context = await requireCompanyPageAccess('accounts', 'view');
+  const companyId = context.companyId;
 
   const accounts = await getCompanyAccountBalances(companyId);
   const totalBalance = accounts.reduce((sum, account) => sum + account.summary.balance, 0);
@@ -21,7 +18,7 @@ export default async function CompanyAccountsPage() {
   return (
     <div className="space-y-5 p-5">
       <Header title="Cash & Bank Accounts" />
-      <PageHeader title="Accounts / Cash & Bank" subtitle="Company-level accounts used for collections, direct expenses, and supplier or subcontractor payments." action={{ label: 'New Account', href: '/company/accounts/new' }} />
+      <PageHeader title="Accounts / Cash & Bank" subtitle="Company-level accounts used for collections, direct expenses, and supplier or subcontractor payments." action={context.isCompanyWide ? { label: 'New Account', href: '/company/accounts/new' } : undefined} />
       <div className="flex gap-4 text-xs">
         <Link href="/company/accounts/transfers" className="text-primary hover:underline">View account transfers</Link>
         <Link href="/company/cheques" className="text-primary hover:underline">Open cheque register</Link>

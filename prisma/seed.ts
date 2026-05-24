@@ -16,6 +16,7 @@ import {
   PaymentMethod,
 } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { DEFAULT_ROLE_TEMPLATES, PERMISSION_MODULES, permissionModuleToDb } from '../src/lib/permissions';
 
 const prisma = new PrismaClient();
 
@@ -241,12 +242,68 @@ async function main() {
   console.log('  ✅  Company:', company.name);
 
   // ── 2. Admin user ───────────────────────────────────────────────────────
+  for (const template of DEFAULT_ROLE_TEMPLATES) {
+    const role = await prisma.companyRole.upsert({
+      where: { companyId_code: { companyId: company.id, code: template.code } },
+      update: {
+        name: template.name,
+        description: template.description,
+        isSystem: template.isSystem,
+        isActive: true,
+      },
+      create: {
+        companyId: company.id,
+        code: template.code,
+        name: template.name,
+        description: template.description,
+        isSystem: template.isSystem,
+        isActive: true,
+      },
+    });
+
+    await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
+    await prisma.rolePermission.createMany({
+      data: PERMISSION_MODULES.map((module) => ({
+        roleId: role.id,
+        module: permissionModuleToDb(module) as any,
+        canView: template.permissions[module].view,
+        canCreate: template.permissions[module].create,
+        canEdit: template.permissions[module].edit,
+        canEditDraft: template.permissions[module].editDraft,
+        canApprove: template.permissions[module].approve,
+        canReverseAdjust: template.permissions[module].reverseAdjust,
+        canDeleteDraft: template.permissions[module].deleteDraft,
+        canExport: template.permissions[module].export,
+        canAuditAccess: template.permissions[module].auditAccess,
+        canManageSettings: template.permissions[module].manageSettings,
+        canManageUsers: template.permissions[module].manageUsers,
+      })),
+    });
+  }
+  console.log(`  ✅  ${DEFAULT_ROLE_TEMPLATES.length} company roles prepared`);
+
+  const adminRole = await prisma.companyRole.findFirstOrThrow({
+    where: { companyId: company.id, code: 'COMPANY_ADMIN' },
+    select: { id: true },
+  });
+  const engineerRole = await prisma.companyRole.findFirstOrThrow({
+    where: { companyId: company.id, code: 'ENGINEER' },
+    select: { id: true },
+  });
+
   const passwordHash = await bcrypt.hash('admin123', 10);
   const admin = await prisma.user.upsert({
     where: { email: 'admin@relaxdevelopers.com' },
-    update: {},
+    update: {
+      companyId: company.id,
+      companyRoleId: adminRole.id,
+      passwordHash,
+      role: UserRole.COMPANY_ADMIN,
+      isActive: true,
+    },
     create: {
       companyId: company.id,
+      companyRoleId: adminRole.id,
       name: 'Admin User',
       email: 'admin@relaxdevelopers.com',
       passwordHash,
@@ -288,6 +345,76 @@ async function main() {
     },
   });
   console.log('  ✅  Project:', project.name);
+
+  const shadowProject = await prisma.project.upsert({
+    where: { id: 'project-madina-garden' },
+    update: {
+      companyId: company.id,
+      name: 'Madina Garden',
+      code: 'MG-2024',
+      totalFloors: 8,
+      residentialFloors: 6,
+      unitsPerFloor: 4,
+      totalPlannedUnits: 24,
+      defaultServiceChargePct: 5,
+      phone: '01712553110',
+      status: 'PLANNING',
+    },
+    create: {
+      id: 'project-madina-garden',
+      companyId: company.id,
+      name: 'Madina Garden',
+      nameBn: 'à¦®à¦¾à¦¦à¦¿à¦¨à¦¾ à¦—à¦¾à¦°à§à¦¡à§‡à¦¨',
+      code: 'MG-2024',
+      address: 'Ashkona, Dakshinkhan, Dhaka',
+      addressBn: 'à¦†à¦¶à¦•à§‹à¦¨à¦¾, à¦¦à¦•à§à¦·à¦¿à¦£à¦–à¦¾à¦¨, à¦¢à¦¾à¦•à¦¾',
+      area: 'Ashkona, Dakshinkhan',
+      city: 'Dhaka',
+      phone: '01712553110',
+      totalFloors: 8,
+      residentialFloors: 6,
+      unitsPerFloor: 4,
+      totalPlannedUnits: 24,
+      defaultServiceChargePct: 5,
+      status: 'PLANNING',
+      startDate: new Date('2024-01-01'),
+    },
+  });
+  console.log('  âœ…  Access-control QA project:', shadowProject.name);
+
+  const engineerPasswordHash = await bcrypt.hash('engineer123', 10);
+  const projectEngineer = await prisma.user.upsert({
+    where: { email: 'engineer@relaxdevelopers.com' },
+    update: {
+      companyId: company.id,
+      companyRoleId: engineerRole.id,
+      passwordHash: engineerPasswordHash,
+      role: UserRole.ENGINEER,
+      isActive: true,
+    },
+    create: {
+      companyId: company.id,
+      companyRoleId: engineerRole.id,
+      name: 'Project Engineer',
+      email: 'engineer@relaxdevelopers.com',
+      phone: '01713000001',
+      passwordHash: engineerPasswordHash,
+      role: UserRole.ENGINEER,
+      isActive: true,
+    },
+  });
+
+  await prisma.projectStaffAssignment.deleteMany({ where: { userId: projectEngineer.id } });
+  await prisma.projectStaffAssignment.create({
+    data: {
+      userId: projectEngineer.id,
+      projectId: project.id,
+      projectRole: 'SITE_ENGINEER',
+      isActive: true,
+      assignedBy: admin.id,
+    },
+  });
+  console.log('  ✅  Project-only engineer user:', projectEngineer.email);
 
   const officeCash = await prisma.cashBankAccount.upsert({
     where: { id: 'account-office-cash' },

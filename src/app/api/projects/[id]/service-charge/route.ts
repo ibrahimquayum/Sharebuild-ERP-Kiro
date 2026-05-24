@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { z } from 'zod';
-import { authOptions } from '@/lib/auth';
+import { assertApiProjectPermission } from '@/lib/access-control';
 import { safeAuditLog } from '@/lib/audit';
 import { createCashBankTransactionFromServiceChargeSettlement } from '@/lib/cash-bank';
-import { assertCan } from '@/lib/permissions';
 import { getProjectServiceChargeLedger } from '@/lib/project-finance';
 import { prisma } from '@/lib/prisma';
 
@@ -20,36 +18,20 @@ const mutationSchema = z.object({
 });
 
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
-
-  const project = await prisma.project.findFirst({
-    where: { id: params.id, companyId },
-    select: { id: true },
-  });
-  if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-  const projectId = project.id;
+  const access = await assertApiProjectPermission({ projectId: params.id, module: 'serviceCharge', action: 'view' });
+  if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
+  const projectId = access.project.id;
 
   const ledger = await getProjectServiceChargeLedger(projectId);
   return NextResponse.json(ledger);
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const companyId = (session.user as any).companyId;
-  const userId = (session.user as any).id;
-  const role = (session.user as any).role;
-  assertCan(role, 'reports', 'create');
-
-  const project = await prisma.project.findFirst({
-    where: { id: params.id, companyId },
-    select: { id: true },
-  });
-  if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-  const projectId = project.id;
+  const access = await assertApiProjectPermission({ projectId: params.id, module: 'serviceCharge', action: 'create' });
+  if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
+  const companyId = access.context.companyId;
+  const userId = access.context.userId;
+  const projectId = access.project.id;
 
   const parsed = mutationSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
@@ -130,7 +112,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   if (data.action === 'approve') {
-    assertCan(role, 'reports', 'approve');
+    const approveAccess = await assertApiProjectPermission({ projectId, module: 'serviceCharge', action: 'approve' });
+    if (!approveAccess.ok) return NextResponse.json({ error: approveAccess.error }, { status: approveAccess.status });
     const calcResult = await calculateEntries();
     const result = await prisma.serviceChargeEntry.updateMany({
       where: {
@@ -166,7 +149,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   if (data.action === 'settle') {
-    assertCan(role, 'accounts', 'create');
+    const settleAccess = await assertApiProjectPermission({ projectId, module: 'accounts', action: 'create' });
+    if (!settleAccess.ok) return NextResponse.json({ error: settleAccess.error }, { status: settleAccess.status });
     if (!data.entryId) return NextResponse.json({ error: 'Select an approved service charge entry to settle.' }, { status: 400 });
     if (!data.accountId) return NextResponse.json({ error: 'Select the receiving account for service charge settlement.' }, { status: 400 });
     if (!data.paymentMethod) return NextResponse.json({ error: 'Select a payment method for service charge settlement.' }, { status: 400 });
@@ -240,7 +224,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ ok: true });
   }
 
-  assertCan(role, 'reports', 'reverseAdjust');
+  const reverseAccess = await assertApiProjectPermission({ projectId, module: 'serviceCharge', action: 'reverseAdjust' });
+  if (!reverseAccess.ok) return NextResponse.json({ error: reverseAccess.error }, { status: reverseAccess.status });
   if (!data.entryId) return NextResponse.json({ error: 'Select a service charge entry to reverse.' }, { status: 400 });
   if (!data.reason?.trim()) return NextResponse.json({ error: 'A reversal reason is required.' }, { status: 400 });
 

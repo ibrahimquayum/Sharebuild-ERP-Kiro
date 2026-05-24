@@ -258,3 +258,30 @@ Login: `admin@relaxdevelopers.com` / `admin123`
 - [ ] Open `/projects/project-relax-tower/demands` and confirm posted final reconciliation demand rows are visible.
 - [ ] Open `/projects/project-relax-tower/reports/final-reconciliation` and confirm generated demand count is shown.
 - [ ] Re-seed the database after QA if you want the clean baseline restored.
+
+## S. Access Control / Reporting / Billing Sequence
+
+- [ ] Login with `admin@relaxdevelopers.com` / `admin123`.
+- [ ] Open `/company/users` and confirm user list, project assignments, and active status render.
+- [ ] Open `/company/roles` and confirm role matrix summaries render.
+- [ ] Open `/company/accounts/new` and confirm the page opens for admin.
+- [ ] Open `/projects/project-relax-tower/demands/batches/new`.
+- [ ] Create one phase demand batch with an approved service charge entry included.
+- [ ] Open the created batch detail and confirm:
+  - base amount
+  - service charge amount
+  - total billable amount
+  - issued demand count
+- [ ] Open the batch print page and confirm buyer notice styling is print-friendly.
+- [ ] Open `/projects/project-relax-tower/reports` and confirm grouped report categories render.
+- [ ] Open `/projects/project-relax-tower/reports/complete-project` and confirm:
+  - branded report layout
+  - section headings
+  - signature block
+- [ ] Log out and log back in as `engineer@relaxdevelopers.com` / `engineer123`.
+- [ ] Confirm `/projects` opens and only assigned project work is visible.
+- [ ] Confirm `/projects/project-relax-tower/finance` opens.
+- [ ] Confirm `/company/users` redirects to `/access-denied`.
+- [ ] Confirm `/company/accounts/new` redirects to `/access-denied`.
+- [ ] Confirm `/buyers`, `/collections`, `/expenses`, and `/suppliers` redirect to `/access-denied`.
+- [ ] Confirm `/projects/project-madina-garden/finance` redirects to `/access-denied`.

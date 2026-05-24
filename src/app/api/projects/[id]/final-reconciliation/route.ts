@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { z } from 'zod';
-import { authOptions } from '@/lib/auth';
+import { assertApiProjectPermission } from '@/lib/access-control';
 import { safeAuditLog } from '@/lib/audit';
 import { createCashBankTransactionFromReconciliationRefund } from '@/lib/cash-bank';
-import { assertCan } from '@/lib/permissions';
 import { getFinalReconciliationPreview } from '@/lib/project-finance';
 import { prisma } from '@/lib/prisma';
 
@@ -22,39 +20,26 @@ const mutationSchema = z.object({
 });
 
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
-
-  const project = await prisma.project.findFirst({
-    where: { id: params.id, companyId },
-    select: { id: true },
-  });
-  if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-
-  const preview = await getFinalReconciliationPreview(project.id);
+  const access = await assertApiProjectPermission({ projectId: params.id, module: 'finalReconciliation', action: 'view' });
+  if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
+  const preview = await getFinalReconciliationPreview(access.project.id);
   return NextResponse.json(preview);
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
-  const userId = (session.user as any).id;
-  const role = (session.user as any).role;
-
-  const project = await prisma.project.findFirst({
-    where: { id: params.id, companyId },
-    select: { id: true, name: true },
-  });
-  if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+  const access = await assertApiProjectPermission({ projectId: params.id, module: 'finalReconciliation', action: 'create' });
+  if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
+  const companyId = access.context.companyId;
+  const userId = access.context.userId;
+  const project = access.project;
 
   const parsed = mutationSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const data = parsed.data;
 
   if (data.action === 'post') {
-    assertCan(role, 'reports', 'approve');
+    const approveAccess = await assertApiProjectPermission({ projectId: project.id, module: 'finalReconciliation', action: 'approve' });
+    if (!approveAccess.ok) return NextResponse.json({ error: approveAccess.error }, { status: approveAccess.status });
 
     const existing = await prisma.finalReconciliation.findFirst({
       where: { projectId: project.id, status: 'POSTED', reversedAt: null },
@@ -167,7 +152,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   if (data.action === 'settleCredit') {
-    assertCan(role, 'accounts', 'create');
+    const settleAccess = await assertApiProjectPermission({ projectId: project.id, module: 'accounts', action: 'create' });
+    if (!settleAccess.ok) return NextResponse.json({ error: settleAccess.error }, { status: settleAccess.status });
     if (!data.lineId) return NextResponse.json({ error: 'Select a posted surplus credit line first.' }, { status: 400 });
     if (!data.settlementStatus) return NextResponse.json({ error: 'Select how this surplus credit is being settled.' }, { status: 400 });
 
@@ -250,7 +236,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ ok: true });
   }
 
-  assertCan(role, 'reports', 'reverseAdjust');
+  const reverseAccess = await assertApiProjectPermission({ projectId: project.id, module: 'finalReconciliation', action: 'reverseAdjust' });
+  if (!reverseAccess.ok) return NextResponse.json({ error: reverseAccess.error }, { status: reverseAccess.status });
   if (!data.reconciliationId) return NextResponse.json({ error: 'Select a posted reconciliation to reverse.' }, { status: 400 });
   if (!data.reason?.trim()) return NextResponse.json({ error: 'A reversal reason is required.' }, { status: 400 });
 

@@ -4,12 +4,14 @@ import { prisma } from '@/lib/prisma';
 import { Header } from '@/components/layout/header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatBDT } from '@/lib/utils';
+import { requireCompanyWidePageAccess } from '@/lib/access-control';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SupplierDetailPage({ params }: { params: { id: string } }) {
-  const supplier = await prisma.supplier.findUnique({
-    where: { id: params.id },
+  const context = await requireCompanyWidePageAccess('suppliers', 'view');
+  const supplier = await prisma.supplier.findFirst({
+    where: { id: params.id, companyId: context.companyId },
     include: { payables: { include: { project: true } } },
   });
   if (!supplier) notFound();

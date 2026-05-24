@@ -184,6 +184,30 @@ Remaining finance audit gaps:
   - no dedicated document seed records because placeholder file links would be misleading
   - no native XLSX workbook or server-generated PDF
 
+## Access / Reporting / Billing Update - May 24, 2026
+
+- Access control is no longer purely code-static:
+  - company roles and role-permission rows are now persisted
+  - project staff assignment is enforced in page/API access helpers
+- Unsafe route class reduced substantially:
+  - company-wide user, role, settings, account, and audit pages now require explicit permission
+  - project-only users are blocked from other project URLs
+  - legacy company-wide buyers / collections / expenses / suppliers pages now require company-wide access
+- Reporting structure is more professional:
+  - grouped report menu
+  - shared report page layout
+  - cleaner complete-project report sectioning
+- Phase billing is now closer to real construction billing:
+  - demand batches exist
+  - service charge can be folded into batch-issued buyer demands
+  - final reconciliation demand rows are API-visible and traceable
+
+Remaining audit gaps in this module set:
+
+- a few legacy client-form routes still need server-wrapper access-denied UX on initial load
+- native XLSX workbook export is still absent
+- server-generated PDF is still absent
+
 ## Schema Recommendation
 
 The accounting hardening pass required one clean schema migration for allocation, reversal metadata, cheque state, and phase audit locks. Future phases should consider dedicated tables for material masters, payment methods, dynamic permissions, local shops, subcontractor bills, adjustment entries, reconciliation snapshots, and report export jobs.

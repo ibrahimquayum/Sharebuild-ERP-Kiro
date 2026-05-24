@@ -1,7 +1,5 @@
 import Link from 'next/link';
-import { getServerSession } from 'next-auth';
-import { notFound } from 'next/navigation';
-import { authOptions } from '@/lib/auth';
+import { getScopedProject } from '@/lib/access-control';
 import { prisma } from '@/lib/prisma';
 import { getFinalReconciliationPreview } from '@/lib/project-finance';
 import { FinalReconciliationActions } from '@/components/projects/final-reconciliation-actions';
@@ -13,20 +11,17 @@ import { balanceColor, formatBDT } from '@/lib/utils';
 export const dynamic = 'force-dynamic';
 
 export default async function FinalReconciliationPage({ params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  const companyId = (session?.user as any)?.companyId ?? '';
-  const project = await prisma.project.findFirst({ where: { id: params.id, companyId }, select: { id: true, name: true } });
-  if (!project) notFound();
+  const { context, project } = await getScopedProject(params.id, 'finalReconciliation', 'view');
 
   const [preview, accounts] = await Promise.all([
     getFinalReconciliationPreview(project.id),
     prisma.cashBankAccount.findMany({
-      where: { companyId, isActive: true },
+      where: { companyId: context.companyId, isActive: true },
       orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
       select: { id: true, name: true, type: true },
     }),
   ]);
-  if (!preview) notFound();
+  if (!preview) return null;
 
   return (
     <div className="space-y-5 p-5">

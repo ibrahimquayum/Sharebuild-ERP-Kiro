@@ -1,6 +1,4 @@
-import { getServerSession } from 'next-auth';
-import { notFound } from 'next/navigation';
-import { authOptions } from '@/lib/auth';
+import { getScopedProject } from '@/lib/access-control';
 import { ServiceChargeActions } from '@/components/projects/service-charge-actions';
 import { PageHeader } from '@/components/shared/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,24 +9,17 @@ import { formatBDT } from '@/lib/utils';
 export const dynamic = 'force-dynamic';
 
 export default async function ServiceChargeFinancePage({ params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  const companyId = (session?.user as any)?.companyId ?? '';
-
-  const project = await prisma.project.findFirst({
-    where: { id: params.id, companyId },
-    select: { id: true, name: true },
-  });
-  if (!project) notFound();
+  const { context, project } = await getScopedProject(params.id, 'serviceCharge', 'view');
 
   const [ledger, accounts] = await Promise.all([
     getProjectServiceChargeLedger(project.id),
     prisma.cashBankAccount.findMany({
-      where: { companyId, isActive: true },
+      where: { companyId: context.companyId, isActive: true },
       orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
       select: { id: true, name: true, type: true },
     }),
   ]);
-  if (!ledger) notFound();
+  if (!ledger) return null;
 
   const settlementEntries = ledger.rows
     .filter((row) => row.status === 'APPROVED' && !row.includedInDemand && row.settlementStatus !== 'SETTLED' && row.entryId)

@@ -1,18 +1,15 @@
 import Link from 'next/link';
-import { getServerSession } from 'next-auth';
-import { notFound } from 'next/navigation';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { Header } from '@/components/layout/header';
 import { PageHeader } from '@/components/shared/page-header';
 import { formatBDT, formatDate } from '@/lib/utils';
+import { requireCompanyWidePageAccess } from '@/lib/access-control';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AccountTransfersPage() {
-  const session = await getServerSession(authOptions);
-  const companyId = (session?.user as any)?.companyId ?? '';
-  if (!companyId) notFound();
+  const context = await requireCompanyWidePageAccess('accounts', 'view');
+  const companyId = context.companyId;
 
   const transfers = await prisma.accountTransfer.findMany({
     where: { companyId },

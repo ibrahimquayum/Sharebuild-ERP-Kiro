@@ -1,8 +1,6 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { getServerSession } from 'next-auth';
 import { ArrowLeft } from 'lucide-react';
-import { authOptions } from '@/lib/auth';
+import { getScopedProject } from '@/lib/access-control';
 import { prisma } from '@/lib/prisma';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DemandForm } from '@/components/projects/demand-form';
@@ -10,10 +8,7 @@ import { DemandForm } from '@/components/projects/demand-form';
 export const dynamic = 'force-dynamic';
 
 export default async function NewProjectDemandPage({ params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  const companyId = (session?.user as any)?.companyId ?? '';
-  const project = await prisma.project.findFirst({ where: { id: params.id, companyId }, select: { id: true, name: true } });
-  if (!project) notFound();
+  const { project } = await getScopedProject(params.id, 'demands', 'create');
 
   const [phases, allocations] = await Promise.all([
     prisma.phase.findMany({ where: { projectId: project.id }, select: { id: true, name: true, sequence: true }, orderBy: { sequence: 'asc' } }),
@@ -26,13 +21,18 @@ export default async function NewProjectDemandPage({ params }: { params: { id: s
 
   return (
     <div className="p-5 max-w-5xl mx-auto space-y-4">
-      <Link href={`/projects/${project.id}/demands`} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> Back to Demands
-      </Link>
+      <div className="flex items-center justify-between">
+        <Link href={`/projects/${project.id}/demands`} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-4 w-4" /> Back to Demands
+        </Link>
+        <Link href={`/projects/${project.id}/demands/batches`} className="text-xs text-primary hover:underline">
+          Use demand batch for phase billing
+        </Link>
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>Create Demand</CardTitle>
-          <CardDescription>Issue equal project-scoped demand records to selected buyer/unit ownership rows.</CardDescription>
+          <CardDescription>Issue equal project-scoped demand records to selected buyer/unit ownership rows. For phase billing with service charge, use Demand Batch.</CardDescription>
         </CardHeader>
         <CardContent>
           <DemandForm

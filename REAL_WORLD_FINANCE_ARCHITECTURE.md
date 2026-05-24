@@ -72,6 +72,22 @@ Remaining gaps from this architecture:
 - project closing and finance-ready workflow is still checklist-based, not a full close process
 - no true XLSX workbook or server-generated PDF yet
 
+## Phase 4.5 Status Update
+
+The access-control and billing-alignment layer is now implemented on `feat/erp-v1`:
+
+- dynamic company roles and persisted role-permission rows now exist
+- project staff assignment is now enforced in page/API access helpers
+- phase billing now has a persisted `DemandBatch` layer
+- service charge can now be included directly in batch-issued buyer demands
+- final reconciliation demand rows are now explicitly traceable in project demand APIs
+
+Remaining architectural gaps after this step:
+
+- some legacy client-form routes still need server-wrapper first-load access denial
+- native XLSX workbook export is still absent
+- browser print remains the PDF path
+
 ## 1. Finance Philosophy
 
 Sharebuild ERP should treat project finance as five separate truths that must reconcile but must not be merged:

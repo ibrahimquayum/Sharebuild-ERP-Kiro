@@ -1,18 +1,16 @@
 import Link from 'next/link';
-import { getServerSession } from 'next-auth';
 import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
-import { authOptions } from '@/lib/auth';
 import { Header } from '@/components/layout/header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getAccountTransactions } from '@/lib/cash-bank';
 import { formatBDT, formatDate } from '@/lib/utils';
+import { requireCompanyWidePageAccess } from '@/lib/access-control';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AccountDetailPage({ params }: { params: { accountId: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!(session?.user as any)?.companyId) notFound();
+  await requireCompanyWidePageAccess('accounts', 'view');
 
   const account = await getAccountTransactions(params.accountId);
   if (!account) notFound();

@@ -1,7 +1,5 @@
-import { getServerSession } from 'next-auth';
-import { notFound } from 'next/navigation';
-import { authOptions } from '@/lib/auth';
 import { getChequeSummary } from '@/lib/cash-bank';
+import { requireCompanyPageAccess } from '@/lib/access-control';
 import { Header } from '@/components/layout/header';
 import { PageHeader } from '@/components/shared/page-header';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,9 +9,8 @@ import { formatBDT, formatDate } from '@/lib/utils';
 export const dynamic = 'force-dynamic';
 
 export default async function CompanyChequesPage() {
-  const session = await getServerSession(authOptions);
-  const companyId = (session?.user as any)?.companyId ?? '';
-  if (!companyId) notFound();
+  const context = await requireCompanyPageAccess('cheques', 'view');
+  const companyId = context.companyId;
 
   const { cheques, totals } = await getChequeSummary(companyId);
 

@@ -1,6 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { requireCompanyPageAccess } from '@/lib/access-control';
 import { Header } from '@/components/layout/header';
 import { PageHeader } from '@/components/shared/page-header';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,11 +12,14 @@ import { cn } from '@/lib/utils';
 export const dynamic = 'force-dynamic';
 
 export default async function ProjectsPage() {
-  const session = await getServerSession(authOptions);
-  const companyId = (session?.user as any)?.companyId ?? '';
+  const context = await requireCompanyPageAccess('projects', 'view');
+  const scopedProjectIds = context.isCompanyWide ? undefined : context.activeProjectIds;
 
   const projects = await prisma.project.findMany({
-    where: { companyId },
+    where: {
+      companyId: context.companyId,
+      ...(scopedProjectIds ? { id: { in: scopedProjectIds } } : {}),
+    },
     include: {
       _count: { select: { phases: true, buyers: true, units: true } },
       phases: {
@@ -41,8 +43,8 @@ export default async function ProjectsPage() {
       <Header title="Projects" />
       <PageHeader
         title="All Projects"
-        subtitle="Manage your construction projects"
-        action={{ label: 'New Project', href: '/projects/new' }}
+        subtitle={context.isCompanyWide ? 'Manage your construction projects' : 'Projects assigned to you'}
+        action={context.isCompanyWide ? { label: 'New Project', href: '/projects/new' } : undefined}
       />
 
       <div className="p-6">

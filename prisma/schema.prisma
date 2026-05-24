@@ -331,6 +331,41 @@ enum ReconciliationCreditSettlementStatus {
   ADJUSTED
 }
 
+enum PermissionModule {
+  DASHBOARD
+  PROJECTS
+  UNITS
+  BUYERS
+  DOCUMENTS
+  PHASES
+  DEMANDS
+  COLLECTIONS
+  EXPENSES
+  SUPPLIERS
+  SUBCONTRACTORS
+  ACCOUNTS
+  CHEQUES
+  SERVICE_CHARGE
+  FINAL_RECONCILIATION
+  REPORTS
+  AUDIT
+  SETTINGS
+  USERS
+}
+
+enum DemandBatchStatus {
+  DRAFT
+  ISSUED
+  CANCELLED
+  REVERSED
+}
+
+enum DemandBatchBasisType {
+  EQUAL_PER_UNIT
+  OWNERSHIP_SHARE
+  CUSTOM_BUYER_AMOUNT
+}
+
 // ─────────────────────────────────────────────
 // TENANT: COMPANY
 // ─────────────────────────────────────────────
@@ -353,6 +388,7 @@ model Company {
 
   // Relations
   users                 User[]
+  roles                 CompanyRole[]
   projects              Project[]
   suppliers             Supplier[]
   projectSuppliers      ProjectSupplier[]
@@ -365,6 +401,7 @@ model Company {
   accountTransfers      AccountTransfer[]
   serviceChargeEntries  ServiceChargeEntry[]
   finalReconciliations  FinalReconciliation[]
+  demandBatches         DemandBatch[]
 
   @@map("companies")
 }
@@ -389,6 +426,7 @@ model CompanySetting {
 model User {
   id           String    @id @default(cuid())
   companyId    String?
+  companyRoleId String?
   name         String
   nameBn       String?
   email        String    @unique
@@ -401,6 +439,7 @@ model User {
   updatedAt    DateTime  @updatedAt
 
   company                      Company?                 @relation(fields: [companyId], references: [id])
+  companyRole                  CompanyRole?             @relation(fields: [companyRoleId], references: [id])
   projectAccess                ProjectUserAccess[]
   auditLogs                    AuditLog[]
   approvals                    Approval[]
@@ -431,6 +470,51 @@ model ProjectUserAccess {
 
   @@unique([userId, projectId])
   @@map("project_user_access")
+}
+
+model CompanyRole {
+  id          String           @id @default(cuid())
+  companyId   String
+  code        String?
+  name        String
+  description String?
+  isSystem    Boolean          @default(false)
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  company     Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  users       User[]
+  permissions RolePermission[]
+
+  @@unique([companyId, name])
+  @@unique([companyId, code])
+  @@index([companyId, isActive])
+  @@map("company_roles")
+}
+
+model RolePermission {
+  id                String           @id @default(cuid())
+  roleId            String
+  module            PermissionModule
+  canView           Boolean          @default(false)
+  canCreate         Boolean          @default(false)
+  canEdit           Boolean          @default(false)
+  canEditDraft      Boolean          @default(false)
+  canApprove        Boolean          @default(false)
+  canReverseAdjust  Boolean          @default(false)
+  canDeleteDraft    Boolean          @default(false)
+  canExport         Boolean          @default(false)
+  canAuditAccess    Boolean          @default(false)
+  canManageSettings Boolean          @default(false)
+  canManageUsers    Boolean          @default(false)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  role CompanyRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, module])
+  @@map("role_permissions")
 }
 
 // ─────────────────────────────────────────────
@@ -470,6 +554,7 @@ model Project {
   units                 Unit[]
   phases                Phase[]
   buyers                ProjectBuyer[]
+  demandBatches         DemandBatch[]
   userAccess            ProjectUserAccess[]
   documents             Document[]
   auditLogs             AuditLog[]
@@ -621,15 +706,52 @@ model ProjectBuyer {
 // DEMAND NOTICES
 // ─────────────────────────────────────────────
 
+model DemandBatch {
+  id                   String               @id @default(cuid())
+  companyId            String
+  projectId            String
+  phaseId              String
+  title                String
+  batchNo              String?
+  basisType            DemandBatchBasisType @default(EQUAL_PER_UNIT)
+  baseAmount           Decimal              @default(0)
+  serviceChargeEntryId String?
+  serviceChargeAmount  Decimal              @default(0)
+  adjustmentAmount     Decimal              @default(0)
+  carryForwardAmount   Decimal              @default(0)
+  totalBillableAmount  Decimal              @default(0)
+  dueDate              DateTime?
+  status               DemandBatchStatus    @default(DRAFT)
+  issuedAt             DateTime?
+  issuedById           String?
+  notes                String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  company            Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project            Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  phase              Phase               @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  serviceChargeEntry ServiceChargeEntry? @relation(fields: [serviceChargeEntryId], references: [id])
+  demands            Demand[]
+
+  @@index([projectId, phaseId, status])
+  @@map("demand_batches")
+}
+
 model Demand {
   id                    String       @id @default(cuid())
   unitId                String
   buyerId               String
   phaseId               String?
+  demandBatchId         String?
   demandNo              String? // e.g. DN-2024-001
   title                 String
   titleBn               String?
   amount                Decimal
+  baseAmount            Decimal      @default(0)
+  serviceChargeAmount   Decimal      @default(0)
+  adjustmentAmount      Decimal      @default(0)
+  carryForwardAmount    Decimal      @default(0)
   dueDate               DateTime?
   demandType            DemandType   @default(REGULAR)
   finalReconciliationId String?
@@ -642,6 +764,7 @@ model Demand {
   unit                Unit                   @relation(fields: [unitId], references: [id])
   buyer               Buyer                  @relation(fields: [buyerId], references: [id])
   phase               Phase?                 @relation(fields: [phaseId], references: [id])
+  demandBatch         DemandBatch?           @relation(fields: [demandBatchId], references: [id])
   finalReconciliation FinalReconciliation?   @relation(fields: [finalReconciliationId], references: [id])
   collections         Collection[]
   allocations         CollectionAllocation[]
@@ -679,6 +802,7 @@ model Phase {
   collections           Collection[]
   expenses              Expense[]
   demands               Demand[]
+  demandBatches         DemandBatch[]
   materialItems         MaterialItem[]
   approvals             Approval[]
   supplierPayables      SupplierPayable[]
@@ -1168,11 +1292,12 @@ model ServiceChargeEntry {
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
 
-  company    Company @relation(fields: [companyId], references: [id])
-  project    Project @relation(fields: [projectId], references: [id])
-  phase      Phase?  @relation(fields: [phaseId], references: [id])
-  approvedBy User?   @relation("ServiceChargeApprovedBy", fields: [approvedById], references: [id])
-  reversedBy User?   @relation("ServiceChargeReversedBy", fields: [reversedById], references: [id])
+  company       Company        @relation(fields: [companyId], references: [id])
+  project       Project        @relation(fields: [projectId], references: [id])
+  phase         Phase?         @relation(fields: [phaseId], references: [id])
+  approvedBy    User?          @relation("ServiceChargeApprovedBy", fields: [approvedById], references: [id])
+  reversedBy    User?          @relation("ServiceChargeReversedBy", fields: [reversedById], references: [id])
+  demandBatches DemandBatch[]
 
   @@index([projectId, status])
   @@index([projectId, phaseId])

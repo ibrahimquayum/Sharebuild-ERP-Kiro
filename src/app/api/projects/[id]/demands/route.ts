@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { z } from 'zod';
-import { authOptions } from '@/lib/auth';
+import { assertApiProjectPermission } from '@/lib/access-control';
 import { prisma } from '@/lib/prisma';
-import { can } from '@/lib/permissions';
 import { safeAuditLog } from '@/lib/audit';
 import { isPhaseLocked, lockedPhaseMessage } from '@/lib/accounting';
 
@@ -17,16 +15,12 @@ const demandSchema = z.object({
 });
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const companyId = (session.user as any).companyId;
+  const access = await assertApiProjectPermission({ projectId: params.id, module: 'demands', action: 'view' });
+  if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
   const { searchParams } = new URL(req.url);
   const buyerId = searchParams.get('buyerId');
   const unpaidOnly = searchParams.get('unpaidOnly') === 'true';
-
-  const project = await prisma.project.findFirst({ where: { id: params.id, companyId }, select: { id: true } });
-  if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+  const project = access.project;
 
   const demands = await prisma.demand.findMany({
     where: {
@@ -52,12 +46,19 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       id: demand.id,
       demandNo: demand.demandNo,
       title: demand.title,
+      demandType: demand.demandType,
+      demandBatchId: demand.demandBatchId,
+      finalReconciliationId: demand.finalReconciliationId,
       phaseId: demand.phaseId,
       phaseName: demand.phase?.name ?? 'No phase',
       unitNo: demand.unit.unitNo,
       buyerId: demand.buyerId,
       buyerName: demand.buyer.name,
       amount,
+      baseAmount: Number(demand.baseAmount ?? amount),
+      serviceChargeAmount: Number(demand.serviceChargeAmount ?? 0),
+      adjustmentAmount: Number(demand.adjustmentAmount ?? 0),
+      carryForwardAmount: Number(demand.carryForwardAmount ?? 0),
       paid,
       due: amount - paid,
       dueDate: demand.dueDate,
@@ -67,17 +68,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const role = (session.user as any).role;
-  if (!can(role, 'demands', 'create')) return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-
-  const companyId = (session.user as any).companyId;
+  const access = await assertApiProjectPermission({ projectId: params.id, module: 'demands', action: 'create' });
+  if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
   const parsed = demandSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 });
-
-  const project = await prisma.project.findFirst({ where: { id: params.id, companyId }, select: { id: true } });
-  if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+  const project = access.project;
 
   const phase = await prisma.phase.findFirst({ where: { id: parsed.data.phaseId, projectId: project.id }, select: { id: true, auditLockedAt: true } });
   if (!phase) return NextResponse.json({ error: 'Phase not found in this project' }, { status: 404 });
@@ -113,6 +108,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         dueDate,
         status: 'ISSUED',
         issuedAt: new Date(),
+        baseAmount: perUnitAmount * (Number(allocation.sharePercent) / 100),
         notes: parsed.data.notes ?? `Generated from per-unit amount ${perUnitAmount} and ${Number(allocation.sharePercent)}% ownership share.`,
         demandNo: `DN-${String(sequenceStart + index + 1).padStart(4, '0')}`,
       },
@@ -120,7 +116,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   );
 
   await safeAuditLog({
-    userId: (session.user as any).id,
+    userId: access.context.userId,
     projectId: project.id,
     action: 'CREATE',
     entityType: 'demand',
