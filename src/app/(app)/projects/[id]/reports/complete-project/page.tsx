@@ -1,6 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getScopedProject } from '@/lib/access-control';
 import { getCompleteProjectReportData } from '@/lib/complete-project-report';
 import { balanceColor, cn, expenseCategoryLabel, formatBDT, formatDate } from '@/lib/utils';
 import { ReportPageLayout, ReportSection, ReportSignatureBlock } from '@/components/reports/report-page-layout';
@@ -18,9 +17,8 @@ function MiniStat({ label, value, tone }: { label: string; value: string; tone?:
 }
 
 export default async function CompleteProjectReportPage({ params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  const companyId = (session?.user as any)?.companyId ?? '';
-  const data = await getCompleteProjectReportData(companyId, params.id);
+  const { context } = await getScopedProject(params.id, 'reports', 'view');
+  const data = await getCompleteProjectReportData(context.companyId, params.id);
   if (!data) notFound();
 
   const groupedExpenses = data.expenses.reduce<Record<string, typeof data.expenses>>((groups, expense) => {
@@ -36,7 +34,8 @@ export default async function CompleteProjectReportPage({ params }: { params: { 
         project={data.project}
         title="Complete Project Report"
         subtitle="Executive summary, Top Sheet, phase balances, expenses, payables, buyer due, and audit summary"
-        excelHref={`/api/projects/${data.project.id}/reports/complete-project/excel`}
+        excelHref={`/api/projects/${data.project.id}/reports/complete-project/xlsx`}
+        csvHref={`/api/projects/${data.project.id}/reports/complete-project/excel`}
       >
 
       <ReportSection title="Executive Summary">

@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { safeAuditLog } from '@/lib/audit';
 import { getDemandPaidAmount, isPhaseLocked, lockedPhaseMessage, refreshDemandStatus } from '@/lib/accounting';
 import { assertAccountBelongsToCompany, createCashBankTransactionFromCollection } from '@/lib/cash-bank';
+import { apiAccessError, assertApiCompanyWidePermission, assertApiPhasePermission } from '@/lib/access-control';
 
 const createSchema = z.object({
   phaseId: z.string(),
@@ -32,13 +31,14 @@ const createSchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
-
   const { searchParams } = new URL(req.url);
   const phaseId = searchParams.get('phaseId');
   const buyerId = searchParams.get('buyerId');
+  const access = phaseId
+    ? await assertApiPhasePermission({ phaseId, module: 'collections', action: 'view' })
+    : await assertApiCompanyWidePermission('collections', 'view');
+  if (!access.ok) return apiAccessError(access);
+  const companyId = access.context.companyId;
 
   const collections = await prisma.collection.findMany({
     where: {
@@ -58,15 +58,15 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
-
   const body = await req.json();
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const d = parsed.data;
+  const access = await assertApiPhasePermission({ phaseId: d.phaseId, module: 'collections', action: 'create' });
+  if (!access.ok) return apiAccessError(access);
+  const companyId = access.context.companyId;
+  const userId = access.context.userId;
 
   // Verify phase belongs to company
   const phase = await prisma.phase.findFirst({ where: { id: d.phaseId, project: { companyId } } });
@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
         await tx.collectionAllocation.create({ data: { collectionId: collection.id, demandId: allocation.demandId, amount: allocation.amount } });
         await refreshDemandStatus(tx, allocation.demandId);
       }
-      await createCashBankTransactionFromCollection(tx, collection.id, (session.user as any).id);
+      await createCashBankTransactionFromCollection(tx, collection.id, userId);
       return [collection];
     }
 
@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
         await tx.collectionAllocation.create({ data: { collectionId: collection.id, demandId: selectedDemandId, amount: allocatable } });
         await refreshDemandStatus(tx, selectedDemandId);
       }
-      await createCashBankTransactionFromCollection(tx, collection.id, (session.user as any).id);
+      await createCashBankTransactionFromCollection(tx, collection.id, userId);
       return [collection];
     }
 
@@ -180,7 +180,7 @@ export async function POST(req: NextRequest) {
       });
       await tx.collectionAllocation.create({ data: { collectionId: collection.id, demandId: demand.id, amount: allocated } });
       created.push(collection);
-      await createCashBankTransactionFromCollection(tx, collection.id, (session.user as any).id);
+      await createCashBankTransactionFromCollection(tx, collection.id, userId);
       remaining -= allocated;
       await refreshDemandStatus(tx, demand.id);
     }
@@ -195,7 +195,7 @@ export async function POST(req: NextRequest) {
         },
       });
       created.push(advanceCollection);
-      await createCashBankTransactionFromCollection(tx, advanceCollection.id, (session.user as any).id);
+      await createCashBankTransactionFromCollection(tx, advanceCollection.id, userId);
     }
 
       return created;
@@ -205,7 +205,7 @@ export async function POST(req: NextRequest) {
   }
 
   await safeAuditLog({
-    userId: (session.user as any).id,
+    userId,
     projectId: phase.projectId,
     action: 'CREATE',
     entityType: 'collection',

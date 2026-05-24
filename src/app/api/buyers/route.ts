@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { safeAuditLog } from '@/lib/audit';
+import { apiAccessError, assertApiCompanyWidePermission, assertApiProjectPermission } from '@/lib/access-control';
 
 const createSchema = z.object({
   name: z.string().min(1),
@@ -20,13 +19,14 @@ const createSchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
-
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get('projectId');
   const search = searchParams.get('q');
+  const access = projectId
+    ? await assertApiProjectPermission({ projectId, module: 'buyers', action: 'view' })
+    : await assertApiCompanyWidePermission('buyers', 'view');
+  if (!access.ok) return apiAccessError(access);
+  const companyId = access.context.companyId;
 
   const buyers = await prisma.buyer.findMany({
     where: {
@@ -51,15 +51,16 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
-
   const body = await req.json();
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const d = parsed.data;
+  const access = d.projectId
+    ? await assertApiProjectPermission({ projectId: d.projectId, module: 'buyers', action: 'create' })
+    : await assertApiCompanyWidePermission('buyers', 'create');
+  if (!access.ok) return apiAccessError(access);
+  const companyId = access.context.companyId;
 
   const buyer = await prisma.buyer.create({
     data: {
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest) {
   });
 
   await safeAuditLog({
-    userId: (session.user as any).id,
+    userId: access.context.userId,
     projectId: d.projectId,
     action: 'CREATE',
     entityType: 'buyer',

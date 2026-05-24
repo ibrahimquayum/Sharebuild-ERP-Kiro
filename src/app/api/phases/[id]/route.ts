@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { apiAccessError, assertApiPhasePermission } from '@/lib/access-control';
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
@@ -15,9 +14,9 @@ const updateSchema = z.object({
 });
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
+  const access = await assertApiPhasePermission({ phaseId: params.id, module: 'phases', action: 'view' });
+  if (!access.ok) return apiAccessError(access);
+  const companyId = access.context.companyId;
 
   const phase = await prisma.phase.findFirst({
     where: { id: params.id, project: { companyId } },
@@ -34,9 +33,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
+  const access = await assertApiPhasePermission({ phaseId: params.id, module: 'phases', action: 'editDraft' });
+  if (!access.ok) return apiAccessError(access);
+  const companyId = access.context.companyId;
 
   const body = await req.json();
   const parsed = updateSchema.safeParse(body);
@@ -58,9 +57,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
+  const access = await assertApiPhasePermission({ phaseId: params.id, module: 'phases', action: 'deleteDraft' });
+  if (!access.ok) return apiAccessError(access);
+  const companyId = access.context.companyId;
 
   const existing = await prisma.phase.findFirst({ where: { id: params.id, project: { companyId } } });
   if (!existing) return NextResponse.json({ error: 'Phase not found' }, { status: 404 });

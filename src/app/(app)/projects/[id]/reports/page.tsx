@@ -9,43 +9,44 @@ const reportGroups = [
   {
     title: 'Core Reports',
     items: [
-      { title: 'Complete Project Report', href: 'complete-project', status: 'Print + CSV' },
-      { title: 'Top Sheet', href: 'top-sheet', status: 'Live' },
-      { title: 'Phase Summary', href: 'phase-summary', status: 'Foundation' },
+      { title: 'Complete Project Report', href: 'complete-project', print: true, csv: true, xlsx: true, pdf: false, next: false },
+      { title: 'Top Sheet', href: 'top-sheet', print: true, csv: true, xlsx: false, pdf: false, next: false },
+      { title: 'Phase Summary', href: 'phase-summary', print: true, csv: false, xlsx: false, pdf: false, next: true },
     ],
   },
   {
     title: 'Buyer Reports',
     items: [
-      { title: 'Buyer Statement', href: 'buyer-statement', status: 'Foundation' },
-      { title: 'Unit Statement', href: 'unit-statement', status: 'Foundation' },
-      { title: 'Due Report', href: 'due-report', status: 'Foundation' },
+      { title: 'Buyer Statement', href: 'buyer-statement', print: true, csv: false, xlsx: false, pdf: false, next: true },
+      { title: 'Unit Statement', href: 'unit-statement', print: true, csv: false, xlsx: false, pdf: false, next: true },
+      { title: 'Due Report', href: 'due-report', print: true, csv: false, xlsx: false, pdf: false, next: true },
+      { title: 'Demand Notice / Bill', href: '../demands/batches', print: true, csv: false, xlsx: false, pdf: false, next: false },
     ],
   },
   {
     title: 'Finance Reports',
     items: [
-      { title: 'Collection Report', href: 'collection-report', status: 'Foundation' },
-      { title: 'Expense Report', href: 'expense-report', status: 'Foundation' },
-      { title: 'Cash / Bank Book', href: 'cash-bank-book', status: 'Print + CSV' },
-      { title: 'Cheque Register', href: 'cheque-register', status: 'Print + CSV' },
+      { title: 'Collection Report', href: 'collection-report', print: true, csv: false, xlsx: false, pdf: false, next: true },
+      { title: 'Expense Report', href: 'expense-report', print: true, csv: true, xlsx: false, pdf: false, next: false },
+      { title: 'Cash / Bank Book', href: 'cash-bank-book', print: true, csv: true, xlsx: false, pdf: false, next: false },
+      { title: 'Cheque Register', href: 'cheque-register', print: true, csv: true, xlsx: false, pdf: false, next: false },
     ],
   },
   {
     title: 'Vendor Reports',
     items: [
-      { title: 'Supplier Ledger', href: 'supplier-ledger', status: 'Foundation' },
-      { title: 'Subcontractor Ledger', href: 'subcontractor-ledger', status: 'Foundation' },
+      { title: 'Supplier Ledger', href: 'supplier-ledger', print: true, csv: false, xlsx: false, pdf: false, next: true },
+      { title: 'Subcontractor Ledger', href: 'subcontractor-ledger', print: true, csv: false, xlsx: false, pdf: false, next: true },
     ],
   },
   {
     title: 'Compliance / Audit',
     items: [
-      { title: 'Tax / Deduction Report', href: 'tax-deductions', status: 'Print + CSV' },
-      { title: 'Retention Report', href: 'retention', status: 'Print + CSV' },
-      { title: 'Service Charge Report', href: 'service-charge', status: 'Print + CSV' },
-      { title: 'Final Reconciliation', href: 'final-reconciliation', status: 'Print + CSV' },
-      { title: 'Audit Report', href: 'audit-report', status: 'Foundation' },
+      { title: 'Tax / Deduction Report', href: 'tax-deductions', print: true, csv: true, xlsx: false, pdf: false, next: false },
+      { title: 'Retention Report', href: 'retention', print: true, csv: true, xlsx: false, pdf: false, next: false },
+      { title: 'Service Charge Report', href: 'service-charge', print: true, csv: true, xlsx: false, pdf: false, next: false },
+      { title: 'Final Reconciliation', href: 'final-reconciliation', print: true, csv: true, xlsx: false, pdf: false, next: false },
+      { title: 'Audit Report', href: 'audit-report', print: true, csv: false, xlsx: false, pdf: false, next: true },
     ],
   },
 ];
@@ -68,22 +69,32 @@ export default async function ProjectReportsPage({ params }: { params: { id: str
             <h3 className="text-sm font-semibold">{group.title}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
               {group.items.map((report) => {
-                const isFoundation = report.status === 'Foundation';
+                const href = report.href.startsWith('../') ? `/projects/${project.id}/${report.href.slice(3)}` : `/projects/${project.id}/reports/${report.href}`;
+                const features = [
+                  ['Print-ready', report.print],
+                  ['CSV export', report.csv],
+                  ['Excel workbook', report.xlsx],
+                  ['PDF', report.pdf],
+                  ['Coming next', report.next],
+                ];
                 return (
                   <Card key={report.href}>
                     <CardContent className="p-4">
-                      <Link href={`/projects/${project.id}/reports/${report.href}`} className="flex items-start gap-3 hover:text-primary">
+                      <Link href={href} className="flex items-start gap-3 hover:text-primary">
                         <div className="h-10 w-10 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                          {isFoundation ? <FileText className="h-4 w-4" /> : <BarChart3 className="h-4 w-4" />}
+                          {report.csv || report.xlsx ? <BarChart3 className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-2">
                           <div className="font-semibold">{report.title}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {isFoundation
-                              ? 'Report shell is ready; deeper calculation/export still needs completion.'
-                              : report.status === 'Live'
-                                ? 'Live project report using the current finance formulas.'
-                                : 'Professional print layout with CSV export available.'}
+                          <div className="flex flex-wrap gap-1.5">
+                            {features.map(([label, enabled]) => (
+                              <span
+                                key={String(label)}
+                                className={`rounded border px-1.5 py-0.5 text-[11px] ${enabled ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-muted bg-muted/40 text-muted-foreground'}`}
+                              >
+                                {label}
+                              </span>
+                            ))}
                           </div>
                         </div>
                       </Link>

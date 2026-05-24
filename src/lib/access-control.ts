@@ -1,4 +1,5 @@
 import { getServerSession } from 'next-auth';
+import { NextResponse } from 'next/server';
 import { notFound, redirect } from 'next/navigation';
 
 import { authOptions } from '@/lib/auth';
@@ -150,6 +151,29 @@ export async function assertApiProjectPermission(params: {
   return { ok: true as const, context, project };
 }
 
+export async function assertApiPhasePermission(params: {
+  phaseId: string;
+  module: PermissionModule;
+  action: PermissionAction;
+}) {
+  const context = await getAccessContext();
+  if (!context) {
+    return { ok: false as const, status: 401, error: 'Unauthorized' };
+  }
+  if (!hasPermission(context, params.module, params.action)) {
+    return { ok: false as const, status: 403, error: 'Insufficient permissions.' };
+  }
+  const phase = await prisma.phase.findFirst({
+    where: { id: params.phaseId, project: { companyId: context.companyId } },
+    select: { id: true, projectId: true, auditLockedAt: true, project: { select: { id: true, name: true } } },
+  });
+  if (!phase) return { ok: false as const, status: 404, error: 'Phase not found.' };
+  if (!hasProjectAccess(context, phase.projectId)) {
+    return { ok: false as const, status: 403, error: 'You are not assigned to this project.' };
+  }
+  return { ok: true as const, context, phase, project: phase.project };
+}
+
 export async function assertApiCompanyPermission(module: PermissionModule, action: PermissionAction) {
   const context = await getAccessContext();
   if (!context) {
@@ -168,4 +192,8 @@ export async function assertApiCompanyWidePermission(module: PermissionModule, a
     return { ok: false as const, status: 403, error: 'Insufficient permissions.' };
   }
   return access;
+}
+
+export function apiAccessError(access: { ok: false; status: number; error: string }) {
+  return NextResponse.json({ error: access.error }, { status: access.status });
 }

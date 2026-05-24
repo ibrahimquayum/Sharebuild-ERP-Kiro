@@ -178,3 +178,25 @@
   - service charge calculate/approve works
   - demand batch issuance with service charge works
   - final reconciliation posting creates traceable `FINAL_RECONCILIATION` demands
+
+## Legacy Security / Report Export Polish Update - May 24, 2026
+
+- Added `LEGACY_SECURITY_REPORT_EXPORT_POLISH.md`.
+- Converted legacy global client create routes to server-wrapper guarded routes:
+  - `/buyers/new`
+  - `/collections/new`
+  - `/expenses/new`
+  - `/suppliers/new`
+  - `/phases/new`
+- Added persisted permission/project-assignment API checks to:
+  - `/api/buyers`
+  - `/api/collections`
+  - `/api/expenses`
+  - `/api/suppliers`
+  - `/api/phases`
+  - `/api/projects`
+- Complete Project Report now supports native XLSX workbook export at:
+  - `/api/projects/[id]/reports/complete-project/xlsx`
+- Report cards now state export availability honestly per report.
+- Demand batch print now includes service-charge-aware buyer bill sections.
+- Server PDF remains future; browser Print / Save as PDF is the supported PDF workflow.

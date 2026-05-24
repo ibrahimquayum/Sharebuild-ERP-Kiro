@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { safeAuditLog } from '@/lib/audit';
+import { apiAccessError, assertApiCompanyWidePermission, assertApiProjectPermission } from '@/lib/access-control';
 
 const createPhaseSchema = z.object({
   projectId: z.string(),
@@ -22,12 +21,13 @@ const createPhaseSchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
-
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get('projectId');
+  const access = projectId
+    ? await assertApiProjectPermission({ projectId, module: 'phases', action: 'view' })
+    : await assertApiCompanyWidePermission('phases', 'view');
+  if (!access.ok) return apiAccessError(access);
+  const companyId = access.context.companyId;
 
   const phases = await prisma.phase.findMany({
     where: {
@@ -45,15 +45,14 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
-
   const body = await req.json();
   const parsed = createPhaseSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const d = parsed.data;
+  const access = await assertApiProjectPermission({ projectId: d.projectId, module: 'phases', action: 'create' });
+  if (!access.ok) return apiAccessError(access);
+  const companyId = access.context.companyId;
 
   // Verify project belongs to this company
   const project = await prisma.project.findFirst({ where: { id: d.projectId, companyId } });
@@ -78,7 +77,7 @@ export async function POST(req: NextRequest) {
   });
 
   await safeAuditLog({
-    userId: (session.user as any).id,
+    userId: access.context.userId,
     projectId: project.id,
     action: 'CREATE',
     entityType: 'phase',

@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { can } from '@/lib/permissions';
+import { apiAccessError, assertApiCompanyPermission, assertApiCompanyWidePermission } from '@/lib/access-control';
 
 const optionalText = z.preprocess((value) => value === null ? undefined : value, z.string().trim().optional());
 const optionalDate = z.preprocess((value) => value === null ? undefined : value, z.string().trim().optional())
@@ -63,12 +62,15 @@ async function writeProjectAudit(data: {
 }
 
 export async function GET(_req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
+  const access = await assertApiCompanyPermission('projects', 'view');
+  if (!access.ok) return apiAccessError(access);
+  const companyId = access.context.companyId;
 
   const projects = await prisma.project.findMany({
-    where: { companyId },
+    where: {
+      companyId,
+      ...(access.context.isCompanyWide ? {} : { id: { in: access.context.activeProjectIds } }),
+    },
     include: {
       _count: { select: { phases: true, buyers: true, units: true } },
     },
@@ -80,10 +82,10 @@ export async function GET(_req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const companyId = (session.user as any).companyId;
-    const role = (session.user as any).role;
+    const access = await assertApiCompanyWidePermission('projects', 'create');
+    if (!access.ok) return apiAccessError(access);
+    const companyId = access.context.companyId;
+    const role = access.context.legacyRole;
     if (!companyId) return NextResponse.json({ error: 'Your user is not assigned to a company.' }, { status: 400 });
     if (!can(role, 'projects', 'create')) return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
 
@@ -107,7 +109,7 @@ export async function POST(req: NextRequest) {
     });
 
     await writeProjectAudit({
-      userId: (session.user as any).id,
+      userId: access.context.userId,
       projectId: project.id,
       action: 'CREATE',
       entityId: project.id,

@@ -6,9 +6,11 @@ import { Download, FileSpreadsheet, Printer } from 'lucide-react';
 export function ReportActions({
   pdfReady = false,
   excelHref,
+  csvHref,
 }: {
   pdfReady?: boolean;
   excelHref?: string;
+  csvHref?: string;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2 print:hidden">
@@ -21,7 +23,7 @@ export function ReportActions({
       {excelHref ? (
         <Button asChild type="button" variant="outline" size="sm">
           <a href={excelHref}>
-            <FileSpreadsheet className="mr-2 h-4 w-4" /> Excel CSV
+            <FileSpreadsheet className="mr-2 h-4 w-4" /> Excel workbook
           </a>
         </Button>
       ) : (
@@ -29,6 +31,13 @@ export function ReportActions({
           <FileSpreadsheet className="mr-2 h-4 w-4" /> Excel
         </Button>
       )}
+      {csvHref ? (
+        <Button asChild type="button" variant="outline" size="sm">
+          <a href={csvHref}>
+            <Download className="mr-2 h-4 w-4" /> CSV
+          </a>
+        </Button>
+      ) : null}
     </div>
   );
 }

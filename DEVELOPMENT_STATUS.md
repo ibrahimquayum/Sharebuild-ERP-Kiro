@@ -101,7 +101,7 @@ This branch now has a buildable project-first finance foundation with vendor con
 - final reconciliation does not post buyer demand records yet
 - service charge is computed for reporting and preview, not yet stored as a dedicated ledger entry
 - direct-expense bounced cheque handling cancels treasury movement but keeps expense cost
-- native XLSX workbook export and server PDF export are still future work
+- native XLSX workbook export now exists for Complete Project Report; server PDF export and other report workbooks are still future work
 
 ## Final Finance QA / Reconciliation Pass - May 23, 2026
 
@@ -167,7 +167,7 @@ This branch now has a buildable project-first finance foundation with vendor con
 
 - Relax Tower seed now supports deficit reconciliation QA, but not a natural surplus/refund scenario
 - no dedicated service charge collection screen beyond service-charge settlement actions
-- no native XLSX workbook or server-side PDF export
+- native XLSX workbook exists for Complete Project Report; no server-side PDF export
 
 ## Access Control / Reporting / Billing Pass - May 24, 2026
 
@@ -209,9 +209,48 @@ This branch now has a buildable project-first finance foundation with vendor con
 
 ### Honest Remaining Gaps
 
-- Some legacy global create forms still need full server-wrapper guards for first-load access-denied UX.
-- CSV remains the real export path.
+- Legacy global create forms now have server-wrapper guards; remaining API work is focused on older nested project/vendor endpoints.
+- CSV remains the real export path for most reports; Complete Project Report now also has native XLSX.
 - Browser print remains the PDF path.
+
+## Legacy Security / Report Export Polish - May 24, 2026
+
+### Added
+
+- `LEGACY_SECURITY_REPORT_EXPORT_POLISH.md`
+- Native Complete Project Report XLSX workbook export:
+  - `/api/projects/[id]/reports/complete-project/xlsx`
+- Server-wrapper guards for legacy global create forms:
+  - `/buyers/new`
+  - `/collections/new`
+  - `/expenses/new`
+  - `/suppliers/new`
+  - `/phases/new`
+- Per-buyer demand notice print blocks with service charge and carry-forward portions.
+
+### Hardened
+
+- Legacy global daily-work routes now require company-wide access.
+- Buyers, collections, expenses, suppliers, phases, and project APIs now use the newer access helper layer for the audited surfaces.
+- Complete Project Report page and CSV/XLSX exports enforce project assignment plus report permissions.
+- Project list API only returns assigned projects for project-only users.
+
+### Verified
+
+- `npx prisma validate`
+- `npx prisma generate`
+- `npm run build`
+- `npm run db:seed`
+- Seed totals preserved:
+  - Income `100,143,800`
+  - Expense `104,659,890.40`
+  - Balance `-4,516,090.40`
+
+### Remaining
+
+- Server-generated PDF remains future work.
+- Complete Project Report has XLSX; other reports retain CSV/foundation status.
+- A dependency security review is needed: `npm audit --omit=dev --audit-level=critical` still flags existing Next.js advisories and NextAuth/uuid/PostCSS moderate advisories.
 
 ## Schema Changes
 
@@ -318,13 +357,13 @@ prisma/migrations/0005_accounting_hardening/migration.sql
 ### Export Status
 
 - PDF: print-ready HTML with browser Print / Save as PDF. No fake server PDF export.
-- Excel: real CSV downloads containing report data. True XLSX workbook remains future.
+- Excel: real CSV downloads containing report data. Complete Project Report now has true XLSX workbook export.
 
 ### Remaining
 
 - Dedicated adjustment-entry schema and UI are still future. Current correction workflow is reverse-with-reason, then enter a corrected record.
 - Server-side PDF generation remains future.
-- True multi-sheet XLSX remains future.
+- True multi-sheet XLSX exists for Complete Project Report; other reports remain future.
 
 ## Product Finishing Pass - May 18, 2026
 
@@ -350,7 +389,7 @@ prisma/migrations/0005_accounting_hardening/migration.sql
 
 - Same-form bill upload is now available for supplier invoices and subcontractor measurement/agreement/invoice files.
 - Dedicated subcontractor tables remain a future schema improvement.
-- Dynamic permission editing, server PDF, and XLSX workbook export remain future.
+- Dynamic permission editing and server PDF remain future. XLSX workbook export exists for Complete Project Report only.
 
 ## Vendor/Subcontractor Completion - May 18, 2026
 

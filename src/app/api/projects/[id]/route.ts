@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
-import { can } from '@/lib/permissions';
+import { apiAccessError, assertApiProjectPermission } from '@/lib/access-control';
 
 const nullableText = z.preprocess((value) => value === undefined ? null : value, z.string().trim().nullable());
 const nullableNumber = z.preprocess((value) => value === undefined ? null : value, z.number().nullable());
@@ -61,15 +59,10 @@ async function writeProjectAudit(data: {
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    const companyId = (session.user as any).companyId;
-    const role = (session.user as any).role;
+    const access = await assertApiProjectPermission({ projectId: params.id, module: 'projects', action: 'editDraft' });
+    if (!access.ok) return apiAccessError(access);
+    const companyId = access.context.companyId;
     if (!companyId) return NextResponse.json({ error: 'Your user is not assigned to a company.' }, { status: 400 });
-    if (!can(role, 'projects', 'editDraft') && !can(role, 'settings', 'editDraft')) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
     const oldProject = await prisma.project.findFirst({ where: { id: params.id, companyId } });
     if (!oldProject) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
@@ -93,7 +86,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     });
 
     await writeProjectAudit({
-      userId: (session.user as any).id,
+      userId: access.context.userId,
       projectId: project.id,
       action: 'UPDATE',
       entityId: project.id,

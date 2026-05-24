@@ -1,6 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { requireCompanyWidePageAccess } from '@/lib/access-control';
 import { Header } from '@/components/layout/header';
 import { PageHeader } from '@/components/shared/page-header';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,8 +12,8 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 export default async function PhasesPage() {
-  const session = await getServerSession(authOptions);
-  const companyId = (session?.user as any)?.companyId ?? '';
+  const context = await requireCompanyWidePageAccess('phases', 'view');
+  const companyId = context.companyId;
 
   const phases = await prisma.phase.findMany({
     where: { project: { companyId } },

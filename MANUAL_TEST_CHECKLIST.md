@@ -285,3 +285,20 @@ Login: `admin@relaxdevelopers.com` / `admin123`
 - [ ] Confirm `/company/accounts/new` redirects to `/access-denied`.
 - [ ] Confirm `/buyers`, `/collections`, `/expenses`, and `/suppliers` redirect to `/access-denied`.
 - [ ] Confirm `/projects/project-madina-garden/finance` redirects to `/access-denied`.
+
+## T. Legacy Security / Report Export Polish
+
+- [ ] Login with `engineer@relaxdevelopers.com` / `engineer123`.
+- [ ] Confirm `/buyers/new`, `/collections/new`, `/expenses/new`, `/suppliers/new`, and `/phases/new` redirect to `/access-denied`.
+- [ ] Confirm `GET /api/projects` only returns assigned projects for the engineer.
+- [ ] Confirm project-only write calls to `/api/collections`, `/api/expenses`, `/api/phases`, and `/api/suppliers` return clean 403/404 JSON when outside assignment or missing permission.
+- [ ] Login with `admin@relaxdevelopers.com` / `admin123`.
+- [ ] Confirm `/projects/project-relax-tower/reports` shows grouped report cards and honest Print-ready / CSV / Excel workbook / PDF / Coming next status.
+- [ ] Confirm `/projects/project-relax-tower/reports/complete-project` opens and shows print controls, XLSX workbook, CSV, report sections, and signature area.
+- [ ] Confirm `/api/projects/project-relax-tower/reports/complete-project/xlsx` downloads a workbook with summary, top sheet, phase, expense, vendor, buyer due, cash/bank, cheque, tax, retention, service charge, final reconciliation, and audit sheets.
+- [ ] Confirm demand batch print pages show per-buyer demand notice / bill blocks with base phase cost, service charge, adjustment, carry-forward, amount payable, due date, payment instruction, and signature.
+- [ ] Confirm browser Print / Save as PDF uses A4 layout and hides app shell/sidebar/header.
+- [ ] Confirm seed totals remain:
+  - Income: 100,143,800
+  - Expense: 104,659,890.40
+  - Balance: -4,516,090.40

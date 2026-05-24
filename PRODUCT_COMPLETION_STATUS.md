@@ -90,7 +90,7 @@
 ## Known Incomplete Areas
 
 - True server-generated PDF export.
-- True XLSX workbook export.
+- True XLSX workbook export for every report. Complete Project Report now has native XLSX.
 - Full buyer statement/unit statement/ledger report calculations.
 - Demand payment allocation and reversal workflow.
 - Manual collection allocation and reversal workflow.
@@ -176,7 +176,7 @@
 - Service charge is ledger-backed, but no separate service-charge collection or settlement flow exists yet.
 - Final reconciliation surplus posts buyer credit lines but not a dedicated refund payment workflow.
 - Relax Tower seed data still needs unit ownership assignment before final reconciliation can be posted from the seeded project itself.
-- CSV remains the real export path; no native XLSX workbook or server-side PDF has been added.
+- CSV remains the real export path for most reports; Complete Project Report now has native XLSX. Server-side PDF has not been added.
 
 ## Ownership Seed / Finance QA Update - May 24, 2026
 
@@ -198,7 +198,7 @@
 
 - Relax Tower seed now supports deficit reconciliation testing, but it does not naturally create a surplus scenario for refund-credit QA.
 - Surplus credit/refund settlement exists in the ledger, but there is still no dedicated refund-operations screen beyond the reconciliation page actions.
-- CSV is the real export path; no native XLSX workbook or server-side PDF has been added.
+- CSV is the real export path for most reports; Complete Project Report now has native XLSX. Server-side PDF has not been added.
 
 ## Access / Reporting / Billing Completion - May 24, 2026
 
@@ -237,9 +237,27 @@
 
 ## Current Access / Reporting Limitations
 
-- Company/global legacy client-form pages like `/buyers/new`, `/collections/new`, `/expenses/new`, and `/suppliers/new` still need full server-wrapper conversion for first-load access-denied UX, even though the high-risk company/admin pages and newer APIs are now guarded.
-- Native XLSX workbook export is still not implemented; current finance/report export remains CSV.
+- Company/global legacy client-form pages now have server-wrapper access-denied UX, but older nested project/vendor APIs still deserve a final helper-by-helper conversion pass.
+- Native XLSX workbook export now exists for Complete Project Report; other report exports remain CSV where implemented.
 - Server-side PDF generation is still not implemented; browser print / Save as PDF is the supported path.
+
+## Legacy Security / Report Export Polish - May 24, 2026
+
+- Added `LEGACY_SECURITY_REPORT_EXPORT_POLISH.md`.
+- Added server-wrapper guards to legacy global create pages:
+  - `/buyers/new`
+  - `/collections/new`
+  - `/expenses/new`
+  - `/suppliers/new`
+  - `/phases/new`
+- Added company-wide guards to legacy global phase/demand/material pages.
+- Hardened legacy APIs for buyers, collections, expenses, suppliers, phases, project list/create, and project update with persisted permissions and project assignment checks.
+- Complete Project Report now uses project-scoped page/API guards.
+- Added native XLSX workbook export:
+  - `/api/projects/[id]/reports/complete-project/xlsx`
+- Report index now honestly shows Print-ready, CSV export, Excel workbook, PDF, and Coming next status per report.
+- Demand batch print now renders per-buyer demand notice / bill blocks with service charge, carry-forward, due date, payment instruction, and signature space.
+- Browser Print / Save as PDF remains the PDF path; no fake server PDF was added.
 
 ## Current Finance Limitations
 
@@ -301,7 +319,7 @@ Build the accountant-facing reversal/adjustment UI and expand supplier/subcontra
   - `/api/projects/[id]/reports/top-sheet/excel`
   - `/api/projects/[id]/reports/expenses/excel`
 - PDF status: browser Print / Save as PDF is supported through print-ready report HTML. Server-generated PDF remains future.
-- Excel status: real CSV exports with data are implemented. True multi-sheet XLSX remains future because no XLSX dependency is installed.
+- Excel status: real CSV exports with data are implemented. Complete Project Report now has native multi-sheet XLSX; other reports remain CSV/future workbook work.
 
 ## Product Finishing Pass Added
 
@@ -320,7 +338,7 @@ Build the accountant-facing reversal/adjustment UI and expand supplier/subcontra
 - Same-form bill upload now exists for supplier invoices and subcontractor measurement/agreement/invoice files.
 - Dedicated subcontractor accounting tables remain future; current data is stored in `SupplierPayable` with subcontractor supplier types.
 - Advanced document metadata edit/detail/delete workflows remain partial.
-- Server-generated PDF and true XLSX workbook exports remain future.
+- Server-generated PDF remains future. True XLSX workbook export exists for Complete Project Report only.
 
 ## Vendor/Subcontractor Completion Added
 

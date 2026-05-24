@@ -88,6 +88,20 @@ body {
 
 /* Print styles */
 @media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+  aside,
+  nav,
+  header,
   .no-print { display: none !important; }
   .print-break { page-break-before: always; }
+  body {
+    background: white !important;
+  }
+  main,
+  section {
+    box-shadow: none !important;
+  }
 }

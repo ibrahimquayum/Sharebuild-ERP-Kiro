@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { z } from 'zod';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { safeAuditLog } from '@/lib/audit';
+import { apiAccessError, assertApiPhasePermission } from '@/lib/access-control';
 
 const lockSchema = z.object({
   locked: z.boolean(),
@@ -11,11 +10,11 @@ const lockSchema = z.object({
 });
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const access = await assertApiPhasePermission({ phaseId: params.id, module: 'audit', action: 'auditAccess' });
+  if (!access.ok) return apiAccessError(access);
 
-  const companyId = (session.user as any).companyId;
-  const userId = (session.user as any).id;
+  const companyId = access.context.companyId;
+  const userId = access.context.userId;
   const parsed = lockSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 });
 

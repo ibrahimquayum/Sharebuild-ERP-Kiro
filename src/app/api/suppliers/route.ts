@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { safeAuditLog } from '@/lib/audit';
+import { apiAccessError, assertApiCompanyWidePermission } from '@/lib/access-control';
 
 const createSchema = z.object({
   name: z.string().min(1),
@@ -20,9 +19,9 @@ const createSchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
+  const access = await assertApiCompanyWidePermission('suppliers', 'view');
+  if (!access.ok) return apiAccessError(access);
+  const companyId = access.context.companyId;
 
   const suppliers = await prisma.supplier.findMany({
     where: { companyId, isActive: true },
@@ -36,9 +35,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
+  const access = await assertApiCompanyWidePermission('suppliers', 'create');
+  if (!access.ok) return apiAccessError(access);
+  const companyId = access.context.companyId;
 
   const body = await req.json();
   const parsed = createSchema.safeParse(body);
@@ -50,7 +49,7 @@ export async function POST(req: NextRequest) {
   });
 
   await safeAuditLog({
-    userId: (session.user as any).id,
+    userId: access.context.userId,
     action: 'CREATE',
     entityType: 'supplier',
     entityId: supplier.id,

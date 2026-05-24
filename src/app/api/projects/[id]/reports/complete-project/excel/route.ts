@@ -1,20 +1,15 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { getCompleteProjectReportData } from '@/lib/complete-project-report';
 import { csvResponse, csvSection } from '@/lib/csv';
 import { formatDate } from '@/lib/utils';
 import { safeAuditLog } from '@/lib/audit';
-import { can } from '@/lib/permissions';
+import { apiAccessError, assertApiProjectPermission } from '@/lib/access-control';
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
-  const role = (session.user as any).role;
-  if (!can(role, 'reports', 'export')) return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+  const access = await assertApiProjectPermission({ projectId: params.id, module: 'reports', action: 'export' });
+  if (!access.ok) return apiAccessError(access);
 
-  const data = await getCompleteProjectReportData(companyId, params.id);
+  const data = await getCompleteProjectReportData(access.context.companyId, params.id);
   if (!data) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
   const content = [
@@ -85,7 +80,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   ].join('\r\n');
 
   await safeAuditLog({
-    userId: (session.user as any).id,
+    userId: access.context.userId,
     projectId: data.project.id,
     action: 'CREATE',
     entityType: 'report_export',

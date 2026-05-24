@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { safeAuditLog } from '@/lib/audit';
-import { can } from '@/lib/permissions';
 import { isPhaseLocked, lockedPhaseMessage } from '@/lib/accounting';
 import { assertAccountBelongsToCompany, createCashBankTransactionFromExpense } from '@/lib/cash-bank';
+import { apiAccessError, assertApiCompanyWidePermission, assertApiPhasePermission } from '@/lib/access-control';
 
 const createSchema = z.object({
   phaseId: z.string(),
@@ -42,13 +40,14 @@ const createSchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
-
   const { searchParams } = new URL(req.url);
   const phaseId = searchParams.get('phaseId');
   const status = searchParams.get('status');
+  const access = phaseId
+    ? await assertApiPhasePermission({ phaseId, module: 'expenses', action: 'view' })
+    : await assertApiCompanyWidePermission('expenses', 'view');
+  if (!access.ok) return apiAccessError(access);
+  const companyId = access.context.companyId;
 
   const expenses = await prisma.expense.findMany({
     where: {
@@ -68,18 +67,16 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
-  const userId = (session.user as any).id;
-  const userRole = (session.user as any).role;
-  if (!can(userRole, 'expenses', 'create')) return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-
   const body = await req.json();
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const d = parsed.data;
+  const access = await assertApiPhasePermission({ phaseId: d.phaseId, module: 'expenses', action: 'create' });
+  if (!access.ok) return apiAccessError(access);
+  const companyId = access.context.companyId;
+  const userId = access.context.userId;
+  const userRole = access.context.legacyRole;
 
   const phase = await prisma.phase.findFirst({ where: { id: d.phaseId, project: { companyId } } });
   if (!phase) return NextResponse.json({ error: 'Phase not found' }, { status: 404 });
