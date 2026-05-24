@@ -1,20 +1,15 @@
-import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
-import { authOptions } from '@/lib/auth';
-import { can } from '@/lib/permissions';
 import { csvResponse, csvSection } from '@/lib/csv';
 import { getFinalReconciliationPreview } from '@/lib/project-finance';
 import { prisma } from '@/lib/prisma';
 import { safeAuditLog } from '@/lib/audit';
+import { apiAccessError, assertApiProjectPermission } from '@/lib/access-control';
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
-  const role = (session.user as any).role;
-  if (!can(role, 'reports', 'export')) return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+  const access = await assertApiProjectPermission({ projectId: params.id, module: 'reports', action: 'export' });
+  if (!access.ok) return apiAccessError(access);
 
-  const project = await prisma.project.findFirst({ where: { id: params.id, companyId }, select: { id: true, code: true } });
+  const project = await prisma.project.findFirst({ where: { id: params.id, companyId: access.context.companyId }, select: { id: true, code: true } });
   if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
   const preview = await getFinalReconciliationPreview(project.id);
   if (!preview) return NextResponse.json({ error: 'Reconciliation preview not available' }, { status: 404 });
@@ -47,6 +42,6 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     ]),
   ].join('\r\n');
 
-  await safeAuditLog({ userId: (session.user as any).id, projectId: project.id, action: 'CREATE', entityType: 'report_export', entityId: project.id, newValues: { report: 'final_reconciliation', format: 'csv' }, context: 'final reconciliation csv export' });
+  await safeAuditLog({ userId: access.context.userId, projectId: project.id, action: 'CREATE', entityType: 'report_export', entityId: project.id, newValues: { report: 'final_reconciliation', format: 'csv' }, context: 'final reconciliation csv export' });
   return csvResponse(`final-reconciliation-${project.code ?? project.id}.csv`, content);
 }

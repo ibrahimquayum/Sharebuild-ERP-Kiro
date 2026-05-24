@@ -302,3 +302,31 @@ Login: `admin@relaxdevelopers.com` / `admin123`
   - Income: 100,143,800
   - Expense: 104,659,890.40
   - Balance: -4,516,090.40
+
+## U. Security / Dependency / API Guard Pass
+
+- [ ] Run `npm install` and confirm lockfile updates without dependency conflicts.
+- [ ] Run `npm audit` and confirm the remaining findings are limited to the documented Next.js, PostCSS, NextAuth/uuid, and dev-tooling advisories.
+- [ ] Login with `engineer@relaxdevelopers.com` / `engineer123`.
+- [ ] Confirm `/projects/project-relax-tower` opens.
+- [ ] Confirm `/projects/project-madina-garden` redirects to `/access-denied`.
+- [ ] Confirm `/company/users` redirects to `/access-denied`.
+- [ ] Confirm `/company/roles` redirects to `/access-denied`.
+- [ ] Confirm `POST /api/company/users` returns 403 for the engineer.
+- [ ] Confirm `POST /api/expenses/[id]/approve` returns 403 for the engineer.
+- [ ] Confirm `GET /api/projects/project-relax-tower/reports/complete-project/xlsx` returns 403 for the engineer.
+- [ ] Login with `admin@relaxdevelopers.com` / `admin123`.
+- [ ] Confirm `/company/users` opens.
+- [ ] Confirm `/company/roles` opens.
+- [ ] Confirm `GET /api/projects/project-relax-tower/reports/complete-project/xlsx` returns 200 and downloads the workbook.
+- [ ] Confirm `/projects/project-relax-tower/documents` only shows project/company-visible documents and that upload rejects unsafe file extensions.
+- [ ] Confirm report action labels stay honest:
+  - workbook only where native XLSX exists
+  - CSV only where implemented
+  - PDF means browser Print / Save as PDF
+- [ ] Confirm `npm run build` passes.
+- [ ] Confirm `npm run db:seed` passes.
+- [ ] Confirm seed totals remain:
+  - Income: 100,143,800
+  - Expense: 104,659,890.40
+  - Balance: -4,516,090.40

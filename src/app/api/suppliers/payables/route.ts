@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { safeAuditLog } from '@/lib/audit';
 import { isPhaseLocked, lockedPhaseMessage } from '@/lib/accounting';
 import { assertAccountBelongsToCompany, createCashBankTransactionFromSupplierPayment } from '@/lib/cash-bank';
+import { getAccessContext, hasPermission, hasProjectAccess } from '@/lib/access-control';
+import { SUPPLIER_VENDOR_TYPES, SUBCONTRACTOR_VENDOR_TYPES, isSubcontractorSupplierType } from '@/lib/project-vendor-ledger';
 
 const createSchema = z.object({
   supplierId:  z.string().min(1),
@@ -56,17 +56,32 @@ const createSchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
+  const context = await getAccessContext();
+  if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const companyId = context.companyId;
+  const canViewSuppliers = hasPermission(context, 'suppliers', 'view');
+  const canViewSubcontractors = hasPermission(context, 'subcontractors', 'view');
+  if (!canViewSuppliers && !canViewSubcontractors) {
+    return NextResponse.json({ error: 'Insufficient permissions.' }, { status: 403 });
+  }
 
   const { searchParams } = new URL(req.url);
   const supplierId = searchParams.get('supplierId');
   const projectId  = searchParams.get('projectId');
+  if (projectId && !hasProjectAccess(context, projectId)) {
+    return NextResponse.json({ error: 'You are not assigned to this project.' }, { status: 403 });
+  }
+  if (!projectId && !context.isCompanyWide) {
+    return NextResponse.json({ error: 'Select a project to view vendor bills.' }, { status: 403 });
+  }
+
+  const supplierWhere: Record<string, unknown> = { companyId };
+  if (canViewSuppliers && !canViewSubcontractors) supplierWhere.supplierType = { in: [...SUPPLIER_VENDOR_TYPES] };
+  if (canViewSubcontractors && !canViewSuppliers) supplierWhere.supplierType = { in: [...SUBCONTRACTOR_VENDOR_TYPES] };
 
   const payables = await prisma.supplierPayable.findMany({
     where: {
-      supplier: { companyId },
+      supplier: supplierWhere,
       ...(supplierId ? { supplierId } : {}),
       ...(projectId  ? { projectId  } : {}),
     },
@@ -85,10 +100,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
-  const userId    = (session.user as any).id;
+  const context = await getAccessContext();
+  if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const companyId = context.companyId;
+  const userId = context.userId;
 
   const body   = await req.json();
   const parsed = createSchema.safeParse(body);
@@ -97,8 +112,18 @@ export async function POST(req: NextRequest) {
   const d = parsed.data;
 
   // Verify supplier belongs to this company
-  const supplier = await prisma.supplier.findFirst({ where: { id: d.supplierId, companyId } });
+  const supplier = await prisma.supplier.findFirst({
+    where: { id: d.supplierId, companyId },
+    select: { id: true, supplierType: true },
+  });
   if (!supplier) return NextResponse.json({ error: 'Supplier not found' }, { status: 404 });
+  if (!hasProjectAccess(context, d.projectId)) {
+    return NextResponse.json({ error: 'You are not assigned to this project.' }, { status: 403 });
+  }
+  const module = d.projectSubcontractorId || isSubcontractorSupplierType(supplier.supplierType) ? 'subcontractors' : 'suppliers';
+  if (!hasPermission(context, module, 'create')) {
+    return NextResponse.json({ error: 'Insufficient permissions.' }, { status: 403 });
+  }
 
   // Verify project belongs to this company
   const project = await prisma.project.findFirst({ where: { id: d.projectId, companyId } });

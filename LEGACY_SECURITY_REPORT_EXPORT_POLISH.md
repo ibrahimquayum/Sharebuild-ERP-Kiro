@@ -116,11 +116,12 @@ Expected project-only behavior after this pass:
 
 ## Known Remaining Risks
 
-- Several older project-specific API files still use direct session checks and should get the same helper conversion in a later exhaustive pass, especially nested supplier/payable/document edge cases.
+- The high-risk nested API helper conversion has now been completed in the follow-up dependency/API guard pass, but older app pages still deserve helper normalization for consistency.
 - Server-side PDF generation remains future work.
 - Most report pages are print-ready foundations; only selected reports have real CSV exports, and only Complete Project Report has native XLSX workbook export.
-- `jszip` was added for lightweight workbook packaging; npm audit still reports existing Next.js advisories that need a separate framework upgrade review rather than an automatic breaking upgrade.
+- `jszip` was added for lightweight workbook packaging; `npm audit` still reports existing Next.js, NextAuth/uuid, PostCSS, and dev-tooling advisories that need a separate framework/auth upgrade review rather than an automatic breaking upgrade.
+- Local uploads still live under `public/uploads/[companyId]`; private object storage remains the production-grade next step for multi-tenant deployment.
 
 ## SaaS Readiness
 
-SaaS readiness can start after a final dependency/security review and one more exhaustive API helper-conversion pass. Billing, buyer portal, SMS/mobile, and AI remain intentionally untouched.
+SaaS readiness can start after the final dependency/security review is closed, local uploads are replaced with production-grade private storage, and the unresolved framework/auth advisories get a dedicated major-upgrade review. Billing, buyer portal, SMS/mobile, and AI remain intentionally untouched.

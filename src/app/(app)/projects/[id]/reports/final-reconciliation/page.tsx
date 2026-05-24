@@ -14,7 +14,7 @@ export default async function FinalReconciliationReportPage({ params }: { params
 
   return (
     <div className="p-5 space-y-5 print:p-0">
-      <div className="flex justify-end"><ReportActions excelHref={`/api/projects/${project.id}/reports/final-reconciliation/excel`} /></div>
+      <div className="flex justify-end"><ReportActions csvHref={`/api/projects/${project.id}/reports/final-reconciliation/excel`} /></div>
       <ReportHeader branding={branding} project={project} title="Final Reconciliation Report" subtitle="Ownership-based preview and posted reconciliation status" />
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="rounded-md border p-3 text-sm"><div className="text-xs text-muted-foreground">Project Balance</div><div className={`mt-1 font-bold ${balanceColor(preview.summary.projectBalance)}`}>{formatBDT(preview.summary.projectBalance)}</div></div>

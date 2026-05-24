@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { z } from 'zod';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { can } from '@/lib/permissions';
 import { safeAuditLog } from '@/lib/audit';
+import { apiAccessError, assertApiProjectPermission } from '@/lib/access-control';
 
 const assignmentSchema = z.object({
   buyerId: z.string().min(1),
@@ -15,18 +13,14 @@ const assignmentSchema = z.object({
 });
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const role = (session.user as any).role;
-  if (!can(role, 'buyers', 'create')) return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-
-  const companyId = (session.user as any).companyId;
+  const access = await assertApiProjectPermission({ projectId: params.id, module: 'buyers', action: 'create' });
+  if (!access.ok) return apiAccessError(access);
   const parsed = assignmentSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 });
 
   const [project, buyer, unit] = await Promise.all([
-    prisma.project.findFirst({ where: { id: params.id, companyId }, select: { id: true } }),
-    prisma.buyer.findFirst({ where: { id: parsed.data.buyerId, companyId }, select: { id: true } }),
+    prisma.project.findFirst({ where: { id: params.id, companyId: access.context.companyId }, select: { id: true } }),
+    prisma.buyer.findFirst({ where: { id: parsed.data.buyerId, companyId: access.context.companyId }, select: { id: true } }),
     prisma.unit.findFirst({ where: { id: parsed.data.unitId, projectId: params.id }, select: { id: true } }),
   ]);
 
@@ -86,7 +80,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   });
 
   await safeAuditLog({
-    userId: (session.user as any).id,
+    userId: access.context.userId,
     projectId: project.id,
     action: 'CREATE',
     entityType: 'project_buyer',

@@ -7,7 +7,7 @@ export function ReportPageLayout({
   project,
   title,
   subtitle,
-  excelHref,
+  workbookHref,
   csvHref,
   children,
 }: {
@@ -15,14 +15,14 @@ export function ReportPageLayout({
   project?: any;
   title: string;
   subtitle?: string;
-  excelHref?: string;
+  workbookHref?: string;
   csvHref?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="p-5 space-y-6 print:p-0 print:text-black">
       <div className="flex justify-end">
-        <ReportActions pdfReady excelHref={excelHref} csvHref={csvHref} />
+        <ReportActions pdfReady workbookHref={workbookHref} csvHref={csvHref} />
       </div>
       <ReportHeader branding={branding} project={project} title={title} subtitle={subtitle} />
       {children}

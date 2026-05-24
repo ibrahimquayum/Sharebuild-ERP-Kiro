@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { z } from 'zod';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { can } from '@/lib/permissions';
 import { safeAuditLog } from '@/lib/audit';
 import { getProjectSubcontractorAssignments, SUBCONTRACTOR_VENDOR_TYPES } from '@/lib/project-vendor-ledger';
+import { apiAccessError, assertApiProjectPermission } from '@/lib/access-control';
 
 const newSubcontractorSchema = z.object({
   name: z.string().min(1, 'Subcontractor name is required.'),
@@ -35,37 +33,22 @@ const createSchema = z.object({
 });
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const access = await assertApiProjectPermission({ projectId: params.id, module: 'subcontractors', action: 'view' });
+  if (!access.ok) return apiAccessError(access);
 
-  const companyId = (session.user as any).companyId as string;
-  const project = await prisma.project.findFirst({
-    where: { id: params.id, companyId },
-    select: { id: true },
-  });
-  if (!project) return NextResponse.json({ error: 'Project not found.' }, { status: 404 });
-
-  const assignments = await getProjectSubcontractorAssignments(project.id, companyId);
+  const assignments = await getProjectSubcontractorAssignments(access.project.id, access.context.companyId);
   return NextResponse.json(assignments);
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const companyId = (session.user as any).companyId as string;
-  const role = (session.user as any).role as string | undefined;
-  const userId = (session.user as any).id as string | undefined;
-  if (!can(role, 'subcontractors', 'create')) return NextResponse.json({ error: 'Insufficient permissions.' }, { status: 403 });
+  const access = await assertApiProjectPermission({ projectId: params.id, module: 'subcontractors', action: 'create' });
+  if (!access.ok) return apiAccessError(access);
 
   const parsed = createSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const project = await prisma.project.findFirst({
-    where: { id: params.id, companyId },
-    select: { id: true, companyId: true },
-  });
-  if (!project) return NextResponse.json({ error: 'Project not found.' }, { status: 404 });
+  const project = access.project;
+  const companyId = access.context.companyId;
 
   const data = parsed.data;
   if (!data.existingSupplierId && !data.supplier) {
@@ -145,7 +128,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   await safeAuditLog({
-    userId,
+    userId: access.context.userId,
     projectId: project.id,
     action: 'CREATE',
     entityType: 'project_subcontractor',

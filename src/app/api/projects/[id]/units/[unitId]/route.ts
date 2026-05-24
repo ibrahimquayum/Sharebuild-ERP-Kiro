@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { z } from 'zod';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { can } from '@/lib/permissions';
 import { safeAuditLog } from '@/lib/audit';
+import { apiAccessError, assertApiProjectPermission } from '@/lib/access-control';
 
 const unitSchema = z.object({
   unitNo: z.string().min(1, 'Unit number is required.'),
@@ -16,14 +14,10 @@ const unitSchema = z.object({
 });
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string; unitId: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const role = (session.user as any).role;
-  if (!can(role, 'units', 'editDraft')) return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-
-  const companyId = (session.user as any).companyId;
+  const access = await assertApiProjectPermission({ projectId: params.id, module: 'units', action: 'editDraft' });
+  if (!access.ok) return apiAccessError(access);
   const oldUnit = await prisma.unit.findFirst({
-    where: { id: params.unitId, project: { id: params.id, companyId } },
+    where: { id: params.unitId, project: { id: params.id, companyId: access.context.companyId } },
   });
   if (!oldUnit) return NextResponse.json({ error: 'Unit not found' }, { status: 404 });
 
@@ -36,7 +30,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string; 
   });
 
   await safeAuditLog({
-    userId: (session.user as any).id,
+    userId: access.context.userId,
     projectId: params.id,
     action: 'UPDATE',
     entityType: 'unit',

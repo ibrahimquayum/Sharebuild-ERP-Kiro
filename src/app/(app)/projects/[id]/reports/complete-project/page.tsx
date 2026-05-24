@@ -34,7 +34,7 @@ export default async function CompleteProjectReportPage({ params }: { params: { 
         project={data.project}
         title="Complete Project Report"
         subtitle="Executive summary, Top Sheet, phase balances, expenses, payables, buyer due, and audit summary"
-        excelHref={`/api/projects/${data.project.id}/reports/complete-project/xlsx`}
+        workbookHref={`/api/projects/${data.project.id}/reports/complete-project/xlsx`}
         csvHref={`/api/projects/${data.project.id}/reports/complete-project/excel`}
       >
 

@@ -8,6 +8,6 @@ export default async function ExpenseReportPage({ params }: { params: { id: stri
   return <ReportFoundationPage title="Expense Report" subtitle="Site costs by category, supplier, phase, status, and voucher." branding={branding} project={project} rows={[
     { label: 'Filters', value: 'Date range, category, supplier, phase, approval status' },
     { label: 'Data source', value: 'Expense, Supplier, Phase, Document' },
-    { label: 'Export status', value: 'Print-ready foundation complete; Excel-compatible CSV endpoint available' },
-  ]} excelHref={`/api/projects/${project.id}/reports/expenses/excel`} />;
+    { label: 'Export status', value: 'Print-ready foundation complete; CSV endpoint available' },
+  ]} csvHref={`/api/projects/${project.id}/reports/expenses/excel`} />;
 }

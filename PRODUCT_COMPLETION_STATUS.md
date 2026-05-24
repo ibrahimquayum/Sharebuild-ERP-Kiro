@@ -259,6 +259,39 @@
 - Demand batch print now renders per-buyer demand notice / bill blocks with service charge, carry-forward, due date, payment instruction, and signature space.
 - Browser Print / Save as PDF remains the PDF path; no fake server PDF was added.
 
+## Security / Dependency / API Guard Pass - May 25, 2026
+
+- Added `SECURITY_DEPENDENCY_API_GUARD_PASS.md`.
+- Applied safe dependency upgrades without forcing breaking framework jumps:
+  - `next` `14.2.35`
+  - `next-auth` `4.24.14`
+  - `eslint-config-next` `14.2.35`
+- Production hardening improvements:
+  - disabled `X-Powered-By`
+  - removed broad `next/image` remote source configuration
+- Exhaustive high-risk API helper conversion completed across:
+  - nested project units/buyers/vendors/bulk-expense APIs
+  - report/export APIs
+  - document list/upload API
+  - buyer detail nested data API
+  - supplier payable/payment/reversal/retention APIs
+  - company settings and finance-sensitive reverse/approve routes
+- Project-only smoke validation confirmed:
+  - assigned project allowed
+  - unassigned project denied
+  - company users/roles denied
+  - protected write APIs return 403
+  - unauthorized workbook export returns 403
+- Complete Project Report workbook export remains the only native XLSX path; other report exports remain CSV or future work.
+- `npm audit` still reports unresolved framework/auth advisories that require a separate major-upgrade review instead of `npm audit fix --force`.
+
+## Current Security / Production Gaps
+
+- Local uploads still live under `public/uploads/[companyId]`; private object storage remains the right next production step.
+- Server-generated PDF is still future work.
+- Only Complete Project Report has native XLSX today.
+- Remaining `npm audit` advisories are documented and need a dedicated Next.js / NextAuth upgrade strategy review.
+
 ## Current Finance Limitations
 
 - Final reconciliation is preview-only in this pass; it does not yet post buyer demand rows.

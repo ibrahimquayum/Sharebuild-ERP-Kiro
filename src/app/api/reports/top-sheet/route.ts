@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { FINAL_EXPENSE_STATUSES } from '@/lib/accounting';
+import { apiAccessError, assertApiCompanyWidePermission, assertApiProjectPermission } from '@/lib/access-control';
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
-
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get('projectId');
+  const access = projectId
+    ? await assertApiProjectPermission({ projectId, module: 'reports', action: 'view' })
+    : await assertApiCompanyWidePermission('reports', 'view');
+  if (!access.ok) return apiAccessError(access);
+  const companyId = access.context.companyId;
 
   const project = await prisma.project.findFirst({
     where: { companyId, ...(projectId ? { id: projectId } : {}) },

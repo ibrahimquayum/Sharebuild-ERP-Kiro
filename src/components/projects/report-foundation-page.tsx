@@ -7,17 +7,17 @@ export function ReportFoundationPage({
   branding,
   project,
   rows,
-  excelHref,
+  csvHref,
 }: {
   title: string;
   subtitle: string;
   branding: any;
   project: any;
   rows: { label: string; value: string }[];
-  excelHref?: string;
+  csvHref?: string;
 }) {
   return (
-    <ReportPageLayout branding={branding} project={project} title={title} subtitle={subtitle} excelHref={excelHref}>
+    <ReportPageLayout branding={branding} project={project} title={title} subtitle={subtitle} csvHref={csvHref}>
       <ReportSection title="Current Foundation">
         <Card>
           <CardContent className="p-0">
@@ -40,7 +40,7 @@ export function ReportFoundationPage({
           </CardContent>
         </Card>
         <p className="text-xs text-muted-foreground print:hidden">
-          PDF uses browser Print / Save as PDF. {excelHref ? 'Excel-compatible CSV export is available for this report.' : 'Excel export is intentionally disabled until a real endpoint is implemented.'}
+          PDF uses browser Print / Save as PDF. {csvHref ? 'CSV export is available for this report.' : 'CSV and Excel export stay disabled until real endpoints are implemented.'}
         </p>
       </ReportSection>
     </ReportPageLayout>

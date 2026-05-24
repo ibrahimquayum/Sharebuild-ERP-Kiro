@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { safeAuditLog } from '@/lib/audit';
+import { apiAccessError, assertApiCompanyWidePermission } from '@/lib/access-control';
 
 const supplierSchema = z.object({
   name: z.string().min(1),
@@ -20,10 +19,9 @@ const supplierSchema = z.object({
 });
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
-  const oldSupplier = await prisma.supplier.findFirst({ where: { id: params.id, companyId } });
+  const access = await assertApiCompanyWidePermission('suppliers', 'editDraft');
+  if (!access.ok) return apiAccessError(access);
+  const oldSupplier = await prisma.supplier.findFirst({ where: { id: params.id, companyId: access.context.companyId } });
   if (!oldSupplier) return NextResponse.json({ error: 'Supplier not found' }, { status: 404 });
 
   const parsed = supplierSchema.safeParse(await req.json());
@@ -35,7 +33,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   });
 
   await safeAuditLog({
-    userId: (session.user as any).id,
+    userId: access.context.userId,
     action: 'UPDATE',
     entityType: 'supplier',
     entityId: supplier.id,

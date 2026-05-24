@@ -26,7 +26,7 @@ export default async function TaxDeductionReportPage({ params }: { params: { id:
 
   return (
     <div className="p-5 space-y-5 print:p-0">
-      <div className="flex justify-end"><ReportActions excelHref={`/api/projects/${project.id}/reports/tax-deductions/excel`} /></div>
+      <div className="flex justify-end"><ReportActions csvHref={`/api/projects/${project.id}/reports/tax-deductions/excel`} /></div>
       <ReportHeader branding={branding} project={project} title="Tax / Deduction Report" subtitle="Gross bill, tax deduction, and current payable position by bill" />
       <div className="overflow-x-auto rounded-md border">
         <table className="w-full text-sm">

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { apiAccessError, assertApiCompanyPermission } from '@/lib/access-control';
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
@@ -19,22 +18,43 @@ const updateSchema = z.object({
 });
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
+  const access = await assertApiCompanyPermission('buyers', 'view');
+  if (!access.ok) return apiAccessError(access);
+  const companyId = access.context.companyId;
+  const restrictedProjectIds = access.context.isCompanyWide ? undefined : access.context.activeProjectIds;
+  const projectScopeFilter = restrictedProjectIds
+    ? {
+        OR: [
+          { projectLinks: { some: { projectId: { in: restrictedProjectIds } } } },
+          { unitAllocations: { some: { unit: { projectId: { in: restrictedProjectIds } } } } },
+          { collections: { some: { phase: { projectId: { in: restrictedProjectIds } } } } },
+          { demands: { some: { OR: [{ phase: { projectId: { in: restrictedProjectIds } } }, { unit: { projectId: { in: restrictedProjectIds } } }] } } },
+        ],
+      }
+    : {};
 
   const buyer = await prisma.buyer.findFirst({
-    where: { id: params.id, companyId },
+    where: { id: params.id, companyId, ...projectScopeFilter },
     include: {
       collections: {
+        where: restrictedProjectIds ? { phase: { projectId: { in: restrictedProjectIds } } } : undefined,
         include: { phase: { select: { id: true, name: true } } },
         orderBy: { receivedDate: 'desc' },
       },
       demands: {
+        where: restrictedProjectIds
+          ? { OR: [{ phase: { projectId: { in: restrictedProjectIds } } }, { unit: { projectId: { in: restrictedProjectIds } } }] }
+          : undefined,
         include: { phase: { select: { id: true, name: true } }, collections: { select: { amount: true } } },
       },
-      projectLinks: { include: { project: { select: { id: true, name: true } } } },
-      unitAllocations: { include: { unit: true } },
+      projectLinks: {
+        where: restrictedProjectIds ? { projectId: { in: restrictedProjectIds } } : undefined,
+        include: { project: { select: { id: true, name: true } } },
+      },
+      unitAllocations: {
+        where: restrictedProjectIds ? { unit: { projectId: { in: restrictedProjectIds } } } : undefined,
+        include: { unit: true },
+      },
     },
   });
 
@@ -43,15 +63,31 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId;
+  const access = await assertApiCompanyPermission('buyers', 'editDraft');
+  if (!access.ok) return apiAccessError(access);
+  const companyId = access.context.companyId;
+  const restrictedProjectIds = access.context.isCompanyWide ? undefined : access.context.activeProjectIds;
 
   const body = await req.json();
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const existing = await prisma.buyer.findFirst({ where: { id: params.id, companyId } });
+  const existing = await prisma.buyer.findFirst({
+    where: {
+      id: params.id,
+      companyId,
+      ...(restrictedProjectIds
+        ? {
+            OR: [
+              { projectLinks: { some: { projectId: { in: restrictedProjectIds } } } },
+              { unitAllocations: { some: { unit: { projectId: { in: restrictedProjectIds } } } } },
+              { collections: { some: { phase: { projectId: { in: restrictedProjectIds } } } } },
+              { demands: { some: { OR: [{ phase: { projectId: { in: restrictedProjectIds } } }, { unit: { projectId: { in: restrictedProjectIds } } }] } } },
+            ],
+          }
+        : {}),
+    },
+  });
   if (!existing) return NextResponse.json({ error: 'Buyer not found' }, { status: 404 });
 
   const updated = await prisma.buyer.update({

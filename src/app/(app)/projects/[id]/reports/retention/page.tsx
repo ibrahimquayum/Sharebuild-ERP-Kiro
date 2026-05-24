@@ -18,7 +18,7 @@ export default async function RetentionReportPage({ params }: { params: { id: st
 
   return (
     <div className="p-5 space-y-5 print:p-0">
-      <div className="flex justify-end"><ReportActions excelHref={`/api/projects/${project.id}/reports/retention/excel`} /></div>
+      <div className="flex justify-end"><ReportActions csvHref={`/api/projects/${project.id}/reports/retention/excel`} /></div>
       <ReportHeader branding={branding} project={project} title="Retention Report" subtitle="Held, released, and outstanding retention/security money" />
       <div className="overflow-x-auto rounded-md border">
         <table className="w-full text-sm">

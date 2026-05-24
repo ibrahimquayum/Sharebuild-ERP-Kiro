@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { z } from 'zod';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { safeAuditLog } from '@/lib/audit';
 import { assertAccountBelongsToCompany, createCashBankTransactionFromSupplierPayment } from '@/lib/cash-bank';
+import { getAccessContext, hasPermission, hasProjectAccess } from '@/lib/access-control';
+import { isSubcontractorSupplierType } from '@/lib/project-vendor-ledger';
 
 const createSchema = z.object({
   accountId: z.string().min(1),
@@ -22,12 +22,10 @@ const createSchema = z.object({
 });
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const companyId = (session.user as any).companyId;
+  const context = await getAccessContext();
+  if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const payable = await prisma.supplierPayable.findFirst({
-    where: { id: params.id, supplier: { companyId } },
+    where: { id: params.id, supplier: { companyId: context.companyId } },
     include: {
       supplier: { select: { id: true, name: true, supplierType: true } },
       payments: { orderBy: { paidAt: 'desc' } },
@@ -35,15 +33,17 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   });
 
   if (!payable) return NextResponse.json({ error: 'Payable not found' }, { status: 404 });
+  const module = isSubcontractorSupplierType(payable.supplier.supplierType) ? 'subcontractors' : 'suppliers';
+  if (!hasPermission(context, module, 'view')) return NextResponse.json({ error: 'Insufficient permissions.' }, { status: 403 });
+  if (!hasProjectAccess(context, payable.projectId)) return NextResponse.json({ error: 'You are not assigned to this project.' }, { status: 403 });
   return NextResponse.json(payable);
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const companyId = (session.user as any).companyId;
-  const userId = (session.user as any).id;
+  const context = await getAccessContext();
+  if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const companyId = context.companyId;
+  const userId = context.userId;
 
   const payable = await prisma.supplierPayable.findFirst({
     where: { id: params.id, supplier: { companyId } },
@@ -54,6 +54,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   });
 
   if (!payable) return NextResponse.json({ error: 'Payable not found' }, { status: 404 });
+  const module = isSubcontractorSupplierType(payable.supplier.supplierType) ? 'subcontractors' : 'suppliers';
+  if (!hasPermission(context, module, 'create')) return NextResponse.json({ error: 'Insufficient permissions.' }, { status: 403 });
+  if (!hasProjectAccess(context, payable.projectId)) return NextResponse.json({ error: 'You are not assigned to this project.' }, { status: 403 });
   if (payable.reversedAt) return NextResponse.json({ error: 'Cannot pay a reversed bill.' }, { status: 400 });
   if (payable.phase?.auditLockedAt) {
     return NextResponse.json(

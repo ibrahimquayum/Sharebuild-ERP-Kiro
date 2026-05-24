@@ -1,6 +1,6 @@
 # Development Status - Sharebuild ERP
 
-**Last updated:** May 24, 2026
+**Last updated:** May 25, 2026
 **Branch:** `feat/erp-v1`
 
 ## Current State
@@ -251,6 +251,52 @@ This branch now has a buildable project-first finance foundation with vendor con
 - Server-generated PDF remains future work.
 - Complete Project Report has XLSX; other reports retain CSV/foundation status.
 - A dependency security review is needed: `npm audit --omit=dev --audit-level=critical` still flags existing Next.js advisories and NextAuth/uuid/PostCSS moderate advisories.
+
+## Security / Dependency / API Guard Pass - May 25, 2026
+
+### Added
+
+- `SECURITY_DEPENDENCY_API_GUARD_PASS.md`
+- safe dependency upgrades:
+  - `next` `14.2.35`
+  - `next-auth` `4.24.14`
+  - `eslint-config-next` `14.2.35`
+
+### Hardened
+
+- `next.config.js` now disables `X-Powered-By`.
+- Broad image remote-source configuration was removed.
+- High-risk nested `src/app/api` routes were moved onto the centralized access-control helpers or equivalent shared permission checks.
+- Document list/upload now enforces linked-entity scope, assignment checks, and extension allowlists.
+- Buyer nested API responses are filtered so project-only users do not see cross-project linked data.
+- Supplier payable/payment/reversal flows now enforce module permission plus project assignment.
+- Project report/export endpoints now consistently enforce report export permission and project scope.
+- Project workspace layout now only passes serializable project fields into client components, fixing the authenticated production 500 caused by Prisma `Decimal` serialization.
+
+### Verified
+
+- `npm install`
+- `npm audit`
+- `npx prisma validate`
+- `npx prisma generate`
+- `npm run build`
+- `npm run db:seed`
+- authenticated smoke:
+  - project-only engineer can open assigned project and finance hub
+  - project-only engineer is denied from unassigned project and company admin pages
+  - project-only engineer receives 403 on protected write/export APIs
+  - admin can access company users/roles and download Complete Project Report XLSX
+- seed totals preserved:
+  - Income `100,143,800`
+  - Expense `104,659,890.40`
+  - Balance `-4,516,090.40`
+
+### Remaining
+
+- `npm audit` still reports unresolved Next.js, PostCSS, NextAuth/uuid, and dev-tooling advisories that require a separate major-upgrade review.
+- Local document storage is still public-disk based and should move to private object storage before multi-tenant production.
+- Server-side PDF remains future work.
+- Complete Project Report is still the only native XLSX workbook export.
 
 ## Schema Changes
 

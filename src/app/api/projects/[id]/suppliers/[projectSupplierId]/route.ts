@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { z } from 'zod';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { can } from '@/lib/permissions';
 import { safeAuditLog } from '@/lib/audit';
 import { SUPPLIER_VENDOR_TYPES } from '@/lib/project-vendor-ledger';
+import { apiAccessError, assertApiProjectPermission } from '@/lib/access-control';
 
 const updateSchema = z.object({
   supplier: z.object({
@@ -32,12 +30,11 @@ const updateSchema = z.object({
 });
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string; projectSupplierId: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const companyId = (session.user as any).companyId as string;
+  const access = await assertApiProjectPermission({ projectId: params.id, module: 'suppliers', action: 'view' });
+  if (!access.ok) return apiAccessError(access);
 
   const assignment = await prisma.projectSupplier.findFirst({
-    where: { id: params.projectSupplierId, projectId: params.id, companyId },
+    where: { id: params.projectSupplierId, projectId: params.id, companyId: access.context.companyId },
     include: {
       supplier: true,
       project: { select: { id: true, name: true } },
@@ -59,19 +56,14 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string;
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string; projectSupplierId: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const companyId = (session.user as any).companyId as string;
-  const role = (session.user as any).role as string | undefined;
-  const userId = (session.user as any).id as string | undefined;
-  if (!can(role, 'suppliers', 'editDraft')) return NextResponse.json({ error: 'Insufficient permissions.' }, { status: 403 });
+  const access = await assertApiProjectPermission({ projectId: params.id, module: 'suppliers', action: 'editDraft' });
+  if (!access.ok) return apiAccessError(access);
 
   const parsed = updateSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const current = await prisma.projectSupplier.findFirst({
-    where: { id: params.projectSupplierId, projectId: params.id, companyId },
+    where: { id: params.projectSupplierId, projectId: params.id, companyId: access.context.companyId },
     include: { supplier: true },
   });
   if (!current) return NextResponse.json({ error: 'Project supplier assignment not found.' }, { status: 404 });
@@ -112,7 +104,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   });
 
   await safeAuditLog({
-    userId,
+    userId: access.context.userId,
     projectId: params.id,
     action: 'UPDATE',
     entityType: 'project_supplier',

@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { z } from 'zod';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { can } from '@/lib/permissions';
 import { safeAuditLog } from '@/lib/audit';
+import { apiAccessError, assertApiProjectPermission } from '@/lib/access-control';
 
 const bulkUnitSchema = z.object({
   startFloor: z.number().int().min(-5).default(1),
@@ -29,15 +27,8 @@ function letterFor(index: number) {
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const role = (session.user as any).role;
-  if (!can(role, 'units', 'create')) return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-
-  const companyId = (session.user as any).companyId;
-  const project = await prisma.project.findFirst({ where: { id: params.id, companyId }, select: { id: true } });
-  if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+  const access = await assertApiProjectPermission({ projectId: params.id, module: 'units', action: 'create' });
+  if (!access.ok) return apiAccessError(access);
 
   const parsed = bulkUnitSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 });
@@ -52,7 +43,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         : `${data.prefix ?? ''}${floor}-${unitIndex}`;
 
       units.push({
-        projectId: project.id,
+        projectId: access.project.id,
         floor,
         unitNo,
         unitType: data.unitType,
@@ -70,7 +61,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   const existing = await prisma.unit.findMany({
-    where: { projectId: project.id, unitNo: { in: requestedUnitNos } },
+    where: { projectId: access.project.id, unitNo: { in: requestedUnitNos } },
     select: { unitNo: true },
   });
   if (existing.length > 0) {
@@ -80,8 +71,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   await prisma.unit.createMany({ data: units });
 
   await safeAuditLog({
-    userId: (session.user as any).id,
-    projectId: project.id,
+    userId: access.context.userId,
+    projectId: access.project.id,
     action: 'CREATE',
     entityType: 'unit',
     newValues: { count: units.length, ...data },

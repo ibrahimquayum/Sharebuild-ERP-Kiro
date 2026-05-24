@@ -18,7 +18,7 @@ export default async function ProjectCashBankBookReportPage({ params }: { params
 
   return (
     <div className="p-5 space-y-5 print:p-0">
-      <div className="flex justify-end"><ReportActions excelHref={`/api/projects/${project.id}/reports/cash-bank-book/excel`} /></div>
+      <div className="flex justify-end"><ReportActions csvHref={`/api/projects/${project.id}/reports/cash-bank-book/excel`} /></div>
       <ReportHeader branding={branding} project={project} title="Project Cash / Bank Book" subtitle="Account-wise money movement posted from collections, expenses, and vendor payments" />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="rounded-md border p-3 text-sm"><div className="text-xs text-muted-foreground">Cash In</div><div className="mt-1 font-bold text-green-600">{formatBDT(summary.totals.inflow)}</div></div>

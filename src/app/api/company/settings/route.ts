@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { mkdir, writeFile } from 'fs/promises';
 import { extname, join } from 'path';
 import { randomUUID } from 'crypto';
 import { safeAuditLog } from '@/lib/audit';
+import { apiAccessError, assertApiCompanyPermission } from '@/lib/access-control';
 
 export const runtime = 'nodejs';
 
@@ -80,11 +79,9 @@ async function readPayload(req: NextRequest, companyId: string) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    const companyId = (session.user as any).companyId;
-    if (!companyId) return NextResponse.json({ error: 'Your user is not assigned to a company.' }, { status: 400 });
+    const access = await assertApiCompanyPermission('settings', 'manageSettings');
+    if (!access.ok) return apiAccessError(access);
+    const companyId = access.context.companyId;
 
     const oldCompany = await prisma.company.findUnique({ where: { id: companyId } });
     if (!oldCompany) return NextResponse.json({ error: 'Company not found' }, { status: 404 });
@@ -119,7 +116,7 @@ export async function PUT(req: NextRequest) {
     }));
 
     await safeAuditLog({
-      userId: (session.user as any).id,
+      userId: access.context.userId,
       action: 'UPDATE',
       entityType: 'company',
       entityId: company.id,

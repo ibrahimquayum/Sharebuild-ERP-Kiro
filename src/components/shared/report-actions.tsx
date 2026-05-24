@@ -5,11 +5,11 @@ import { Download, FileSpreadsheet, Printer } from 'lucide-react';
 
 export function ReportActions({
   pdfReady = false,
-  excelHref,
+  workbookHref,
   csvHref,
 }: {
   pdfReady?: boolean;
-  excelHref?: string;
+  workbookHref?: string;
   csvHref?: string;
 }) {
   return (
@@ -20,9 +20,9 @@ export function ReportActions({
       <Button type="button" variant="outline" size="sm" disabled title={pdfReady ? 'Use Print / Save as PDF for this print-ready report' : 'Server PDF export is documented for a future implementation step'}>
         <Download className="mr-2 h-4 w-4" /> PDF
       </Button>
-      {excelHref ? (
+      {workbookHref ? (
         <Button asChild type="button" variant="outline" size="sm">
-          <a href={excelHref}>
+          <a href={workbookHref}>
             <FileSpreadsheet className="mr-2 h-4 w-4" /> Excel workbook
           </a>
         </Button>

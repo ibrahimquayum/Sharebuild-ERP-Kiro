@@ -14,7 +14,7 @@ export default async function ServiceChargeReportPage({ params }: { params: { id
   return (
     <div className="p-5 space-y-5 print:p-0">
       <div className="flex justify-end">
-        <ReportActions excelHref={`/api/projects/${project.id}/reports/service-charge/excel`} />
+        <ReportActions csvHref={`/api/projects/${project.id}/reports/service-charge/excel`} />
       </div>
       <ReportHeader
         branding={branding}
