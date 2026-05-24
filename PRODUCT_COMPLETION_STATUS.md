@@ -65,8 +65,10 @@
 
 - Reports are separate from Finance.
 - Top Sheet remains live and accurate.
-- Other report pages have branded print-ready foundations.
-- PDF/Excel buttons are disabled until real export endpoints are implemented.
+- Core project report pages now use a shared professional report shell.
+- Browser Print / Save as PDF is the supported PDF path.
+- Complete Project Report now has a native multi-sheet XLSX workbook.
+- Other implemented report exports remain CSV until native workbook export is added per report.
 
 ### Branding
 
@@ -291,6 +293,32 @@
 - Server-generated PDF is still future work.
 - Only Complete Project Report has native XLSX today.
 - Remaining `npm audit` advisories are documented and need a dedicated Next.js / NextAuth upgrade strategy review.
+
+## Professional Report System Overhaul - May 25, 2026
+
+- Added `PROFESSIONAL_REPORT_SYSTEM_OVERHAUL.md`.
+- Complete Project Report was rebuilt into a formal client/audit document with:
+  - cover page
+  - executive summary
+  - demand/allocation interpretation notes
+  - treasury, vendor, compliance, reconciliation, and audit sections
+  - signature page
+- Report formulas now distinguish:
+  - historical collection
+  - issued demand
+  - final reconciliation demand
+  - allocated collection
+  - unallocated collection
+  - buyer due
+  - buyer advance
+- Reusable report components now drive consistent layout, KPI, tables, notes, and export actions across project report pages.
+- Report index now presents grouped business-facing report categories with honest export badges.
+- Demand Notice / Bill print now uses the same professional document system and supports branded bill-style output.
+- Complete Project Report XLSX now uses `exceljs`, includes all expected sheets, and includes a Top Sheet grand total row.
+- Seed totals remain preserved:
+  - Income `100,143,800`
+  - Expense `104,659,890.40`
+  - Balance `-4,516,090.40`
 
 ## Current Finance Limitations
 

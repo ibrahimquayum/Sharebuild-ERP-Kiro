@@ -298,6 +298,50 @@ This branch now has a buildable project-first finance foundation with vendor con
 - Server-side PDF remains future work.
 - Complete Project Report is still the only native XLSX workbook export.
 
+## Professional Report System Overhaul - May 25, 2026
+
+### Added
+
+- `PROFESSIONAL_REPORT_SYSTEM_OVERHAUL.md`
+- shared professional report components for:
+  - cover pages
+  - headers/footers
+  - KPI grids
+  - section wrappers
+  - amount/status display
+  - signature blocks
+  - report export toolbar
+- `exceljs`-based Complete Project Report workbook export
+
+### Improved
+
+- Complete Project Report now reads like a formal management/audit report instead of a printed app page.
+- Report formulas now explain the Relax Tower seed condition where historical collections exist without issued system demand rows.
+- Top Sheet report and workbook now show explicit grand totals.
+- Demand Notice / Bill print now uses professional report styling and cleaner billing breakdown.
+- Report toolbars now use honest wording and consistent actions.
+
+### Verified
+
+- `npx prisma validate`
+- `npx prisma generate`
+- `npm run build`
+- `npm run db:seed`
+- authenticated smoke:
+  - reports index opens
+  - complete project report opens
+  - service charge report opens
+  - final reconciliation report opens
+  - demand batch print opens
+  - project-only engineer gets `403` on workbook export
+  - admin workbook export downloads and opens with all expected sheet names
+
+### Remaining
+
+- Browser Print / Save as PDF is the supported PDF path; no server-generated PDF yet.
+- Only Complete Project Report has native XLSX.
+- Seeded demand-batch history is still too sparse to demonstrate a rich live issued-demand bill pack without creating fresh batch data during QA.
+
 ## Schema Changes
 
 Yes. One migration was added in the module completion pass:
@@ -328,8 +372,9 @@ It adds:
 
 ## Still Incomplete / Placeholder
 
-- PDF and Excel exports are not implemented yet; buttons are intentionally disabled.
-- Most non-Top-Sheet report pages are branded print-ready foundations, not full report engines.
+- Server-generated PDF is not implemented; browser Print / Save as PDF is the supported PDF path.
+- Native XLSX workbook export exists for Complete Project Report only; other report exports remain CSV or future workbook work.
+- Some report pages are now fully useful, while the thinner ones still depend on seeded data depth rather than missing route foundations.
 - Materials, categories, and payment methods are still documented schema gaps.
 - Full dynamic permission editing UI/database tables are not built; permissions are code-configured.
 - Subcontractor bill creation is still not fully separated from supplier payable internals.

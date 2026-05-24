@@ -78,7 +78,12 @@ Login: `admin@relaxdevelopers.com` / `admin123`
   - Expense: 104,659,890.40
   - Balance: -4,516,090.40
 - [ ] Print button works on report pages.
-- [ ] PDF/Excel buttons are disabled and do not claim export is complete.
+- [ ] Report action labels stay honest:
+  - XLSX only where implemented
+  - CSV only where implemented
+  - PDF means browser Print / Save as PDF
+- [ ] `/projects/[id]/reports/complete-project` shows cover page, executive summary, demand/allocation interpretation, detailed sections, and signature page.
+- [ ] `/api/projects/[id]/reports/complete-project/xlsx` downloads a workbook with all expected sheets and opens without repair prompts.
 
 ## H. Company Setup
 
@@ -330,3 +335,39 @@ Login: `admin@relaxdevelopers.com` / `admin123`
   - Income: 100,143,800
   - Expense: 104,659,890.40
   - Balance: -4,516,090.40
+
+## V. Professional Report System Overhaul
+
+- [ ] Login with `admin@relaxdevelopers.com` / `admin123`.
+- [ ] Open `/projects/project-relax-tower/reports` and confirm grouped sections render with professional descriptions and honest export badges.
+- [ ] Open `/projects/project-relax-tower/reports/complete-project` and confirm:
+  - text/logo fallback is clean
+  - no broken image placeholder appears
+  - cover page shows company/project/report metadata
+  - executive summary cards are compact and aligned
+  - collection vs demand interpretation note is visible
+  - Top Sheet grand totals match:
+    - Income `100,143,800`
+    - Expense `104,659,890.40`
+    - Balance `-4,516,090.40`
+- [ ] Open `/projects/project-relax-tower/reports/top-sheet` and confirm explicit grand totals are visible.
+- [ ] Open `/projects/project-relax-tower/reports/service-charge` and `/projects/project-relax-tower/reports/final-reconciliation`.
+- [ ] Open `/projects/project-relax-tower/demands/batches/[batchId]/print` and confirm the demand notice layout is business-facing and print-friendly.
+- [ ] Download `/api/projects/project-relax-tower/reports/complete-project/xlsx` and confirm sheets:
+  - Summary
+  - Top Sheet
+  - Phase Summary
+  - Daily Expenses
+  - Supplier Ledger
+  - Subcontractor Ledger
+  - Buyer Due
+  - Cash Bank Book
+  - Cheques
+  - Tax Deductions
+  - Retention
+  - Service Charge
+  - Final Reconciliation
+  - Audit Summary
+- [ ] Confirm the workbook Top Sheet includes a grand total row.
+- [ ] Login with `engineer@relaxdevelopers.com` / `engineer123`.
+- [ ] Confirm `GET /api/projects/project-relax-tower/reports/complete-project/xlsx` returns 403.

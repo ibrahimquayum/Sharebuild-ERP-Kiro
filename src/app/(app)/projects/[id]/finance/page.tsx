@@ -68,11 +68,23 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
         <p className="text-xs text-muted-foreground">{project.name} · one project-scoped money area</p>
       </div>
 
+      {summary.historicalCollectionsWithoutDemand ? (
+        <Card className="border-sky-200 bg-sky-50/70">
+          <CardContent className="p-4 text-sm text-sky-900">
+            Historical collections exist in the project seed, but no issued demand rows were recorded in the live ledger. Read issued demand, allocated collection, and unallocated collection separately.
+          </CardContent>
+        </Card>
+      ) : null}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard
-          title="Total Demanded"
-          value={formatBDTCompact(summary.totalDemanded)}
-          subtitle={formatBDT(summary.totalDemanded)}
+          title="Issued Demand"
+          value={formatBDTCompact(summary.issuedDemand)}
+          subtitle={
+            summary.historicalCollectionsWithoutDemand
+              ? `${formatBDT(summary.unallocatedCollection)} unallocated historical collection`
+              : `${formatBDT(summary.finalReconciliationDemand)} final reconciliation demand`
+          }
           icon={FileText}
           iconColor="text-blue-600"
           iconBg="bg-blue-50"
@@ -86,9 +98,9 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
           iconBg="bg-green-50"
         />
         <StatCard
-          title="Buyer Receivable"
+          title="Buyer Due"
           value={formatBDTCompact(summary.buyerReceivable)}
-          subtitle={`${formatBDT(summary.buyerAdvance)} advance`}
+          subtitle={`${formatBDT(summary.buyerAdvance)} advance | ${formatBDT(summary.unallocatedCollection)} unallocated`}
           icon={AlertCircle}
           iconColor="text-amber-600"
           iconBg="bg-amber-50"

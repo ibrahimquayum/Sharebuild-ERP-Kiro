@@ -125,3 +125,10 @@ Expected project-only behavior after this pass:
 ## SaaS Readiness
 
 SaaS readiness can start after the final dependency/security review is closed, local uploads are replaced with production-grade private storage, and the unresolved framework/auth advisories get a dedicated major-upgrade review. Billing, buyer portal, SMS/mobile, and AI remain intentionally untouched.
+
+## Professional Report Overhaul Follow-Up - May 25, 2026
+
+- The reporting shell introduced in this pass is now fully professionalized in `PROFESSIONAL_REPORT_SYSTEM_OVERHAUL.md`.
+- Complete Project Report now distinguishes historical imported collections from issued system demand and unallocated advance, which removes the misleading `Total Demand = 0 / Buyer Advance = total collection` presentation problem on Relax Tower seed data.
+- Demand Notice / Bill print now uses the same document system and no longer shows the old generic report-style back navigation label.
+- Complete Project Report workbook export now uses `exceljs` and includes the explicit Top Sheet grand total row in addition to the required sheet set.

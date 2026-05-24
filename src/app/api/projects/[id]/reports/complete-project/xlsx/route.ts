@@ -1,65 +1,105 @@
+import ExcelJS from 'exceljs';
 import { NextResponse } from 'next/server';
-import JSZip from 'jszip';
 
 import { apiAccessError, assertApiProjectPermission } from '@/lib/access-control';
 import { safeAuditLog } from '@/lib/audit';
 import { getCompleteProjectReportData } from '@/lib/complete-project-report';
 import { formatDate } from '@/lib/utils';
 
-type WorkbookSheet = { name: string; rows: unknown[][] };
+const CURRENCY_FORMAT = '"Tk" #,##0.00;[Red]-"Tk" #,##0.00';
 
-function xml(value: unknown) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+function sanitizeSheetName(name: string) {
+  return name.replace(/[\\/*?:[\]]/g, ' ').slice(0, 31);
 }
 
-function colName(index: number) {
-  let name = '';
-  let current = index + 1;
-  while (current > 0) {
-    const remainder = (current - 1) % 26;
-    name = String.fromCharCode(65 + remainder) + name;
-    current = Math.floor((current - 1) / 26);
+function sectionHeader(worksheet: ExcelJS.Worksheet, title: string, subtitle: string, company: string, project: string) {
+  worksheet.mergeCells('A1:H1');
+  worksheet.getCell('A1').value = title;
+  worksheet.getCell('A1').font = { size: 18, bold: true, color: { argb: '1F2937' } };
+  worksheet.getCell('A1').alignment = { vertical: 'middle' };
+
+  worksheet.mergeCells('A2:H2');
+  worksheet.getCell('A2').value = subtitle;
+  worksheet.getCell('A2').font = { size: 10, color: { argb: '475569' } };
+
+  worksheet.mergeCells('A3:H3');
+  worksheet.getCell('A3').value = `${company} | ${project}`;
+  worksheet.getCell('A3').font = { size: 10, color: { argb: '64748B' } };
+}
+
+function setColumnWidths(worksheet: ExcelJS.Worksheet, widths: number[]) {
+  worksheet.columns = widths.map((width) => ({ width }));
+}
+
+function styleHeaderRow(row: ExcelJS.Row) {
+  row.font = { bold: true, color: { argb: '334155' } };
+  row.alignment = { vertical: 'middle', horizontal: 'center' };
+  row.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'E2E8F0' },
+  };
+  row.eachCell((cell) => {
+    cell.border = {
+      top: { style: 'thin', color: { argb: 'CBD5E1' } },
+      left: { style: 'thin', color: { argb: 'CBD5E1' } },
+      bottom: { style: 'thin', color: { argb: 'CBD5E1' } },
+      right: { style: 'thin', color: { argb: 'CBD5E1' } },
+    };
+  });
+}
+
+function styleBodyRows(worksheet: ExcelJS.Worksheet, startRow: number, endRow: number, currencyColumns: number[] = []) {
+  for (let rowIndex = startRow; rowIndex <= endRow; rowIndex += 1) {
+    const row = worksheet.getRow(rowIndex);
+    row.alignment = { vertical: 'top' };
+    row.eachCell((cell, colNumber) => {
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'E2E8F0' } },
+        left: { style: 'thin', color: { argb: 'E2E8F0' } },
+        bottom: { style: 'thin', color: { argb: 'E2E8F0' } },
+        right: { style: 'thin', color: { argb: 'E2E8F0' } },
+      };
+      if (currencyColumns.includes(colNumber) && typeof cell.value === 'number') {
+        cell.numFmt = CURRENCY_FORMAT;
+        cell.alignment = { horizontal: 'right', vertical: 'top' };
+      }
+    });
   }
-  return name;
 }
 
-function appendSheet(sheets: WorkbookSheet[], name: string, rows: unknown[][]) {
-  sheets.push({ name: name.slice(0, 31), rows });
-}
+function addTableSheet(
+  workbook: ExcelJS.Workbook,
+  input: {
+    name: string;
+    title: string;
+    subtitle: string;
+    company: string;
+    project: string;
+    headers: string[];
+    rows: Array<Array<string | number | Date | null>>;
+    widths: number[];
+    currencyColumns?: number[];
+  },
+) {
+  const worksheet = workbook.addWorksheet(sanitizeSheetName(input.name), {
+    views: [{ state: 'frozen', ySplit: 5 }],
+  });
 
-function sheetXml(rows: unknown[][]) {
-  const rowXml = rows
-    .map((row, rowIndex) => {
-      const cellXml = row
-        .map((cell, cellIndex) => {
-          const ref = `${colName(cellIndex)}${rowIndex + 1}`;
-          if (typeof cell === 'number' && Number.isFinite(cell)) return `<c r="${ref}"><v>${cell}</v></c>`;
-          return `<c r="${ref}" t="inlineStr"><is><t>${xml(cell)}</t></is></c>`;
-        })
-        .join('');
-      return `<row r="${rowIndex + 1}">${cellXml}</row>`;
-    })
-    .join('');
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rowXml}</sheetData></worksheet>`;
-}
+  setColumnWidths(worksheet, input.widths);
+  sectionHeader(worksheet, input.title, input.subtitle, input.company, input.project);
 
-async function workbookBuffer(sheets: WorkbookSheet[]) {
-  const zip = new JSZip();
-  zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>${sheets.map((_, index) => `<Override PartName="/xl/worksheets/sheet${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`);
-  zip.folder('_rels')!.file('.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>`);
-  zip.folder('docProps')!.file('core.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/"><dc:creator>Sharebuild ERP</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${new Date().toISOString()}</dcterms:created></cp:coreProperties>`);
-  zip.folder('docProps')!.file('app.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Sharebuild ERP</Application></Properties>`);
-  const workbookSheets = sheets.map((sheet, index) => `<sheet name="${xml(sheet.name)}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`).join('');
-  zip.folder('xl')!.file('workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${workbookSheets}</sheets></workbook>`);
-  zip.folder('xl')!.folder('_rels')!.file('workbook.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_, index) => `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${index + 1}.xml"/>`).join('')}</Relationships>`);
-  const worksheets = zip.folder('xl')!.folder('worksheets')!;
-  sheets.forEach((sheet, index) => worksheets.file(`sheet${index + 1}.xml`, sheetXml(sheet.rows)));
-  return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+  const headerRow = worksheet.addRow(input.headers);
+  styleHeaderRow(headerRow);
+
+  const startRow = headerRow.number + 1;
+  input.rows.forEach((row) => worksheet.addRow(row));
+  const endRow = worksheet.rowCount;
+  if (endRow >= startRow) {
+    styleBodyRows(worksheet, startRow, endRow, input.currencyColumns);
+  }
+
+  return worksheet;
 }
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
@@ -69,89 +109,321 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const data = await getCompleteProjectReportData(access.context.companyId, params.id);
   if (!data) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
-  const wb: WorkbookSheet[] = [];
-  appendSheet(wb, 'Summary', [
-    ['Company', data.branding.name],
-    ['Project', data.project.name],
-    ['Generated', data.generatedAt.toISOString()],
-    [],
-    ['Metric', 'BDT'],
-    ['Total Demand', data.summary.totalDemanded],
-    ['Total Collection', data.summary.totalCollected],
-    ['Buyer Receivable', data.summary.buyerReceivable],
-    ['Buyer Advance', data.summary.buyerAdvance],
-    ['Approved Expense', data.summary.totalExpense],
-    ['Service Charge', data.summary.serviceChargeAccrued],
-    ['Tax / Deductions', data.summary.taxDeductionTotal],
-    ['Retention Held', data.summary.retentionHeld],
-    ['Supplier Payable', data.summary.supplierPayable],
-    ['Subcontractor Payable', data.summary.subcontractorPayable],
-    ['Project Balance', data.summary.projectBalance],
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Sharebuild ERP';
+  workbook.company = data.branding.name;
+  workbook.subject = `${data.project.name} Complete Project Report`;
+  workbook.title = `${data.project.name} Complete Project Report`;
+  workbook.created = data.generatedAt;
+  workbook.modified = data.generatedAt;
+
+  const summarySheet = workbook.addWorksheet('Summary');
+  setColumnWidths(summarySheet, [32, 24, 26, 70]);
+  sectionHeader(
+    summarySheet,
+    'Complete Project Report',
+    'Executive summary and reporting interpretation notes',
+    data.branding.name,
+    data.project.name,
+  );
+
+  const summaryRows = [
+    ['Company', data.branding.name, 'Reporting Period', data.reportingPeriod],
+    ['Project', data.project.name, 'Generated At', `${formatDate(data.generatedAt)} ${data.generatedAt.toLocaleTimeString('en-BD', { hour: '2-digit', minute: '2-digit' })}`],
+    ['Project Code', data.project.code ?? '', 'Generated By', access.context.session?.user?.name ?? access.context.userId],
+    ['Historical Collection', data.summary.totalCollected, 'Issued Demand', data.summary.issuedDemand],
+    ['Final Reconciliation Demand', data.summary.finalReconciliationDemand, 'Allocated Collection', data.summary.allocatedCollection],
+    ['Unallocated Collection', data.summary.unallocatedCollection, 'Buyer Due', data.summary.buyerReceivable],
+    ['Buyer Advance', data.summary.buyerAdvance, 'Approved Project Cost', data.summary.projectCostTotal],
+    ['Service Charge', data.summary.serviceChargeAccrued, 'Tax / Deduction', data.summary.taxDeductionTotal],
+    ['Retention Held', data.summary.retentionHeld, 'Supplier Payable', data.summary.supplierPayable],
+    ['Subcontractor Payable', data.summary.subcontractorPayable, 'Cash In', data.summary.cashIn],
+    ['Cash Out', data.summary.cashOut, 'Project Balance', data.summary.projectBalance],
+    ['Final Surplus / Deficit', data.summary.finalSurplusDeficit, 'Pending Approvals', data.auditSummary.pendingApprovals.length],
+    ['Missing Vouchers', data.auditSummary.missingVoucher.length, 'Audit Locked Phases', data.auditSummary.lockedPhases.length],
+  ];
+  summaryRows.forEach((row) => summarySheet.addRow(row));
+  styleBodyRows(summarySheet, 4, summarySheet.rowCount, [2, 4]);
+  summarySheet.addRow([]);
+  const notesHeader = summarySheet.addRow(['Report Notes']);
+  notesHeader.font = { bold: true, color: { argb: '334155' } };
+  data.reportNotes.forEach((note) => summarySheet.addRow([note]));
+
+  const topSheetWorksheet = addTableSheet(workbook, {
+    name: 'Top Sheet',
+    title: 'Top Sheet',
+    subtitle: 'Historical phase summary preserved for business continuity',
+    company: data.branding.name,
+    project: data.project.name,
+    headers: ['Phase', 'Type', 'Income', 'Expense', 'Balance'],
+    rows: data.topSheet.map((row) => [row.phaseName, row.phaseType, row.income, row.expense, row.balance]),
+    widths: [28, 18, 18, 18, 18],
+    currencyColumns: [3, 4, 5],
+  });
+  const topSheetTotalRow = topSheetWorksheet.addRow([
+    'Grand Total',
+    '',
+    data.summary.totalCollected,
+    data.summary.totalExpense,
+    data.summary.projectBalance,
   ]);
-  appendSheet(wb, 'Top Sheet', [
-    ['Phase', 'Type', 'Income', 'Expense', 'Balance'],
-    ...data.topSheet.map((row) => [row.phaseName, row.phaseType, row.income, row.expense, row.balance]),
-  ]);
-  appendSheet(wb, 'Phase Summary', [
-    ['Phase', 'Status', 'Demand', 'Collection', 'Expense', 'Supplier Bill', 'Subcontractor Bill', 'Carry In', 'Carry Out', 'Audit Locked'],
-    ...data.phaseSummary.map((row) => [row.phaseName, row.status, row.demand, row.collection, row.expense, row.supplierBill, row.subcontractorBill, row.carryIn, row.carryOut, row.auditLocked ? 'Yes' : 'No']),
-  ]);
-  appendSheet(wb, 'Daily Expenses', [
-    ['Date', 'Phase', 'Category', 'Description', 'Supplier / Local Shop', 'Amount', 'Payment Method', 'Status', 'Voucher'],
-    ...data.expenses.map((expense) => [formatDate(expense.expenseDate), expense.phase.name, expense.category, expense.description, expense.supplier?.name ?? expense.localShopName ?? 'Cash / no supplier', Number(expense.amount), expense.paymentMethod, expense.status, expense.documents.length > 0 ? 'Attached' : 'Missing']),
-  ]);
-  appendSheet(wb, 'Supplier Ledger', [
-    ['Supplier', 'Phase', 'Bill No', 'Bill Date', 'Bill Total', 'Paid', 'Payable', 'Status'],
-    ...data.supplierSummary.map((payable) => [payable.supplier.name, payable.phase?.name ?? 'Project general', payable.billNo ?? '', formatDate(payable.billDate), Number(payable.totalAmount), payable.validPaid, Number(payable.dueAmount), payable.status]),
-  ]);
-  appendSheet(wb, 'Subcontractor Ledger', [
-    ['Subcontractor', 'Phase', 'Bill No', 'Bill Date', 'Bill Total', 'Paid', 'Due', 'Status'],
-    ...data.subcontractorSummary.map((payable) => [payable.supplier.name, payable.phase?.name ?? 'Project general', payable.billNo ?? '', formatDate(payable.billDate), Number(payable.totalAmount), payable.validPaid, Number(payable.dueAmount), payable.status]),
-  ]);
-  appendSheet(wb, 'Buyer Due', [
-    ['Buyer', 'Phone', 'Units', 'Demanded', 'Paid', 'Allocated', 'Due', 'Advance', 'Oldest Due'],
-    ...data.buyerDue.map((row) => [row.buyerName, row.phone ?? '', row.unitsText || '', row.demanded, row.paid, row.allocated, row.due, row.advance, formatDate(row.oldestDue)]),
-  ]);
-  appendSheet(wb, 'Cash Bank Book', [
-    ['Metric', 'BDT'],
-    ['Cash In', data.summary.cashIn],
-    ['Cash Out', data.summary.cashOut],
-    ['Pending Received Cheques', data.summary.pendingReceivedCheques],
-    ['Pending Issued Cheques', data.summary.pendingIssuedCheques],
-  ]);
-  appendSheet(wb, 'Cheques', [
-    ['Metric', 'BDT'],
-    ['Pending Received Cheques', data.summary.pendingReceivedCheques],
-    ['Pending Issued Cheques', data.summary.pendingIssuedCheques],
-  ]);
-  appendSheet(wb, 'Tax Deductions', [
-    ['Party', 'Bill No', 'VAT', 'AIT/TDS', 'Other Deduction', 'Reference'],
-    ...[...data.supplierSummary, ...data.subcontractorSummary]
-      .filter((payable) => Number(payable.vatAmount ?? 0) > 0 || Number(payable.aitTdsAmount ?? 0) > 0 || Number(payable.otherDeductionAmount ?? 0) > 0)
-      .map((payable) => [payable.supplier.name, payable.billNo ?? '', Number(payable.vatAmount ?? 0), Number(payable.aitTdsAmount ?? 0), Number(payable.otherDeductionAmount ?? 0), payable.deductionReference ?? '']),
-  ]);
-  appendSheet(wb, 'Retention', [
-    ['Party', 'Bill No', 'Held', 'Released', 'Outstanding', 'Status'],
-    ...[...data.supplierSummary, ...data.subcontractorSummary]
+  topSheetTotalRow.font = { bold: true, color: { argb: '0F172A' } };
+  topSheetTotalRow.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'E2E8F0' },
+  };
+  styleBodyRows(topSheetWorksheet, topSheetTotalRow.number, topSheetTotalRow.number, [3, 4, 5]);
+
+  addTableSheet(workbook, {
+    name: 'Phase Summary',
+    title: 'Phase Summary',
+    subtitle: 'Collection, demand, cost, service charge, and audit status by phase',
+    company: data.branding.name,
+    project: data.project.name,
+    headers: ['Phase', 'Status', 'Collection', 'Demand', 'Expense', 'Supplier Bill', 'Subcontractor Bill', 'Service Charge', 'Carry Out', 'Audit Locked'],
+    rows: data.phaseSummary.map((row) => [
+      row.phaseName,
+      row.status,
+      row.collection,
+      row.demand,
+      row.expense,
+      row.supplierBill,
+      row.subcontractorBill,
+      row.serviceCharge,
+      row.carryOut,
+      row.auditLocked ? 'Yes' : 'No',
+    ]),
+    widths: [28, 18, 16, 16, 16, 18, 20, 18, 18, 14],
+    currencyColumns: [3, 4, 5, 6, 7, 8, 9],
+  });
+
+  addTableSheet(workbook, {
+    name: 'Daily Expenses',
+    title: 'Daily Expenses',
+    subtitle: 'Detailed expense register by phase and voucher status',
+    company: data.branding.name,
+    project: data.project.name,
+    headers: ['Date', 'Phase', 'Category', 'Description', 'Supplier / Local Shop', 'Voucher / Invoice', 'Method', 'Amount', 'Status', 'Voucher'],
+    rows: data.expenses.map((expense) => [
+      formatDate(expense.expenseDate),
+      expense.phase.name,
+      expense.category,
+      expense.description,
+      expense.supplier?.name ?? expense.localShopName ?? 'Cash / no supplier',
+      expense.billNo ?? expense.referenceNo ?? '',
+      expense.paymentMethod,
+      Number(expense.amount),
+      expense.status,
+      expense.documents.length > 0 ? 'Attached' : 'Missing',
+    ]),
+    widths: [14, 24, 18, 34, 26, 20, 16, 16, 16, 14],
+    currencyColumns: [8],
+  });
+
+  addTableSheet(workbook, {
+    name: 'Supplier Ledger',
+    title: 'Supplier Ledger Summary',
+    subtitle: 'Assigned supplier billed value, paid amount, due, and document quality',
+    company: data.branding.name,
+    project: data.project.name,
+    headers: ['Supplier', 'Assignment / Contract', 'Bill Total', 'Paid', 'Payable', 'Missing Invoice Bills', 'Document Count'],
+    rows: data.projectSupplierAssignments.map((assignment) => [
+      assignment.supplier.name,
+      assignment.materialCategory || assignment.paymentTerms || 'General supplier assignment',
+      assignment.summary.totalBilled,
+      assignment.summary.totalPaid,
+      assignment.summary.totalDue,
+      assignment.summary.missingInvoiceCount,
+      assignment.summary.documentCount,
+    ]),
+    widths: [28, 28, 16, 16, 16, 18, 16],
+    currencyColumns: [3, 4, 5],
+  });
+
+  addTableSheet(workbook, {
+    name: 'Subcontractor Ledger',
+    title: 'Subcontractor Ledger Summary',
+    subtitle: 'Assigned subcontractor billed value, due, retention, and document quality',
+    company: data.branding.name,
+    project: data.project.name,
+    headers: ['Subcontractor', 'Work Type', 'Contract Amount', 'Bill Total', 'Paid', 'Due', 'Retention', 'Document Quality'],
+    rows: data.projectSubcontractorAssignments.map((assignment) => [
+      assignment.supplier.name,
+      assignment.workType.replaceAll('_', ' '),
+      Number(assignment.contractAmount ?? 0) + Number(assignment.extraWorkAmount ?? 0),
+      assignment.summary.totalBilled,
+      assignment.summary.totalPaid,
+      assignment.summary.totalDue,
+      assignment.payables.reduce((sum, payable) => sum + Number(payable.retentionAmount ?? 0), 0),
+      assignment.summary.missingAgreement || assignment.summary.missingMeasurement ? 'Review docs' : 'Ready',
+    ]),
+    widths: [28, 22, 18, 16, 16, 16, 16, 18],
+    currencyColumns: [3, 4, 5, 6, 7],
+  });
+
+  addTableSheet(workbook, {
+    name: 'Buyer Due',
+    title: 'Buyer Billing and Due Summary',
+    subtitle: 'Buyer-level demand, collection, allocation, due, and advance',
+    company: data.branding.name,
+    project: data.project.name,
+    headers: ['Buyer', 'Phone', 'Units', 'Issued Demand', 'Final Reconciliation', 'Collection', 'Allocated', 'Due', 'Advance'],
+    rows: data.buyerBillingSummary.map((row) => [
+      row.buyerName,
+      row.phone ?? '',
+      row.unitsText || '',
+      row.regularDemanded,
+      row.finalReconciliationDemand,
+      row.collected,
+      row.allocated,
+      row.due,
+      row.advance,
+    ]),
+    widths: [26, 18, 32, 16, 18, 16, 16, 16, 16],
+    currencyColumns: [4, 5, 6, 7, 8, 9],
+  });
+
+  addTableSheet(workbook, {
+    name: 'Cash Bank Book',
+    title: 'Cash / Bank Summary',
+    subtitle: 'Account-wise treasury movement',
+    company: data.branding.name,
+    project: data.project.name,
+    headers: ['Account', 'Type', 'Opening', 'Cash In', 'Cash Out', 'Balance'],
+    rows: (data.cashBankSummary?.accountsUsed ?? []).map((account) => [
+      account.accountName,
+      account.type.replaceAll('_', ' '),
+      account.openingBalance,
+      account.inflow,
+      account.outflow,
+      account.balance,
+    ]),
+    widths: [28, 18, 16, 16, 16, 16],
+    currencyColumns: [3, 4, 5, 6],
+  });
+
+  addTableSheet(workbook, {
+    name: 'Cheques',
+    title: 'Cheque Register Summary',
+    subtitle: 'Issued and received cheque log by party and status',
+    company: data.branding.name,
+    project: data.project.name,
+    headers: ['Cheque No', 'Type', 'Party', 'Date', 'Amount', 'Status', 'Source'],
+    rows: data.chequeSummary.cheques.map((cheque) => [
+      cheque.chequeNo,
+      cheque.chequeType.replaceAll('_', ' '),
+      cheque.partyName ?? cheque.partyType,
+      formatDate(cheque.chequeDate),
+      Number(cheque.amount),
+      cheque.status,
+      cheque.sourceType.replaceAll('_', ' '),
+    ]),
+    widths: [18, 16, 24, 14, 16, 16, 18],
+    currencyColumns: [5],
+  });
+
+  addTableSheet(workbook, {
+    name: 'Tax Deductions',
+    title: 'Tax / Deduction Summary',
+    subtitle: 'VAT, AIT/TDS, and other bill-level deductions',
+    company: data.branding.name,
+    project: data.project.name,
+    headers: ['Party', 'Bill', 'Reference', 'VAT', 'AIT / TDS', 'Other'],
+    rows: [...data.supplierSummary, ...data.subcontractorSummary]
+      .filter(
+        (payable) =>
+          Number(payable.vatAmount ?? 0) > 0 ||
+          Number(payable.aitTdsAmount ?? 0) > 0 ||
+          Number(payable.otherDeductionAmount ?? 0) > 0,
+      )
+      .map((payable) => [
+        payable.supplier.name,
+        payable.billNo ?? 'Project bill',
+        payable.deductionReference ?? '',
+        Number(payable.vatAmount ?? 0),
+        Number(payable.aitTdsAmount ?? 0),
+        Number(payable.otherDeductionAmount ?? 0),
+      ]),
+    widths: [28, 18, 24, 16, 16, 16],
+    currencyColumns: [4, 5, 6],
+  });
+
+  addTableSheet(workbook, {
+    name: 'Retention',
+    title: 'Retention Summary',
+    subtitle: 'Held, released, and outstanding retention balances',
+    company: data.branding.name,
+    project: data.project.name,
+    headers: ['Party', 'Bill', 'Held', 'Released', 'Balance', 'Status'],
+    rows: [...data.supplierSummary, ...data.subcontractorSummary]
       .filter((payable) => Number(payable.retentionAmount ?? 0) > 0)
-      .map((payable) => [payable.supplier.name, payable.billNo ?? '', Number(payable.retentionAmount ?? 0), Number(payable.retentionReleasedAmount ?? 0), Math.max(Number(payable.retentionAmount ?? 0) - Number(payable.retentionReleasedAmount ?? 0), 0), payable.retentionStatus]),
-  ]);
-  appendSheet(wb, 'Service Charge', [
-    ['Phase', 'Basis', 'Status', 'Service Charge', 'Settlement'],
-    ...(data.serviceChargeLedger?.rows ?? []).map((row) => [row.phaseName, row.basisType, row.status, row.serviceChargeAmount, row.settlementStatus]),
-  ]);
-  appendSheet(wb, 'Final Reconciliation', [
-    ['Metric', 'BDT'],
-    ['Surplus / Deficit', data.summary.surplusDeficit],
-  ]);
-  appendSheet(wb, 'Audit Summary', [
-    ['Type', 'Label', 'Amount', 'Reason'],
-    ...data.auditSummary.reversedRecords.map((row) => [row.type, row.label, row.amount, row.reason]),
-    [],
-    ['Missing Voucher Count', data.auditSummary.missingVoucher.length],
-    ['Pending Approval Count', data.auditSummary.pendingApprovals.length],
-    ['Audit Locked Phase Count', data.auditSummary.lockedPhases.length],
-  ]);
+      .map((payable) => [
+        payable.supplier.name,
+        payable.billNo ?? 'Project bill',
+        Number(payable.retentionAmount ?? 0),
+        Number(payable.retentionReleasedAmount ?? 0),
+        Math.max(Number(payable.retentionAmount ?? 0) - Number(payable.retentionReleasedAmount ?? 0), 0),
+        payable.retentionStatus,
+      ]),
+    widths: [28, 18, 16, 16, 16, 18],
+    currencyColumns: [3, 4, 5],
+  });
+
+  addTableSheet(workbook, {
+    name: 'Service Charge',
+    title: 'Service Charge Summary',
+    subtitle: 'Basis amount, effective charge, and settlement state',
+    company: data.branding.name,
+    project: data.project.name,
+    headers: ['Phase / Work', 'Basis Amount', 'Percent', 'Service Charge', 'Settlement', 'Included in Demand'],
+    rows: (data.serviceChargeLedger?.rows ?? []).map((row) => [
+      row.phaseName,
+      row.basisAmount,
+      Number(row.percentage ?? 0),
+      row.serviceChargeAmount,
+      row.settlementStatus,
+      row.includedInDemand ? 'Yes' : 'No',
+    ]),
+    widths: [30, 18, 12, 18, 20, 18],
+    currencyColumns: [2, 4],
+  });
+
+  addTableSheet(workbook, {
+    name: 'Final Reconciliation',
+    title: 'Final Reconciliation Summary',
+    subtitle: 'Preview or posted distribution by buyer and ownership share',
+    company: data.branding.name,
+    project: data.project.name,
+    headers: ['Buyer', 'Units', 'Share %', 'Distribution', 'Direction', 'Status'],
+    rows: (data.reconciliationPreview?.distribution ?? []).map((row) => [
+      row.buyerName,
+      row.units,
+      row.sharePercent,
+      row.amount,
+      data.reconciliationPreview?.direction ?? '',
+      data.reconciliationPreview?.posted ? 'Posted' : 'Preview',
+    ]),
+    widths: [24, 34, 12, 18, 16, 14],
+    currencyColumns: [4],
+  });
+
+  addTableSheet(workbook, {
+    name: 'Audit Summary',
+    title: 'Audit and Data Quality Summary',
+    subtitle: 'Reversal activity and report limitations',
+    company: data.branding.name,
+    project: data.project.name,
+    headers: ['Type', 'Record', 'Amount', 'Reason'],
+    rows: [
+      ...data.auditSummary.reversedRecords.map((row) => [row.type, row.label, row.amount, row.reason]),
+      ['Missing Voucher Count', '', data.auditSummary.missingVoucher.length, ''],
+      ['Pending Approval Count', '', data.auditSummary.pendingApprovals.length, ''],
+      ['Audit Locked Phase Count', '', data.auditSummary.lockedPhases.length, ''],
+    ],
+    widths: [22, 40, 16, 40],
+    currencyColumns: [3],
+  });
 
   await safeAuditLog({
     userId: access.context.userId,
@@ -163,8 +435,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     context: 'complete project report xlsx export',
   });
 
-  const buffer = await workbookBuffer(wb);
-  return new NextResponse(new Uint8Array(buffer), {
+  const buffer = await workbook.xlsx.writeBuffer();
+  return new NextResponse(buffer as ArrayBuffer, {
     headers: {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': `attachment; filename="complete-project-report-${data.project.code ?? data.project.id}.xlsx"`,

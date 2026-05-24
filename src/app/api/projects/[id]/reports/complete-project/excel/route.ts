@@ -17,8 +17,11 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       ['Company', data.branding.name],
       ['Project', data.project.name],
       ['Generated', data.generatedAt.toISOString()],
-      ['Total Demand', data.summary.totalDemanded],
-      ['Total Collection', data.summary.totalCollected],
+      ['Historical Collection', data.summary.totalCollected],
+      ['Issued Demand', data.summary.issuedDemand],
+      ['Final Reconciliation Demand', data.summary.finalReconciliationDemand],
+      ['Allocated Collection', data.summary.allocatedCollection],
+      ['Unallocated Collection', data.summary.unallocatedCollection],
       ['Buyer Receivable', data.summary.buyerReceivable],
       ['Buyer Advance', data.summary.buyerAdvance],
       ['Approved Expense', data.summary.totalExpense],
@@ -33,6 +36,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       ['Pending Received Cheques', data.summary.pendingReceivedCheques],
       ['Pending Issued Cheques', data.summary.pendingIssuedCheques],
     ]),
+    csvSection('Report Notes', data.reportNotes.map((note) => [note])),
     csvSection('Top Sheet', [
       ['Phase', 'Type', 'Income', 'Expense', 'Balance'],
       ...data.topSheet.map((row) => [row.phaseName, row.phaseType, row.income, row.expense, row.balance]),
@@ -66,8 +70,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         .map((payable) => [payable.supplier.name, payable.billNo ?? '', Number(payable.retentionAmount ?? 0), Number(payable.retentionReleasedAmount ?? 0), Math.max(Number(payable.retentionAmount ?? 0) - Number(payable.retentionReleasedAmount ?? 0), 0), payable.retentionStatus]),
     ]),
     csvSection('Buyer Due', [
-      ['Buyer', 'Phone', 'Units', 'Demanded', 'Paid', 'Allocated', 'Due', 'Advance', 'Oldest Due'],
-      ...data.buyerDue.map((row) => [row.buyerName, row.phone ?? '', row.unitsText || '', row.demanded, row.paid, row.allocated, row.due, row.advance, formatDate(row.oldestDue)]),
+      ['Buyer', 'Phone', 'Units', 'Issued Demand', 'Final Reconciliation', 'Paid', 'Allocated', 'Due', 'Advance', 'Oldest Due'],
+      ...data.buyerDue.map((row) => [row.buyerName, row.phone ?? '', row.unitsText || '', row.regularDemanded, row.finalReconciliationDemand, row.paid, row.allocated, row.due, row.advance, formatDate(row.oldestDue)]),
     ]),
     csvSection('Audit Summary', [
       ['Type', 'Label', 'Amount', 'Reason'],

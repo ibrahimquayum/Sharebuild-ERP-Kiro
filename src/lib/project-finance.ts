@@ -106,7 +106,13 @@ export async function getProjectBuyerLedger(projectId: string) {
   }, {});
 
   return memberships.map(({ id: membershipId, buyer }) => {
-    const demanded = buyer.demands.reduce((sum, demand) => sum + numberValue(demand.amount), 0);
+    const regularDemanded = buyer.demands
+      .filter((demand) => demand.demandType !== 'FINAL_RECONCILIATION')
+      .reduce((sum, demand) => sum + numberValue(demand.amount), 0);
+    const finalReconciliationDemand = buyer.demands
+      .filter((demand) => demand.demandType === 'FINAL_RECONCILIATION')
+      .reduce((sum, demand) => sum + numberValue(demand.amount), 0);
+    const demanded = regularDemanded + finalReconciliationDemand;
     const allocated = buyer.demands.reduce((sum, demand) => {
       const allocationTotal = sumAmounts(demand.allocations.map((allocation) => allocation.amount));
       const legacyTotal = sumAmounts(demand.collections.map((collection) => collection.amount));
@@ -119,9 +125,6 @@ export async function getProjectBuyerLedger(projectId: string) {
     const reconciliationCredit = credit.active;
     const due = Math.max(demandDueBeforeCredit - reconciliationCredit, 0);
     const advance = cashAdvance + Math.max(reconciliationCredit - demandDueBeforeCredit, 0);
-    const finalReconciliationDemand = buyer.demands
-      .filter((demand) => demand.demandType === 'FINAL_RECONCILIATION')
-      .reduce((sum, demand) => sum + numberValue(demand.amount), 0);
     const oldestDue = buyer.demands
       .filter((demand) => demand.dueDate && demand.status !== 'FULLY_PAID')
       .sort((a, b) => Number(a.dueDate) - Number(b.dueDate))[0]?.dueDate ?? null;
@@ -141,6 +144,7 @@ export async function getProjectBuyerLedger(projectId: string) {
       unitsText: buyer.unitAllocations.map((allocation) => `${allocation.unit.unitNo} (${numberValue(allocation.sharePercent)}%)`).join(', '),
       demands: buyer.demands,
       demanded,
+      regularDemanded,
       allocated,
       paid: collected,
       collected,
@@ -477,7 +481,11 @@ export async function getProjectFinanceSummary(projectId: string) {
   ]);
 
   const totalDemanded = buyerLedger.reduce((sum, row) => sum + row.demanded, 0);
+  const issuedDemand = buyerLedger.reduce((sum, row) => sum + row.regularDemanded, 0);
+  const finalReconciliationDemand = buyerLedger.reduce((sum, row) => sum + row.finalReconciliationDemand, 0);
+  const allocatedCollection = buyerLedger.reduce((sum, row) => sum + row.allocated, 0);
   const totalCollected = numberValue(collectionAgg._sum.amount);
+  const unallocatedCollection = Math.max(totalCollected - allocatedCollection, 0);
   const buyerReceivable = buyerLedger.reduce((sum, row) => sum + row.due, 0);
   const buyerAdvance = buyerLedger.reduce((sum, row) => sum + row.advance, 0);
   const directExpenseTotal = numberValue(approvedExpenseAgg._sum.amount);
@@ -512,6 +520,19 @@ export async function getProjectFinanceSummary(projectId: string) {
   const projectBalance = totalCollected - projectCostTotal;
   const finalSurplusDeficit = projectBalance - serviceChargeAccrued;
   const unlockedPhases = phaseBalances.filter((row) => !row.auditLocked).length;
+  const hasIssuedDemandHistory = totalDemanded > 0;
+  const historicalCollectionsWithoutDemand = totalCollected > 0 && !hasIssuedDemandHistory;
+  const reportingNotes = [
+    historicalCollectionsWithoutDemand
+      ? 'Historical collections were imported from summary-ledger data without matching demand rows. These receipts are shown separately from issued system demand.'
+      : null,
+    unallocatedCollection > 0
+      ? 'Unallocated collections are shown separately from issued-demand allocation. They may represent buyer advance, historical import balance, or pending allocation work.'
+      : null,
+    finalReconciliationDemand > 0
+      ? 'Final reconciliation demand rows are system-generated and kept separate from regular issued demand.'
+      : null,
+  ].filter(Boolean) as string[];
 
   const readinessIssues = [
     buyerReceivable > 0 ? `Buyer due remains ${buyerReceivable.toFixed(2)}.` : null,
@@ -533,7 +554,14 @@ export async function getProjectFinanceSummary(projectId: string) {
   return {
     project,
     totalDemanded,
+    issuedDemand,
+    finalReconciliationDemand,
     totalCollected,
+    allocatedCollection,
+    unallocatedCollection,
+    historicalCollectionsWithoutDemand,
+    hasIssuedDemandHistory,
+    reportingNotes,
     buyerDue: buyerReceivable,
     buyerReceivable,
     buyerAdvance,

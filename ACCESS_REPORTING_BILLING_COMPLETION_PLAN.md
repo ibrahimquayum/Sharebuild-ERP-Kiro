@@ -14,7 +14,7 @@
 - Report index is still a flat list and mixes "ready" and "foundation" pages without clear grouping.
 - Shared report layout exists only partially; most reports still compose their own structure ad hoc.
 - Complete Project Report is useful but not yet framed as the main professional reporting surface.
-- CSV export exists, but native workbook export is not yet available.
+- CSV export existed first; native workbook export is now available for Complete Project Report only.
 - Print surfaces are better than the app pages, but sectioning, signatures, and grouped navigation still need consistency.
 
 ## Current Service-Charge Billing Gaps
@@ -200,3 +200,21 @@
 - Report cards now state export availability honestly per report.
 - Demand batch print now includes service-charge-aware buyer bill sections.
 - Server PDF remains future; browser Print / Save as PDF is the supported PDF workflow.
+
+## Professional Report System Overhaul Update - May 25, 2026
+
+- Added `PROFESSIONAL_REPORT_SYSTEM_OVERHAUL.md`.
+- The report-system goals in this plan are now materially implemented:
+  - shared report document layout
+  - grouped report index
+  - professional Complete Project Report
+  - honest export labels
+  - branded demand-batch print surface
+- Formula presentation now explicitly separates:
+  - imported historical collection
+  - issued demand
+  - allocated collection
+  - unallocated / advance collection
+  - final reconciliation demand
+- Complete Project Report workbook export is now a real multi-sheet `.xlsx` built with `exceljs`, including all required sheets plus Top Sheet grand totals.
+- Server-generated PDF remains future; browser Print / Save as PDF remains the supported PDF workflow.

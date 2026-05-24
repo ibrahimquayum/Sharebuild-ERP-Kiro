@@ -1,9 +1,16 @@
 import { notFound } from 'next/navigation';
+
+import {
+  ReportDocumentLayout,
+  ReportKpiCard,
+  ReportPageBreak,
+  ReportSection,
+  ReportSignatureBlock,
+  ReportSummaryGrid,
+  ReportTable,
+} from '@/components/reports/report-document';
 import { getProjectReportContext } from '@/lib/project-report-page';
 import { prisma } from '@/lib/prisma';
-import { ReportActions } from '@/components/shared/report-actions';
-import { ReportHeader } from '@/components/shared/report-header';
-import { ReportFooter } from '@/components/shared/report-footer';
 import { formatBDT, formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -21,8 +28,8 @@ export default async function DemandBatchPrintPage({
       phase: { select: { name: true } },
       demands: {
         include: {
-          buyer: { select: { name: true } },
-          unit: { select: { unitNo: true } },
+          buyer: { select: { id: true, name: true, phone: true } },
+          unit: { select: { id: true, unitNo: true } },
         },
         orderBy: [{ buyer: { name: 'asc' } }, { unit: { unitNo: 'asc' } }],
       },
@@ -30,98 +37,154 @@ export default async function DemandBatchPrintPage({
   });
   if (!batch) notFound();
 
+  const ownershipRows = await prisma.unitBuyer.findMany({
+    where: {
+      unitId: { in: batch.demands.map((demand) => demand.unitId) },
+      buyerId: { in: batch.demands.map((demand) => demand.buyerId) },
+    },
+    select: {
+      unitId: true,
+      buyerId: true,
+      sharePercent: true,
+      isPayer: true,
+    },
+  });
+
+  const ownershipMap = new Map(
+    ownershipRows.map((row) => [`${row.unitId}:${row.buyerId}`, { sharePercent: Number(row.sharePercent), isPayer: row.isPayer }] as const),
+  );
+
   return (
-    <div className="p-5 space-y-6 print:p-0">
-      <div className="flex justify-end">
-        <ReportActions pdfReady />
-      </div>
-      <ReportHeader
-        branding={branding}
-        project={project}
-        title="Demand Notice Batch"
-        subtitle={`${batch.title} · ${batch.phase.name} · ${batch.batchNo ?? batch.id}`}
-      />
+    <ReportDocumentLayout
+      branding={branding}
+      project={project}
+      title="Demand Notice / Bill Batch"
+      subtitle={`${batch.title} | ${batch.phase.name} | ${batch.batchNo ?? batch.id}`}
+      generatedAt={new Date()}
+      backHref={`/projects/${project.id}/demands/batches`}
+      backLabel="Back to Demand Batches"
+    >
+      <ReportSummaryGrid>
+        <ReportKpiCard label="Due Date" value={formatDate(batch.dueDate)} />
+        <ReportKpiCard label="Base Phase Cost" value={formatBDT(Number(batch.baseAmount))} tone="negative" />
+        <ReportKpiCard label="Service Charge" value={formatBDT(Number(batch.serviceChargeAmount))} tone="info" />
+        <ReportKpiCard label="Total Billable" value={formatBDT(Number(batch.totalBillableAmount))} tone="warning" />
+      </ReportSummaryGrid>
 
-      <section className="rounded-md border p-4 text-sm space-y-2 print:break-inside-avoid">
-        <div className="flex justify-between"><span className="text-muted-foreground">Due Date</span><span>{formatDate(batch.dueDate)}</span></div>
-        <div className="flex justify-between"><span className="text-muted-foreground">Base Construction Cost</span><span>{formatBDT(Number(batch.baseAmount))}</span></div>
-        <div className="flex justify-between"><span className="text-muted-foreground">Service Charge</span><span>{formatBDT(Number(batch.serviceChargeAmount))}</span></div>
-        <div className="flex justify-between"><span className="text-muted-foreground">Adjustment</span><span>{formatBDT(Number(batch.adjustmentAmount))}</span></div>
-        <div className="flex justify-between"><span className="text-muted-foreground">Carry Forward</span><span>{formatBDT(Number(batch.carryForwardAmount))}</span></div>
-        <div className="flex justify-between border-t pt-2 font-semibold"><span>Total Billable</span><span>{formatBDT(Number(batch.totalBillableAmount))}</span></div>
-      </section>
-
-      <section className="rounded-md border overflow-hidden print:break-inside-avoid">
-        <table className="w-full text-sm">
+      <ReportSection title="Batch Summary" description="Phase billing summary for the issued demand batch.">
+        <ReportTable dense>
           <thead>
-            <tr className="border-b bg-muted/40">
-              {['Buyer', 'Unit', 'Base Cost', 'Service Charge', 'Adjustment', 'Carry Forward', 'Amount Payable'].map((heading) => (
-                <th key={heading} className="px-4 py-3 text-left text-xs font-semibold uppercase text-muted-foreground">{heading}</th>
-              ))}
+            <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <th className="px-3 py-3">Buyer</th>
+              <th className="px-3 py-3">Unit</th>
+              <th className="px-3 py-3 text-right">Base Cost</th>
+              <th className="px-3 py-3 text-right">Service Charge</th>
+              <th className="px-3 py-3 text-right">Adjustment</th>
+              <th className="px-3 py-3 text-right">Carry Forward</th>
+              <th className="px-3 py-3 text-right">Amount Payable</th>
             </tr>
           </thead>
           <tbody>
             {batch.demands.map((demand) => (
-              <tr key={demand.id} className="border-b last:border-0">
-                <td className="px-4 py-3 font-medium">{demand.buyer.name}</td>
-                <td className="px-4 py-3">{demand.unit.unitNo}</td>
-                <td className="px-4 py-3">{formatBDT(Number(demand.baseAmount))}</td>
-                <td className="px-4 py-3">{formatBDT(Number(demand.serviceChargeAmount))}</td>
-                <td className="px-4 py-3">{formatBDT(Number(demand.adjustmentAmount))}</td>
-                <td className="px-4 py-3">{formatBDT(Number(demand.carryForwardAmount))}</td>
-                <td className="px-4 py-3 font-semibold">{formatBDT(Number(demand.amount))}</td>
+              <tr key={demand.id} className="border-b border-slate-200">
+                <td className="px-3 py-3 font-medium text-slate-900">{demand.buyer.name}</td>
+                <td className="px-3 py-3 text-slate-700">{demand.unit.unitNo}</td>
+                <td className="px-3 py-3 text-right text-rose-700">{formatBDT(Number(demand.baseAmount))}</td>
+                <td className="px-3 py-3 text-right text-sky-700">{formatBDT(Number(demand.serviceChargeAmount))}</td>
+                <td className="px-3 py-3 text-right text-slate-700">{formatBDT(Number(demand.adjustmentAmount))}</td>
+                <td className="px-3 py-3 text-right text-amber-700">{formatBDT(Number(demand.carryForwardAmount))}</td>
+                <td className="px-3 py-3 text-right font-semibold text-slate-900">{formatBDT(Number(demand.amount))}</td>
               </tr>
             ))}
           </tbody>
-        </table>
-      </section>
+        </ReportTable>
+      </ReportSection>
 
-      <section className="space-y-4">
-        {batch.demands.map((demand) => (
-          <article key={demand.id} className="rounded-md border p-5 text-sm print:break-before-page print:rounded-none print:border-black">
-            <div className="mb-4 flex items-start justify-between gap-4 border-b pb-3">
+      {batch.demands.map((demand, index) => {
+        const ownership = ownershipMap.get(`${demand.unitId}:${demand.buyerId}`);
+        return (
+          <section key={demand.id} className="report-avoid-break rounded-2xl border border-slate-200 p-6 shadow-sm print:rounded-none print:border print:shadow-none">
+            {index > 0 ? <ReportPageBreak /> : null}
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
               <div>
-                <h2 className="text-lg font-bold">Demand Notice / Bill</h2>
-                <p className="text-muted-foreground">{batch.batchNo ?? batch.id} · {batch.phase.name}</p>
+                <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Demand Notice / Bill</div>
+                <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">{batch.title}</h2>
+                <div className="mt-2 text-sm text-slate-600">
+                  Demand no: {demand.demandNo ?? batch.batchNo ?? demand.id} | Phase: {batch.phase.name}
+                </div>
               </div>
-              <div className="text-right text-xs">
-                <div className="font-semibold">{branding.name}</div>
+              <div className="text-right text-sm text-slate-600">
+                <div className="font-semibold text-slate-900">{branding.name}</div>
                 {branding.address ? <div>{branding.address}</div> : null}
                 {branding.phone ? <div>{branding.phone}</div> : null}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><span className="text-muted-foreground">Project</span><div className="font-medium">{project.name}</div></div>
-              <div><span className="text-muted-foreground">Buyer</span><div className="font-medium">{demand.buyer.name}</div></div>
-              <div><span className="text-muted-foreground">Unit</span><div className="font-medium">{demand.unit.unitNo}</div></div>
-              <div><span className="text-muted-foreground">Due Date</span><div className="font-medium">{formatDate(demand.dueDate)}</div></div>
-            </div>
-            <table className="mt-5 w-full text-sm">
-              <tbody>
-                <tr className="border-b"><td className="py-2">Base phase cost portion</td><td className="py-2 text-right">{formatBDT(Number(demand.baseAmount))}</td></tr>
-                <tr className="border-b"><td className="py-2">Service charge portion</td><td className="py-2 text-right">{formatBDT(Number(demand.serviceChargeAmount))}</td></tr>
-                <tr className="border-b"><td className="py-2">Adjustment</td><td className="py-2 text-right">{formatBDT(Number(demand.adjustmentAmount))}</td></tr>
-                <tr className="border-b"><td className="py-2">Carry-forward / previous balance included</td><td className="py-2 text-right">{formatBDT(Number(demand.carryForwardAmount))}</td></tr>
-                <tr className="font-bold"><td className="py-3">Amount payable</td><td className="py-3 text-right">{formatBDT(Number(demand.amount))}</td></tr>
-              </tbody>
-            </table>
-            <div className="mt-5 rounded border bg-muted/30 p-3 text-xs print:bg-white">
-              Please pay by the due date using the approved company cash/bank channel and mention the buyer name, unit, and demand reference.
-            </div>
-            <div className="mt-12 grid grid-cols-2 gap-8 text-center">
-              <div className="border-t pt-2">Received by</div>
-              <div className="border-t pt-2">Authorized signature</div>
-            </div>
-          </article>
-        ))}
-      </section>
 
-      <section className="grid grid-cols-2 gap-6 pt-8 text-center text-sm">
-        <div className="border-t pt-2">Prepared by</div>
-        <div className="border-t pt-2">Authorized signature</div>
-      </section>
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Buyer Information</div>
+                <div className="mt-3 space-y-2 text-sm text-slate-700">
+                  <div><span className="font-medium text-slate-900">Buyer:</span> {demand.buyer.name}</div>
+                  <div><span className="font-medium text-slate-900">Phone:</span> {demand.buyer.phone || '-'}</div>
+                  <div><span className="font-medium text-slate-900">Unit:</span> {demand.unit.unitNo}</div>
+                  <div><span className="font-medium text-slate-900">Ownership share:</span> {ownership ? `${ownership.sharePercent.toFixed(2)}%` : 'Not recorded'}</div>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Billing Information</div>
+                <div className="mt-3 space-y-2 text-sm text-slate-700">
+                  <div><span className="font-medium text-slate-900">Project:</span> {project.name}</div>
+                  <div><span className="font-medium text-slate-900">Phase:</span> {batch.phase.name}</div>
+                  <div><span className="font-medium text-slate-900">Due date:</span> {formatDate(demand.dueDate)}</div>
+                  <div><span className="font-medium text-slate-900">Notes:</span> {batch.notes || 'Please mention demand reference while paying.'}</div>
+                </div>
+              </div>
+            </div>
 
-      <ReportFooter note={branding.reportFooterNote} />
-    </div>
+            <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    <th className="px-4 py-3">Component</th>
+                    <th className="px-4 py-3 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-slate-200">
+                    <td className="px-4 py-3 text-slate-700">Base phase cost portion</td>
+                    <td className="px-4 py-3 text-right text-rose-700">{formatBDT(Number(demand.baseAmount))}</td>
+                  </tr>
+                  <tr className="border-b border-slate-200">
+                    <td className="px-4 py-3 text-slate-700">Service charge portion</td>
+                    <td className="px-4 py-3 text-right text-sky-700">{formatBDT(Number(demand.serviceChargeAmount))}</td>
+                  </tr>
+                  <tr className="border-b border-slate-200">
+                    <td className="px-4 py-3 text-slate-700">Adjustment</td>
+                    <td className="px-4 py-3 text-right">{formatBDT(Number(demand.adjustmentAmount))}</td>
+                  </tr>
+                  <tr className="border-b border-slate-200">
+                    <td className="px-4 py-3 text-slate-700">Previous due / carry-forward</td>
+                    <td className="px-4 py-3 text-right text-amber-700">{formatBDT(Number(demand.carryForwardAmount))}</td>
+                  </tr>
+                  <tr className="bg-slate-50">
+                    <td className="px-4 py-4 font-semibold text-slate-900">Total payable</td>
+                    <td className="px-4 py-4 text-right text-lg font-semibold text-slate-950">{formatBDT(Number(demand.amount))}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-6 text-slate-700">
+              <div className="font-medium text-slate-900">Payment instruction</div>
+              Please pay within the due date through the approved company cash or bank channel and mention the buyer name, unit number, and demand reference.
+            </div>
+
+            <div className="mt-8">
+              <ReportSignatureBlock labels={['Received by', 'Accounts officer', 'Authorized signature']} />
+            </div>
+          </section>
+        );
+      })}
+    </ReportDocumentLayout>
   );
 }
