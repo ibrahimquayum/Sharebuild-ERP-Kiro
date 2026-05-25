@@ -406,6 +406,30 @@
 - Direct-expense cheque bounce/cancel cancels treasury movement but keeps the approved cost record.
 - CSV remains the export path for most finance reports. Native XLSX currently exists for Complete Project Report only, and server PDF remains future work.
 
+## Service Charge Phase Page Fix - May 26, 2026
+
+- Added `SERVICE_CHARGE_PHASE_PAGE_FIX.md`.
+- Added one clean migration:
+  - `prisma/migrations/20260525191553_service_charge_defaults_nullable/migration.sql`
+- Service-charge fallback is now centralized and consistent across:
+  - phase detail page
+  - complete project report
+  - complete project print route
+  - complete project XLSX data
+  - phase summary / expense report data helpers
+- Phase detail now correctly treats project default service charge as inherited when no phase override is set.
+- Phase detail UI now restores the side-by-side:
+  - `Income / Collections`
+  - `Expenses / Project Cost`
+- Main phase expense panel now shows real cost rows again, with service charge only in the footer calculation:
+  - subtotal construction cost
+  - company service charge / supervision fee
+  - total phase cost
+- Relax Tower Top Sheet totals remain exact:
+  - Income `100,143,800`
+  - Expense `104,659,890.40`
+  - Balance `-4,516,090.40`
+
 ## Next Safest Build Step
 
 Begin the dependency/private-storage hardening pass, then come back for deeper accountant-facing reversal/adjustment UI and broader native workbook coverage before SaaS onboarding.

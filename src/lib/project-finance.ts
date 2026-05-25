@@ -1,11 +1,12 @@
 import { FINAL_EXPENSE_STATUSES } from '@/lib/accounting';
 import { getProjectCashBankSummary } from '@/lib/cash-bank';
 import { prisma } from '@/lib/prisma';
+import {
+  getEffectiveServiceChargePercent,
+  numberValue,
+  parseServiceChargePercentSetting,
+} from '@/lib/service-charge';
 import type { Prisma } from '@prisma/client';
-
-function numberValue(value: Prisma.Decimal | number | string | null | undefined) {
-  return Number(value ?? 0);
-}
 
 function roundMoney(value: number) {
   return Number(value.toFixed(2));
@@ -163,7 +164,7 @@ export async function getProjectPhaseBalances(projectId: string) {
   const [project, phases, serviceChargeEntries] = await Promise.all([
     prisma.project.findUnique({
       where: { id: projectId },
-      select: { defaultServiceChargePct: true },
+      select: { companyId: true, defaultServiceChargePct: true },
     }),
     prisma.phase.findMany({
       where: { projectId, status: { notIn: ['CANCELLED', 'DUPLICATE'] } },
@@ -175,6 +176,18 @@ export async function getProjectPhaseBalances(projectId: string) {
       orderBy: [{ phaseId: 'asc' }, { updatedAt: 'desc' }],
     }),
   ]);
+  const companyDefaultServiceChargeSetting = project?.companyId
+    ? await prisma.companySetting.findUnique({
+        where: {
+          companyId_key: {
+            companyId: project.companyId,
+            key: 'defaultServiceChargePct',
+          },
+        },
+        select: { value: true },
+      })
+    : null;
+  const companyDefaultServiceChargePct = parseServiceChargePercentSetting(companyDefaultServiceChargeSetting?.value);
 
   const entriesByPhase = new Map<string, typeof serviceChargeEntries>();
   for (const entry of serviceChargeEntries) {
@@ -239,10 +252,11 @@ export async function getProjectPhaseBalances(projectId: string) {
     const supplierBill = numberValue(supplierAgg._sum.totalAmount);
     const subcontractorBill = numberValue(subcontractorAgg._sum.totalAmount);
     const phaseCost = expense + supplierBill + subcontractorBill;
-      const phaseServiceChargePct = numberValue(phase.serviceChargePct);
-      const serviceChargePct = phaseServiceChargePct > 0
-        ? phaseServiceChargePct
-        : numberValue(project?.defaultServiceChargePct ?? 0);
+    const serviceChargePct = getEffectiveServiceChargePercent({
+      companyDefaultPct: companyDefaultServiceChargePct,
+      projectDefaultPct: project?.defaultServiceChargePct,
+      phaseOverridePct: phase.serviceChargePct,
+    });
     const serviceChargePreview = roundMoney((phaseCost * serviceChargePct) / 100);
     const phaseEntries = entriesByPhase.get(phase.id) ?? [];
     const approvedEntries = phaseEntries.filter((entry) => entry.status === 'APPROVED');

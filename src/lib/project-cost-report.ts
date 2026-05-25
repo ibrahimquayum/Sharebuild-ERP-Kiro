@@ -6,11 +6,12 @@ import {
   type ProjectCostSourceType,
   PROJECT_COST_SOURCE_TYPES,
 } from '@/lib/report-controls';
+import {
+  getEffectiveServiceChargePercent,
+  numberValue,
+  parseServiceChargePercentSetting,
+} from '@/lib/service-charge';
 import { isSubcontractorSupplierType } from '@/lib/project-vendor-ledger';
-
-function numberValue(value: unknown) {
-  return Number(value ?? 0);
-}
 
 function roundMoney(value: number) {
   return Number(value.toFixed(2));
@@ -105,7 +106,7 @@ export async function getUnifiedProjectCostReport(
   const [project, phases, expenses, payables, serviceChargeEntries] = await Promise.all([
     prisma.project.findUnique({
       where: { id: projectId },
-      select: { defaultServiceChargePct: true },
+      select: { companyId: true, defaultServiceChargePct: true },
     }),
     prisma.phase.findMany({
       where: {
@@ -142,6 +143,18 @@ export async function getUnifiedProjectCostReport(
       orderBy: [{ updatedAt: 'desc' }, { approvedAt: 'desc' }, { calculatedAt: 'desc' }, { createdAt: 'desc' }],
     }),
   ]);
+  const companyDefaultServiceChargeSetting = project?.companyId
+    ? await prisma.companySetting.findUnique({
+        where: {
+          companyId_key: {
+            companyId: project.companyId,
+            key: 'defaultServiceChargePct',
+          },
+        },
+        select: { value: true },
+      })
+    : null;
+  const companyDefaultServiceChargePct = parseServiceChargePercentSetting(companyDefaultServiceChargeSetting?.value);
 
   const allRows: UnifiedProjectCostRow[] = [];
 
@@ -257,7 +270,11 @@ export async function getUnifiedProjectCostReport(
 
   for (const phase of phases) {
     const actualConstructionCost = constructionCostByPhase.get(phase.id) ?? 0;
-    const percentage = numberValue(phase.serviceChargePct ?? project?.defaultServiceChargePct ?? 0);
+    const percentage = getEffectiveServiceChargePercent({
+      companyDefaultPct: companyDefaultServiceChargePct,
+      projectDefaultPct: project?.defaultServiceChargePct,
+      phaseOverridePct: phase.serviceChargePct,
+    });
     const entry = latestServiceChargeByPhase.get(phase.id);
     const amount = entry
       ? numberValue(entry.serviceChargeAmount)
@@ -523,7 +540,7 @@ export async function getPhaseFinancialSummary(
       where: { id: phaseId, projectId },
       include: {
         project: {
-          select: { id: true, name: true, defaultServiceChargePct: true },
+          select: { id: true, name: true, companyId: true, defaultServiceChargePct: true },
         },
       },
     }),
@@ -557,6 +574,17 @@ export async function getPhaseFinancialSummary(
 
   if (!phase) return null;
 
+  const companyDefaultServiceChargeSetting = await prisma.companySetting.findUnique({
+    where: {
+      companyId_key: {
+        companyId: phase.project.companyId,
+        key: 'defaultServiceChargePct',
+      },
+    },
+    select: { value: true },
+  });
+  const companyDefaultServiceChargePct = parseServiceChargePercentSetting(companyDefaultServiceChargeSetting?.value);
+
   const filteredCollections = collections.filter((collection) => {
     if (fromDate && collection.receivedDate < fromDate) return false;
     if (toDate && collection.receivedDate > toDate) return false;
@@ -577,7 +605,11 @@ export async function getPhaseFinancialSummary(
   const adjustmentTotal = costGroup?.totals.ADJUSTMENT ?? 0;
   const serviceChargeAmount = costGroup?.totals.COMPANY_SERVICE_CHARGE ?? 0;
   const actualConstructionCost = directExpenseTotal + supplierBillItemTotal + subcontractorBillTotal + adjustmentTotal;
-  const serviceChargePercentage = numberValue(phase.serviceChargePct ?? phase.project.defaultServiceChargePct ?? 0);
+  const serviceChargePercentage = getEffectiveServiceChargePercent({
+    companyDefaultPct: companyDefaultServiceChargePct,
+    projectDefaultPct: phase.project.defaultServiceChargePct,
+    phaseOverridePct: phase.serviceChargePct,
+  });
   const totalBillablePhaseCost = actualConstructionCost + serviceChargeAmount;
   const totalCollection = filteredCollections.reduce((sum, collection) => sum + numberValue(collection.amount), 0);
   const issuedDemand = filteredDemands.reduce((sum, demand) => sum + numberValue(demand.amount), 0);

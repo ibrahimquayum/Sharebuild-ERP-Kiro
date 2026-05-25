@@ -118,6 +118,7 @@ export default async function PhaseDetailPage({ params }: { params: { id: string
     { label: 'Subcontractor Bills', value: summary.subcontractorBillTotal },
     { label: 'Adjustments', value: summary.adjustmentTotal },
   ];
+  const expenseRows = summary.dailyProjectCostRows.filter((row) => row.sourceType !== 'COMPANY_SERVICE_CHARGE');
 
   return (
     <div className="space-y-6 px-5 py-5">
@@ -206,10 +207,10 @@ export default async function PhaseDetailPage({ params }: { params: { id: string
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                   <tr>
+                    <th className="w-12 px-3 py-2 text-left">#</th>
                     <th className="px-3 py-2 text-left">Buyer</th>
-                    <th className="px-3 py-2 text-left">Method / Account</th>
                     <th className="px-3 py-2 text-right">Amount</th>
-                    <th className="px-3 py-2 text-right">Unallocated</th>
+                    <th className="px-3 py-2 text-left">Method / Account</th>
                     <th className="px-3 py-2 text-right">Date</th>
                   </tr>
                 </thead>
@@ -219,18 +220,18 @@ export default async function PhaseDetailPage({ params }: { params: { id: string
                       <td className="px-3 py-8 text-center text-sm text-slate-500" colSpan={5}>No collections recorded for this phase.</td>
                     </tr>
                   ) : (
-                    summary.buyerCollections.map((row) => (
+                    summary.buyerCollections.map((row, index) => (
                       <tr key={row.id} className="border-t">
+                        <td className="px-3 py-2 text-slate-500">{index + 1}</td>
                         <td className="px-3 py-2 font-medium text-slate-900">
                           {row.buyerName}
                           {row.buyerNameBn ? <div className="bn text-xs text-slate-500">{row.buyerNameBn}</div> : null}
                         </td>
+                        <td className="px-3 py-2 text-right font-medium text-emerald-700">{formatBDT(row.amount)}</td>
                         <td className="px-3 py-2 text-slate-600">
                           {row.paymentMethod}
                           {row.accountName ? <div className="text-xs text-slate-500">{row.accountName}</div> : null}
                         </td>
-                        <td className="px-3 py-2 text-right font-medium text-emerald-700">{formatBDT(row.amount)}</td>
-                        <td className="px-3 py-2 text-right text-amber-700">{formatBDT(row.unallocatedAmount)}</td>
                         <td className="px-3 py-2 text-right text-slate-600">{formatDate(row.receivedDate)}</td>
                       </tr>
                     ))
@@ -240,8 +241,9 @@ export default async function PhaseDetailPage({ params }: { params: { id: string
                   <tr className="border-t">
                     <td className="px-3 py-3 font-semibold text-slate-900" colSpan={2}>Total Collection</td>
                     <td className="px-3 py-3 text-right font-semibold text-emerald-700">{formatBDT(summary.totalCollection)}</td>
-                    <td className="px-3 py-3 text-right text-amber-700">{formatBDT(summary.buyerAdvance)}</td>
-                    <td className="px-3 py-3 text-right text-slate-500">Buyer advance / unallocated</td>
+                    <td className="px-3 py-3 text-right text-slate-500" colSpan={2}>
+                      Buyer advance / unallocated: <span className="font-medium text-amber-700">{formatBDT(summary.buyerAdvance)}</span>
+                    </td>
                   </tr>
                 </tfoot>
               </table>
@@ -261,44 +263,56 @@ export default async function PhaseDetailPage({ params }: { params: { id: string
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                   <tr>
-                    <th className="px-3 py-2 text-left">Cost source</th>
-                    <th className="px-3 py-2 text-left">Meaning</th>
+                    <th className="w-12 px-3 py-2 text-left">#</th>
+                    <th className="px-3 py-2 text-left">Description</th>
+                    <th className="px-3 py-2 text-right">Qty</th>
                     <th className="px-3 py-2 text-right">Amount</th>
+                    <th className="px-3 py-2 text-left">Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {costSummaryRows.map((row) => (
-                    <tr key={row.label} className="border-t">
-                      <td className="px-3 py-2 font-medium text-slate-900">{row.label}</td>
-                      <td className="px-3 py-2 text-slate-600">
-                        {row.label === 'Supplier Bill Items'
-                          ? 'Line items from supplier bills, included inside daily project cost details.'
-                          : row.label === 'Subcontractor Bills'
-                            ? 'Approved progress-bill cost rows.'
-                            : row.label === 'Adjustments'
-                              ? 'Cost-affecting adjustments only. Payments stay in ledger/treasury reports.'
-                              : 'Direct site/project expense rows.'}
-                      </td>
-                      <td className="px-3 py-2 text-right font-medium tabular-nums text-slate-900">{formatBDT(row.value)}</td>
+                  {expenseRows.length === 0 ? (
+                    <tr>
+                      <td className="px-3 py-8 text-center text-sm text-slate-500" colSpan={5}>No project cost rows found for this phase.</td>
                     </tr>
-                  ))}
+                  ) : (
+                    expenseRows.map((row, index) => (
+                      <tr key={row.id} className="border-t align-top">
+                        <td className="px-3 py-2 text-slate-500">{index + 1}</td>
+                        <td className="px-3 py-2">
+                          <div className="font-medium text-slate-900">{row.description}</div>
+                          <div className="text-xs text-slate-500">
+                            {expenseCategoryLabel(row.category)}
+                            {row.partyName ? ` - ${row.partyName}` : ''}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-right text-slate-600">
+                          {row.quantity != null ? `${row.quantity} ${row.unit ?? ''}` : '-'}
+                        </td>
+                        <td className="px-3 py-2 text-right font-medium tabular-nums text-rose-700">{formatBDT(row.amount)}</td>
+                        <td className="px-3 py-2">
+                          <StatusBadge label={row.approvalStatus} />
+                          <div className="mt-1 text-[11px] text-slate-500">{row.voucherStatus.replaceAll('_', ' ')}</div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
                 <tfoot className="bg-slate-50">
                   <tr className="border-t">
-                    <td className="px-3 py-2 font-medium text-slate-700" colSpan={2}>Subtotal Construction Cost</td>
+                    <td className="px-3 py-2 font-medium text-slate-700" colSpan={3}>Subtotal Construction Cost</td>
                     <td className="px-3 py-2 text-right font-semibold text-slate-950">{formatBDT(summary.actualConstructionCost)}</td>
+                    <td className="px-3 py-2" />
                   </tr>
                   <tr className="border-t">
-                    <td className="px-3 py-2 font-medium text-slate-700" colSpan={2}>Company Service Charge / Supervision Fee ({summary.serviceChargePercentage.toFixed(2)}%)</td>
+                    <td className="px-3 py-2 font-medium text-slate-700" colSpan={3}>Company Service Charge / Supervision Fee ({summary.serviceChargePercentage.toFixed(2)}%)</td>
                     <td className="px-3 py-2 text-right font-semibold text-sky-700">{formatBDT(summary.serviceChargeAmount)}</td>
+                    <td className="px-3 py-2" />
                   </tr>
                   <tr className="border-t">
-                    <td className="px-3 py-2 font-semibold text-slate-900" colSpan={2}>Total Phase Cost</td>
+                    <td className="px-3 py-2 font-semibold text-slate-900" colSpan={3}>Total Phase Cost</td>
                     <td className="px-3 py-2 text-right font-semibold text-rose-700">{formatBDT(summary.totalBillablePhaseCost)}</td>
-                  </tr>
-                  <tr className="border-t">
-                    <td className="px-3 py-2 font-semibold text-slate-900" colSpan={2}>Phase Balance</td>
-                    <td className={cn('px-3 py-2 text-right font-semibold', balanceColor(summary.phaseBalance))}>{formatBDT(summary.phaseBalance)}</td>
+                    <td className="px-3 py-2" />
                   </tr>
                 </tfoot>
               </table>
@@ -306,6 +320,48 @@ export default async function PhaseDetailPage({ params }: { params: { id: string
           </CardContent>
         </Card>
       </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <MetricCard label="Total Collection" value={formatBDTCompact(summary.totalCollection)} caption={formatBDT(summary.totalCollection)} tone="positive" />
+        <MetricCard label="Total Phase Cost" value={formatBDTCompact(summary.totalBillablePhaseCost)} caption={`Construction cost ${formatBDT(summary.actualConstructionCost)} + service charge ${formatBDT(summary.serviceChargeAmount)}`} tone="negative" />
+        <MetricCard label="Phase Balance" value={formatBDTCompact(summary.phaseBalance)} caption={summary.phaseBalance >= 0 ? 'Surplus after total phase cost' : 'Deficit after total phase cost'} tone={summary.phaseBalance >= 0 ? 'positive' : 'negative'} />
+      </div>
+
+      <Card className="border-slate-200">
+        <CardHeader>
+          <CardTitle className="text-base">Cost Source Summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-3 py-2 text-left">Cost source</th>
+                  <th className="px-3 py-2 text-left">Meaning</th>
+                  <th className="px-3 py-2 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {costSummaryRows.map((row) => (
+                  <tr key={row.label} className="border-t">
+                    <td className="px-3 py-2 font-medium text-slate-900">{row.label}</td>
+                    <td className="px-3 py-2 text-slate-600">
+                      {row.label === 'Supplier Bill Items'
+                        ? 'Line items from supplier bills, included inside daily project cost details.'
+                        : row.label === 'Subcontractor Bills'
+                          ? 'Approved progress-bill cost rows.'
+                          : row.label === 'Adjustments'
+                            ? 'Cost-affecting adjustments only. Payments stay in ledger/treasury reports.'
+                            : 'Direct site/project expense rows.'}
+                    </td>
+                    <td className="px-3 py-2 text-right font-medium tabular-nums text-slate-900">{formatBDT(row.value)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="border-slate-200">
         <CardHeader>

@@ -751,3 +751,19 @@ VAT/AIT/TDS plus retention/security architecture and accounting flows.
   - Total Phase Cost
   - Phase Balance
 - Complete Project Report workbook now includes auto-filtered sheets, totals rows, and improved per-phase sheet naming.
+
+## Service Charge Phase Page Fix - May 26, 2026
+
+- Added `SERVICE_CHARGE_PHASE_PAGE_FIX.md`.
+- Added migration `20260525191553_service_charge_defaults_nullable`.
+- Removed schema-default `0` from:
+  - `Project.defaultServiceChargePct`
+  - `Phase.serviceChargePct`
+- Normalized old schema-default zero values to `NULL` so fallback can distinguish inherited vs explicit values.
+- Added `src/lib/service-charge.ts` for centralized effective service-charge fallback.
+- Relax Tower Piling now shows:
+  - Service charge `5%`
+  - Service charge amount `Tk 8,52,058.27`
+  - Total phase cost `Tk 1,78,93,223.71`
+  - Phase balance `-Tk 43,93,223.71`
+- Phase detail page now restores the actual side-by-side collection vs cost layout and shows real cost rows in the main right-side panel.

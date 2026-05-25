@@ -539,7 +539,7 @@ model Project {
   unitsPerFloor           Int?
   totalPlannedUnits       Int?
   parkingUtilityNote      String?
-  defaultServiceChargePct Decimal?      @default(0)
+  defaultServiceChargePct Decimal?
   notes                   String?
   status                  ProjectStatus @default(ACTIVE)
   startDate               DateTime?
@@ -790,7 +790,7 @@ model Phase {
   workDescBn       String?
   startDate        DateTime?
   endDate          DateTime?
-  serviceChargePct Decimal?    @default(0) // e.g. 5%
+  serviceChargePct Decimal? // e.g. 5%
   notes            String?
   auditLockedAt    DateTime?
   auditLockedById  String?

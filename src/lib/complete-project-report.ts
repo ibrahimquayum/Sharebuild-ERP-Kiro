@@ -14,6 +14,10 @@ import {
   type ProjectCostReportFilters,
 } from '@/lib/report-controls';
 import {
+  getEffectiveServiceChargePercent,
+  parseServiceChargePercentSetting,
+} from '@/lib/service-charge';
+import {
   getProjectSubcontractorAssignments,
   getProjectSupplierAssignments,
   isSubcontractorSupplierType,
@@ -244,6 +248,7 @@ export async function getCompleteProjectReportData(
     chequeSummary,
     reconciliationPreview,
     costReport,
+    companyDefaultServiceChargeSetting,
   ] = await Promise.all([
     getCompanyBranding(companyId),
     getProjectFinanceSummary(project.id),
@@ -334,7 +339,17 @@ export async function getCompleteProjectReportData(
     getChequeSummary(companyId, project.id),
     getFinalReconciliationPreview(project.id),
     getUnifiedProjectCostReport(project.id, filters),
+    prisma.companySetting.findUnique({
+      where: {
+        companyId_key: {
+          companyId,
+          key: 'defaultServiceChargePct',
+        },
+      },
+      select: { value: true },
+    }),
   ]);
+  const companyDefaultServiceChargePct = parseServiceChargePercentSetting(companyDefaultServiceChargeSetting?.value);
 
   const filteredExpenses = expenses.filter((expense) =>
     costReport.rows.some((row) => row.sourceType === 'DIRECT_EXPENSE' && row.sourceId === expense.id),
@@ -367,8 +382,11 @@ export async function getCompleteProjectReportData(
           (costGroup?.totals.ADJUSTMENT ?? 0),
         serviceChargePercentage: Number(
           costGroup?.rows.find((row) => row.sourceType === 'COMPANY_SERVICE_CHARGE')?.rate ??
-            phases.find((item) => item.id === phase.phaseId)?.serviceChargePct ??
-            0,
+            getEffectiveServiceChargePercent({
+              companyDefaultPct: companyDefaultServiceChargePct,
+              projectDefaultPct: project.defaultServiceChargePct,
+              phaseOverridePct: phases.find((item) => item.id === phase.phaseId)?.serviceChargePct,
+            }),
         ),
         totalBillablePhaseCost: costGroup?.totalCost ?? 0,
         phaseBalance: phase.collection - (costGroup?.totalCost ?? 0),

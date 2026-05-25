@@ -126,3 +126,14 @@ This pass focuses on making the shared print system more universally document-or
 - Server-generated PDF is still future scope.
 - Complete Project Report remains the only native XLSX workbook export.
 - Not every individual report has been fully converted to the new print-document foundation in this pass.
+
+## Service Charge Follow-up - May 26, 2026
+
+- Added `SERVICE_CHARGE_PHASE_PAGE_FIX.md`.
+- Corrected service-charge fallback so phase detail, complete project report data, print route, and workbook all use:
+  - phase override if explicitly set
+  - otherwise project default
+  - otherwise company default setting
+  - otherwise `0`
+- Removed schema-default `0` values from project and phase service-charge fields so `NULL` can mean "inherit."
+- Restored the phase detail page's side-by-side collection vs project-cost layout and moved service charge back into the expense footer calculation.

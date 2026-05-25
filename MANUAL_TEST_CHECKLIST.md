@@ -445,3 +445,23 @@ Login: `admin@relaxdevelopers.com` / `admin123`
   - Supplier Ledger remains separate
 - [ ] Login with `engineer@relaxdevelopers.com` / `engineer123`.
 - [ ] Confirm `GET /api/projects/project-madina-demo-complete/reports/complete-project/xlsx` returns `403`.
+
+## Y. Service Charge Phase Page Fix
+
+- [ ] Login with `admin@relaxdevelopers.com` / `admin123`.
+- [ ] Open `/projects/project-relax-tower/settings` and confirm `Default Service Charge %` is `5`.
+- [ ] Open `/phases/ph-piling` and confirm the phase header shows `Service charge: 5.00%`.
+- [ ] Confirm the right-side `Expenses / Project Cost` panel shows actual project cost rows, not abstract source-explanation rows.
+- [ ] Confirm the expense footer shows:
+  - `Subtotal Construction Cost` = `Tk 1,70,41,165.44`
+  - `Company Service Charge / Supervision Fee (5.00%)` = `Tk 8,52,058.27`
+  - `Total Phase Cost` = `Tk 1,78,93,223.71`
+- [ ] Confirm bottom summary shows:
+  - `Total Collection` = `Tk 1,35,00,000`
+  - `Total Phase Cost` = `Tk 1,78,93,223.71`
+  - `Phase Balance` = `-Tk 43,93,223.71`
+- [ ] Open `/projects/project-relax-tower/reports/complete-project/print?phase=ph-piling` and confirm the same service-charge amount and total phase cost appear in the report output.
+- [ ] Confirm Relax Tower Top Sheet totals remain:
+  - Income: `100,143,800`
+  - Expense: `104,659,890.40`
+  - Balance: `-4,516,090.40`
