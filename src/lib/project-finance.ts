@@ -213,7 +213,9 @@ export async function getProjectPhaseBalances(projectId: string) {
     subcontractorPayable: number;
     taxDeduction: number;
     retentionHeld: number;
+    actualConstructionCost: number;
     phaseCost: number;
+    totalPhaseCost: number;
     serviceChargePct: number;
     serviceChargePreview: number;
     serviceChargeApproved: number;
@@ -264,7 +266,8 @@ export async function getProjectPhaseBalances(projectId: string) {
     const serviceChargeApproved = sumAmounts(approvedEntries.map((entry) => entry.serviceChargeAmount));
     const serviceChargeCalculated = sumAmounts(calculatedEntries.map((entry) => entry.serviceChargeAmount));
     const serviceCharge = serviceChargeApproved || serviceChargeCalculated || serviceChargePreview;
-    const balance = numberValue(collectionAgg._sum.amount) + carryIn - phaseCost;
+    const totalPhaseCost = phaseCost + serviceCharge;
+    const balance = numberValue(collectionAgg._sum.amount) + carryIn - totalPhaseCost;
 
     rows.push({
       phaseId: phase.id,
@@ -284,7 +287,9 @@ export async function getProjectPhaseBalances(projectId: string) {
         numberValue(retentionAgg._sum.retentionAmount) - numberValue(retentionAgg._sum.retentionReleasedAmount),
         0,
       ),
+      actualConstructionCost: phaseCost,
       phaseCost,
+      totalPhaseCost,
       serviceChargePct,
       serviceChargePreview,
       serviceChargeApproved,

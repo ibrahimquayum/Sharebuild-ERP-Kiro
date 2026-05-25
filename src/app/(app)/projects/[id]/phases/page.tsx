@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { formatBDT, phaseStatusMeta, cn } from '@/lib/utils';
-import { FINAL_EXPENSE_STATUSES } from '@/lib/accounting';
+import { getProjectPhaseBalances } from '@/lib/project-finance';
 import { Plus, LayoutGrid, Eye, ShoppingCart, Receipt, FileText, Pencil, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -25,58 +25,38 @@ export default async function ProjectPhasesPage({ params }: { params: { id: stri
     orderBy: { sequence: 'asc' },
   });
 
-  // Per-phase financial aggregates
-  const phaseFinancials = await Promise.all(
-    phases.map(async (ph) => {
-      const [collAgg, expAgg, expTotal, expApproved, payableAgg, buyerDueAgg] = await Promise.all([
-        // Collection total
-        prisma.collection.aggregate({
-          where: { phaseId: ph.id, status: { not: 'REVERSED' } },
-          _sum: { amount: true },
-        }),
-        // Expense total
-        prisma.expense.aggregate({
-          where: { phaseId: ph.id, status: { in: [...FINAL_EXPENSE_STATUSES] }, reversedAt: null },
-          _sum: { amount: true },
-        }),
-        // Total expense count (for progress denominator)
-        prisma.expense.count({ where: { phaseId: ph.id } }),
-        // Approved expense count (for progress numerator)
-        prisma.expense.count({ where: { phaseId: ph.id, status: 'APPROVED' } }),
-        // Supplier payable due
-        prisma.supplierPayable.aggregate({
-          where: { phaseId: ph.id, reversedAt: null },
-          _sum: { dueAmount: true },
-        }),
-        // Buyer due: demands not FULLY_PAID and not CANCELLED
-        prisma.demand.aggregate({
-          where: {
-            phaseId: ph.id,
-            status: { notIn: ['FULLY_PAID', 'CANCELLED'] },
-          },
-          _sum: { amount: true },
-        }),
-      ]);
+  const [phaseBalances, expenseProgressRows] = await Promise.all([
+    getProjectPhaseBalances(project.id),
+    Promise.all(
+      phases.map(async (ph) => {
+        const [expTotal, expApproved] = await Promise.all([
+          prisma.expense.count({ where: { phaseId: ph.id } }),
+          prisma.expense.count({ where: { phaseId: ph.id, status: 'APPROVED' } }),
+        ]);
+        return {
+          phaseId: ph.id,
+          progress: expTotal > 0 ? Math.round((expApproved / expTotal) * 100) : 0,
+        };
+      }),
+    ),
+  ]);
 
-      const collection = Number(collAgg._sum.amount ?? 0);
-      const expense    = Number(expAgg._sum.amount ?? 0);
-      const payable    = Number(payableAgg._sum.dueAmount ?? 0);
-      const buyerDue   = Number(buyerDueAgg._sum.amount ?? 0);
-      const progress   = expTotal > 0 ? Math.round((expApproved / expTotal) * 100) : 0;
-
-      return {
-        phaseId: ph.id,
-        collection,
-        expense,
-        balance: collection - expense,
-        payable,
-        buyerDue,
-        progress,
-      };
-    })
+  const finMap = Object.fromEntries(
+    phaseBalances.map((row) => [
+      row.phaseId,
+      {
+        collection: row.collection,
+        actualConstructionCost: row.actualConstructionCost,
+        totalPhaseCost: row.totalPhaseCost,
+        serviceCharge: row.serviceCharge,
+        serviceChargePct: row.serviceChargePct,
+        balance: row.carryOut,
+        payable: row.supplierPayable + row.subcontractorPayable,
+        buyerDue: Math.max(row.demand - row.collection, 0),
+      },
+    ]),
   );
-
-  const finMap = Object.fromEntries(phaseFinancials.map((f) => [f.phaseId, f]));
+  const progressMap = Object.fromEntries(expenseProgressRows.map((row) => [row.phaseId, row.progress]));
   const base = `/projects/${project.id}`;
 
   return (
@@ -130,7 +110,7 @@ export default async function ProjectPhasesPage({ params }: { params: { id: stri
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Status</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Progress</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Collection</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Expense</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Phase Cost</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Balance</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Buyer Due</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Payable</th>
@@ -139,8 +119,18 @@ export default async function ProjectPhasesPage({ params }: { params: { id: stri
               </thead>
               <tbody className="divide-y">
                 {phases.map((ph, idx) => {
-                  const fin  = finMap[ph.id] ?? { collection: 0, expense: 0, balance: 0, payable: 0, buyerDue: 0, progress: 0 };
+                  const fin  = finMap[ph.id] ?? {
+                    collection: 0,
+                    actualConstructionCost: 0,
+                    totalPhaseCost: 0,
+                    serviceCharge: 0,
+                    serviceChargePct: 0,
+                    balance: 0,
+                    payable: 0,
+                    buyerDue: 0,
+                  };
                   const meta = phaseStatusMeta(ph.status);
+                  const progress = progressMap[ph.id] ?? 0;
                   return (
                     <tr key={ph.id} className="hover:bg-muted/30 transition-colors">
                       {/* # */}
@@ -167,10 +157,10 @@ export default async function ProjectPhasesPage({ params }: { params: { id: stri
                           <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden hidden sm:block">
                             <div
                               className="h-full rounded-full bg-blue-500"
-                              style={{ width: `${fin.progress}%` }}
+                              style={{ width: `${progress}%` }}
                             />
                           </div>
-                          <span className="text-xs font-medium tabular-nums">{fin.progress}%</span>
+                          <span className="text-xs font-medium tabular-nums">{progress}%</span>
                         </div>
                       </td>
 
@@ -179,9 +169,14 @@ export default async function ProjectPhasesPage({ params }: { params: { id: stri
                         {formatBDT(fin.collection)}
                       </td>
 
-                      {/* Expense */}
+                      {/* Total phase cost */}
                       <td className="px-4 py-3 text-right text-xs font-medium text-red-500 tabular-nums whitespace-nowrap">
-                        {formatBDT(fin.expense)}
+                        {formatBDT(fin.totalPhaseCost)}
+                        {fin.serviceCharge > 0 ? (
+                          <div className="text-[11px] font-normal text-slate-500">
+                            {formatBDT(fin.actualConstructionCost)} + SC {fin.serviceChargePct.toFixed(2)}%
+                          </div>
+                        ) : null}
                       </td>
 
                       {/* Balance */}
@@ -262,15 +257,15 @@ export default async function ProjectPhasesPage({ params }: { params: { id: stri
 
               {/* Totals footer */}
               {phases.length > 1 && (() => {
-                const totals = phaseFinancials.reduce(
+                const totals = Object.values(finMap).reduce(
                   (acc, f) => ({
                     collection: acc.collection + f.collection,
-                    expense:    acc.expense    + f.expense,
-                    balance:    acc.balance    + f.balance,
-                    buyerDue:   acc.buyerDue   + f.buyerDue,
-                    payable:    acc.payable    + f.payable,
+                    totalPhaseCost: acc.totalPhaseCost + f.totalPhaseCost,
+                    balance: acc.balance + f.balance,
+                    buyerDue: acc.buyerDue + f.buyerDue,
+                    payable: acc.payable + f.payable,
                   }),
-                  { collection: 0, expense: 0, balance: 0, buyerDue: 0, payable: 0 }
+                  { collection: 0, totalPhaseCost: 0, balance: 0, buyerDue: 0, payable: 0 }
                 );
                 return (
                   <tfoot>
@@ -282,7 +277,7 @@ export default async function ProjectPhasesPage({ params }: { params: { id: stri
                         {formatBDT(totals.collection)}
                       </td>
                       <td className="px-4 py-2.5 text-right text-xs text-red-500 tabular-nums whitespace-nowrap">
-                        {formatBDT(totals.expense)}
+                        {formatBDT(totals.totalPhaseCost)}
                       </td>
                       <td className={cn(
                         'px-4 py-2.5 text-right text-xs tabular-nums whitespace-nowrap',
