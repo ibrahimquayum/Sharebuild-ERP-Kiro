@@ -268,6 +268,28 @@ Still honest about limited depth where data is sparse:
 - Relax Tower seed demand history remains intentionally sparse, so its demand/buyer-due sections still rely on explanatory notes for imported historical collections.
 - The richer billing, collection, and voucher test coverage now lives in `Madina Demo Complete Project`.
 
+## Production Print / Export Follow-Up - May 25, 2026
+
+- Added `PHASE_REPORT_PRINT_EXPORT_PRODUCTION_PASS.md`.
+- Complete Project Report now has a dedicated print/PDF route:
+  - `/projects/[id]/reports/complete-project/print`
+- Print CSS was hardened so app-shell height and overflow wrappers do not clip long reports.
+- Report headers are preserved in print; app sidebar/header and controls are hidden.
+- Long report sections are allowed to break across pages instead of being forced into one unbreakable block.
+- Phase detail page now shows the production billable-cost formula:
+  - actual construction cost
+  - company service charge / supervision fee
+  - total billable phase cost
+  - phase balance
+- Complete Project Report XLSX now includes:
+  - `00 Index`
+  - numbered main sheets
+  - per-phase breakdown tabs
+  - per-phase daily cost tabs
+- Supplier bill item reporting remains correct:
+  - line items appear in Daily Project Cost Details
+  - Supplier Ledger remains a separate payable/payment report
+
 ## Implementation Plan Status
 
 - [x] Formula audit

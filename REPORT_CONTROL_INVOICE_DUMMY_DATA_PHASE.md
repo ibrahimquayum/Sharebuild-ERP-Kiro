@@ -134,25 +134,46 @@ Relax Tower seed totals remain untouched and exact:
 
 ## Workbook / Export Status
 
-Complete Project Report XLSX is now a real formatted workbook driven by the same report engine and filters as the screen report.
+Complete Project Report XLSX is now a real formatted workbook driven by the same report engine and filters as the screen report. The production print/export pass added a workbook index and per-phase drilldown tabs.
 
 Sheets:
 
-1. Project Overview
-2. Executive Summary
-3. Phase Summary
-4. Phase Expense Breakdown
-5. Daily Project Cost Details
-6. Buyer Billing & Due
-7. Supplier Ledger
-8. Subcontractor Ledger
-9. Cash Bank Book
-10. Cheque Register
-11. Tax Deduction
-12. Retention
-13. Service Charge
-14. Final Reconciliation
-15. Audit Summary
+1. `00 Index`
+2. `01 Project Overview`
+3. `02 Executive Summary`
+4. `03 Phase Summary`
+5. `04 All Phase Breakdown`
+6. `05 All Daily Cost Details`
+7. `06 Buyer Billing Due`
+8. `07 Supplier Ledger`
+9. `08 Subcontractor Ledger`
+10. `09 Cash Bank Book`
+11. `10 Cheque Register`
+12. `11 Tax Deduction`
+13. `12 Retention`
+14. `13 Service Charge`
+15. `14 Final Reconciliation`
+16. `15 Audit Summary`
+
+Each phase also receives purpose-first tabs so Excel's 31-character sheet limit does not hide the drilldown type:
+
+- `Pxx Breakdown - [Phase]`
+- `Pxx Daily Cost - [Phase]`
+
+Sheet names are shortened where needed to satisfy Excel's 31-character limit.
+
+## Production Print / Phase Formula Update
+
+- Added `PHASE_REPORT_PRINT_EXPORT_PRODUCTION_PASS.md`.
+- Complete Project Report now has a dedicated print route:
+  - `/projects/[id]/reports/complete-project/print`
+- The print route is generated outside the project workspace scroll shell and prints from full document flow.
+- Phase financial logic now uses:
+  - Actual Construction Cost = direct expense + supplier bill items + subcontractor bills + adjustments
+  - Company Service Charge / Supervision Fee = Actual Construction Cost x phase service charge %
+  - Total Phase Billable Cost = Actual Construction Cost + Company Service Charge / Supervision Fee
+  - Phase Balance = Total Collection - Total Phase Billable Cost
+- The phase detail page now uses the unified phase summary helper and shows service charge, billable cost, category breakdown, daily cost details, and audit/voucher notes.
 
 ## Test Plan Completed
 

@@ -242,3 +242,19 @@
   - dummy workbook downloads with all expected sheets
   - supplier line items appear inside daily project cost detail
   - project-only engineer is denied workbook export with `403`
+
+## Phase / Print / Workbook Production Update - May 25, 2026
+
+- Added `PHASE_REPORT_PRINT_EXPORT_PRODUCTION_PASS.md`.
+- Complete Project Report now separates the interactive report-control screen from the clean print/PDF document route:
+  - screen: `/projects/[id]/reports/complete-project`
+  - print/PDF: `/projects/[id]/reports/complete-project/print`
+- Print CSS now releases app-shell height/overflow constraints, hides app navigation, and preserves report headers so long reports are not clipped to one viewport.
+- Phase detail reporting now uses the same unified cost rows and billable-cost formula as reports and exports.
+- Company Service Charge / Supervision Fee is included in total phase billable cost and appears as its own cost row/category.
+- Complete Project Report XLSX now has:
+  - `00 Index`
+  - numbered main sheets
+  - `Pxx Breakdown - [Phase]` tabs
+  - `Pxx Daily Cost - [Phase]` tabs
+- Authenticated smoke confirmed admin workbook export succeeds and the project-only engineer receives `403` for the unassigned demo project export.

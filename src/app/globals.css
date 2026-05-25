@@ -92,16 +92,58 @@ body {
     size: A4;
     margin: 12mm;
   }
+  html,
+  body,
+  body > div {
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
   aside,
   nav,
-  header,
+  [data-app-shell-sidebar="true"],
+  [data-project-workspace-sidebar="true"],
+  [data-project-workspace-header="true"],
   [data-report-toolbar="true"],
   .no-print { display: none !important; }
+  .h-screen,
+  .min-h-screen,
+  .overflow-hidden,
+  .overflow-y-auto,
+  .overflow-x-auto {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  main,
+  [data-app-shell="true"],
+  [data-project-workspace-shell="true"],
+  [data-project-workspace-content="true"] {
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
   .print-break,
   .report-page-break { page-break-before: always; break-before: page; }
   .report-avoid-break {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+  .report-section-heading {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+  [data-report-page="true"] {
+    break-before: page;
+    page-break-before: always;
+  }
+  [data-report-page="true"]:first-child {
+    break-before: auto;
+    page-break-before: auto;
   }
   body {
     background: white !important;

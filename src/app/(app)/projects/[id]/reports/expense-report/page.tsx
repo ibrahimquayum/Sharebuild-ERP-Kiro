@@ -24,8 +24,8 @@ function sourceTypeLabel(value: string) {
   return {
     DIRECT_EXPENSE: 'Direct Expense',
     SUPPLIER_BILL_ITEM: 'Supplier Bill Item',
-    SUBCONTRACTOR_BILL: 'Subcontractor Progress Bill',
-    SERVICE_CHARGE: 'Service Charge',
+    SUBCONTRACTOR_PROGRESS_BILL: 'Subcontractor Progress Bill',
+    COMPANY_SERVICE_CHARGE: 'Company Service Charge / Supervision Fee',
     ADJUSTMENT: 'Adjustment',
   }[value] ?? value;
 }
@@ -75,8 +75,8 @@ export default async function ExpenseReportPage({
       <ReportSummaryGrid>
         <ReportKpiCard label="Direct Expense" value={formatBDT(data.costReport.totals.DIRECT_EXPENSE)} tone="negative" />
         <ReportKpiCard label="Supplier Bill Items" value={formatBDT(data.costReport.totals.SUPPLIER_BILL_ITEM)} tone="negative" />
-        <ReportKpiCard label="Subcontractor Bills" value={formatBDT(data.costReport.totals.SUBCONTRACTOR_BILL)} tone="negative" />
-        <ReportKpiCard label="Service Charge" value={formatBDT(data.costReport.totals.SERVICE_CHARGE)} tone="info" />
+        <ReportKpiCard label="Subcontractor Bills" value={formatBDT(data.costReport.totals.SUBCONTRACTOR_PROGRESS_BILL)} tone="negative" />
+        <ReportKpiCard label="Service Charge" value={formatBDT(data.costReport.totals.COMPANY_SERVICE_CHARGE)} tone="info" />
         <ReportKpiCard label="Missing Vouchers" value={String(data.auditSummary.missingVoucher.length)} tone={data.auditSummary.missingVoucher.length > 0 ? 'warning' : 'default'} />
         <ReportKpiCard label="Pending Approval" value={String(data.auditSummary.pendingApprovals.length)} tone={data.auditSummary.pendingApprovals.length > 0 ? 'warning' : 'default'} />
         <ReportKpiCard label="Cost Rows" value={String(data.costReport.rows.length)} />

@@ -26,8 +26,8 @@ const sectionLabels: Record<CompleteProjectReportSection, string> = {
 const sourceTypeLabels: Record<(typeof PROJECT_COST_SOURCE_TYPES)[number], string> = {
   DIRECT_EXPENSE: 'Direct Expense',
   SUPPLIER_BILL_ITEM: 'Supplier Bill Item',
-  SUBCONTRACTOR_BILL: 'Subcontractor Progress Bill',
-  SERVICE_CHARGE: 'Service Charge',
+  SUBCONTRACTOR_PROGRESS_BILL: 'Subcontractor Progress Bill',
+  COMPANY_SERVICE_CHARGE: 'Company Service Charge / Supervision Fee',
   ADJUSTMENT: 'Adjustment',
 };
 
@@ -53,7 +53,7 @@ export function ReportControlPanel({
           <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Report Control Engine</div>
           <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-950">Data filters and section controls</h2>
           <p className="mt-1 text-sm text-slate-600">
-            The same filters are used for the on-screen report and export routes so workbook and print output stay aligned.
+            The same filters are used for the on-screen report, print document, CSV, and workbook output.
           </p>
         </div>
         <Link
@@ -222,9 +222,9 @@ export function ReportControlPanel({
                   defaultValue={filters.detailMode}
                   className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
                 >
-                  <option value="summary">Summary only</option>
-                  <option value="detailed">Detailed</option>
-                  <option value="audit">Audit version</option>
+                  <option value="summary">Client Summary</option>
+                  <option value="detailed">Management Detailed</option>
+                  <option value="audit">Full Audit</option>
                 </select>
               </label>
               <label className="flex items-center gap-2 text-sm text-slate-700">
@@ -247,6 +247,16 @@ export function ReportControlPanel({
                 />
                 <span>Include reversed / cancelled rows</span>
               </label>
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  name="includeEmptySections"
+                  value="1"
+                  defaultChecked={filters.includeEmptySections}
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+                <span>Include empty sections</span>
+              </label>
             </div>
           </div>
         </div>
@@ -259,7 +269,7 @@ export function ReportControlPanel({
             Apply report controls
           </button>
           <p className="text-sm text-slate-500">
-            Tip: the Excel workbook will honor these section and cost filters.
+            Tip: the print route and Excel workbook will honor these section and cost filters.
           </p>
         </div>
       </form>

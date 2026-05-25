@@ -118,6 +118,32 @@ Remaining architectural gaps after this step:
 - Complete Project Report is the only native XLSX workbook export today
 - private object storage remains the next production storage step
 
+## Phase 5.5 Status Update
+
+The phase finance, print, and workbook production pass is now implemented on `feat/erp-v1`:
+
+- Phase financial reporting now uses the production billable-cost formula:
+  - actual construction cost = direct expenses + supplier bill item rows + subcontractor progress/work bills + adjustments
+  - Company Service Charge / Supervision Fee = actual construction cost x phase service-charge percentage
+  - total phase billable cost = actual construction cost + Company Service Charge / Supervision Fee
+  - phase balance = collection - total phase billable cost
+- The phase detail page now reads from the unified project cost builder and central phase financial summary helper.
+- Complete Project Report now has a dedicated print route outside the project workspace scroll shell:
+  - `/projects/[id]/reports/complete-project/print`
+- Browser Print / Save as PDF is no longer dependent on printing the app-screen report controls.
+- Complete Project Report XLSX now includes:
+  - `00 Index`
+  - numbered main sheets
+  - per-phase `Pxx Breakdown - [Phase]` tabs
+  - per-phase `Pxx Daily Cost - [Phase]` tabs
+- Supplier bill item rows remain part of project cost detail, while supplier/subcontractor ledgers remain party payable/payment reports.
+
+Remaining architectural gaps after this step:
+
+- server-generated PDF is still future work
+- Complete Project Report remains the only native XLSX workbook export
+- dependency hardening and private upload storage remain the next production-readiness pass
+
 ## 1. Finance Philosophy
 
 Sharebuild ERP should treat project finance as five separate truths that must reconcile but must not be merged:

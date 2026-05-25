@@ -23,9 +23,9 @@ export default async function ProjectWorkspaceLayout({
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div data-project-workspace-shell="true" className="flex h-screen overflow-hidden bg-background">
       <ProjectWorkspaceSidebar project={workspaceProject} allowedModules={allowedModules} />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div data-project-workspace-content="true" className="flex-1 flex flex-col overflow-hidden">
         <ProjectWorkspaceHeader project={workspaceProject} />
         <main className="flex-1 overflow-y-auto">
           {children}

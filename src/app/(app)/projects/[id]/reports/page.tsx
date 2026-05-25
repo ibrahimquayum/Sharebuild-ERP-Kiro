@@ -9,100 +9,106 @@ export const dynamic = 'force-dynamic';
 
 const reportGroups = [
   {
-    title: 'Core Project Reports',
+    title: 'Project Reports',
     items: [
       {
         title: 'Complete Project Report',
         description: 'Full management and audit document with billing, treasury, vendor, compliance, and data-quality sections.',
         href: 'complete-project',
-        actions: ['Print-ready', 'CSV', 'XLSX workbook'],
+        actions: ['Print', 'CSV', 'XLSX', 'PDF via browser', 'Server PDF future'],
       },
       {
         title: 'Top Sheet',
         description: 'Preserved Excel-style phase summary for historical income, expense, and final balance review.',
         href: 'top-sheet',
-        actions: ['Print-ready', 'CSV'],
+        actions: ['Print', 'CSV', 'PDF via browser'],
       },
       {
         title: 'Phase Summary',
         description: 'Phase-wise collection, demand, cost, service charge, and audit-lock visibility.',
         href: 'phase-summary',
-        actions: ['Print-ready'],
+        actions: ['Print', 'PDF via browser'],
       },
     ],
   },
   {
-    title: 'Buyer & Billing',
+    title: 'Billing Documents',
     items: [
+      {
+        title: 'Demand Notice / Bill',
+        description: 'Per-buyer demand notices with service charge, carry-forward, due date, and signature space.',
+        href: '../demands/batches',
+        actions: ['Print', 'PDF via browser'],
+      },
+      {
+        title: 'Money Receipt',
+        description: 'Buyer receipt print documents available from project collection detail pages.',
+        href: '../collections',
+        actions: ['Print', 'PDF via browser'],
+      },
       {
         title: 'Buyer Statement',
         description: 'Buyer-level billing, collection, due, and advance with oldest unpaid visibility.',
         href: 'buyer-statement',
-        actions: ['Print-ready'],
+        actions: ['Print', 'PDF via browser'],
       },
       {
         title: 'Unit Statement',
         description: 'Unit-wise ownership, demand, due, and document visibility.',
         href: 'unit-statement',
-        actions: ['Print-ready'],
+        actions: ['Print', 'PDF via browser'],
       },
       {
         title: 'Due Report',
         description: 'Buyer due and unallocated collection summary for recovery follow-up.',
         href: 'due-report',
-        actions: ['Print-ready'],
-      },
-      {
-        title: 'Demand Notice / Bill',
-        description: 'Per-buyer demand notices with service charge, carry-forward, due date, and signature space.',
-        href: '../demands/batches',
-        actions: ['Print-ready'],
+        actions: ['Print', 'PDF via browser'],
       },
     ],
   },
   {
-    title: 'Finance',
+    title: 'Expense & Vendor Reports',
     items: [
       {
-        title: 'Collection Report',
-        description: 'Approved buyer receipt register with allocation and demand-link status.',
-        href: 'collection-report',
-        actions: ['Print-ready'],
-      },
-      {
-        title: 'Expense Report',
-        description: 'Detailed direct expense report with voucher, status, and supplier visibility.',
+        title: 'Expense / Project Cost Report',
+        description: 'Unified cost register with direct expenses, supplier bill items, subcontractor bills, and service charge.',
         href: 'expense-report',
-        actions: ['Print-ready', 'CSV'],
+        actions: ['Print', 'CSV', 'PDF via browser'],
       },
-      {
-        title: 'Cash / Bank Book',
-        description: 'Treasury movement report by account with inflow, outflow, and pending cheque exposure.',
-        href: 'cash-bank-book',
-        actions: ['Print-ready', 'CSV'],
-      },
-      {
-        title: 'Cheque Register',
-        description: 'Issued and received cheque register with party, date, amount, and status.',
-        href: 'cheque-register',
-        actions: ['Print-ready', 'CSV'],
-      },
-    ],
-  },
-  {
-    title: 'Vendor & Contractor',
-    items: [
       {
         title: 'Supplier Ledger',
         description: 'Assigned supplier contracts, billed value, paid amount, due, and invoice/document quality.',
         href: 'supplier-ledger',
-        actions: ['Print-ready'],
+        actions: ['Print', 'PDF via browser'],
       },
       {
         title: 'Subcontractor Ledger',
         description: 'Subcontractor work-package billing, due, retention, and document quality review.',
         href: 'subcontractor-ledger',
-        actions: ['Print-ready'],
+        actions: ['Print', 'PDF via browser'],
+      },
+    ],
+  },
+  {
+    title: 'Treasury Reports',
+    items: [
+      {
+        title: 'Collection Report',
+        description: 'Approved buyer receipt register with allocation and demand-link status.',
+        href: 'collection-report',
+        actions: ['Print', 'PDF via browser'],
+      },
+      {
+        title: 'Cash / Bank Book',
+        description: 'Treasury movement report by account with inflow, outflow, and pending cheque exposure.',
+        href: 'cash-bank-book',
+        actions: ['Print', 'CSV', 'PDF via browser'],
+      },
+      {
+        title: 'Cheque Register',
+        description: 'Issued and received cheque register with party, date, amount, and status.',
+        href: 'cheque-register',
+        actions: ['Print', 'CSV', 'PDF via browser'],
       },
     ],
   },
@@ -113,39 +119,40 @@ const reportGroups = [
         title: 'Tax / Deduction Report',
         description: 'Bill-level VAT, AIT/TDS, other deductions, and payable context.',
         href: 'tax-deductions',
-        actions: ['Print-ready', 'CSV'],
+        actions: ['Print', 'CSV', 'PDF via browser'],
       },
       {
         title: 'Retention Report',
         description: 'Retention held, released, and outstanding balances by bill.',
         href: 'retention',
-        actions: ['Print-ready', 'CSV'],
+        actions: ['Print', 'CSV', 'PDF via browser'],
       },
       {
         title: 'Service Charge Report',
         description: 'Service charge basis, approval status, settlement status, and billing inclusion.',
         href: 'service-charge',
-        actions: ['Print-ready', 'CSV'],
+        actions: ['Print', 'CSV', 'PDF via browser'],
       },
       {
         title: 'Final Reconciliation',
         description: 'Preview or posted final reconciliation distribution by buyer and ownership share.',
         href: 'final-reconciliation',
-        actions: ['Print-ready', 'CSV'],
+        actions: ['Print', 'CSV', 'PDF via browser'],
       },
       {
         title: 'Audit Report',
         description: 'Audit trail, reversal visibility, voucher gaps, and reporting limitations.',
         href: 'audit-report',
-        actions: ['Print-ready'],
+        actions: ['Print', 'PDF via browser'],
       },
     ],
   },
 ];
 
 function actionTone(label: string) {
-  if (label === 'Print-ready') return 'positive' as const;
-  if (label === 'CSV' || label === 'XLSX workbook') return 'info' as const;
+  if (label === 'Print' || label === 'PDF via browser') return 'positive' as const;
+  if (label === 'CSV' || label === 'XLSX') return 'info' as const;
+  if (label === 'Server PDF future') return 'warning' as const;
   return 'default' as const;
 }
 
@@ -179,7 +186,7 @@ export default async function ProjectReportsPage({ params }: { params: { id: str
                     <CardContent className="flex h-full flex-col gap-4 p-5">
                       <div className="flex items-start gap-3">
                         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                          {report.actions.includes('XLSX workbook') ? (
+                          {report.actions.includes('XLSX') ? (
                             <FileSpreadsheet className="h-5 w-5" />
                           ) : report.actions.includes('CSV') ? (
                             <BarChart3 className="h-5 w-5" />
@@ -197,7 +204,6 @@ export default async function ProjectReportsPage({ params }: { params: { id: str
                         {report.actions.map((label) => (
                           <ReportStatusBadge key={label} label={label} tone={actionTone(label)} />
                         ))}
-                        <ReportStatusBadge label="PDF future" tone="warning" />
                       </div>
 
                       <div className="mt-auto flex items-center justify-between border-t border-slate-200 pt-4">

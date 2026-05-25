@@ -1,8 +1,8 @@
 export const PROJECT_COST_SOURCE_TYPES = [
   'DIRECT_EXPENSE',
   'SUPPLIER_BILL_ITEM',
-  'SUBCONTRACTOR_BILL',
-  'SERVICE_CHARGE',
+  'SUBCONTRACTOR_PROGRESS_BILL',
+  'COMPANY_SERVICE_CHARGE',
   'ADJUSTMENT',
 ] as const;
 
@@ -40,6 +40,7 @@ export type ProjectCostReportFilters = {
   voucherStatus: ProjectCostVoucherFilter;
   includeDraftPending: boolean;
   includeReversedCancelled: boolean;
+  includeEmptySections: boolean;
   detailMode: ProjectCostDetailMode;
   sections: CompleteProjectReportSection[];
 };
@@ -105,6 +106,7 @@ export function getDefaultProjectCostReportFilters(): ProjectCostReportFilters {
     voucherStatus: 'all',
     includeDraftPending: false,
     includeReversedCancelled: false,
+    includeEmptySections: true,
     detailMode: 'detailed',
     sections: [...DEFAULT_SECTIONS],
   };
@@ -128,6 +130,9 @@ export function parseProjectCostReportFilters(input: SearchParamInput): ProjectC
       : defaults.voucherStatus,
     includeDraftPending: truthy(getFirst(input, 'includeDraftPending')),
     includeReversedCancelled: truthy(getFirst(input, 'includeReversedCancelled')),
+    includeEmptySections: getFirst(input, 'includeEmptySections') === undefined
+      ? defaults.includeEmptySections
+      : truthy(getFirst(input, 'includeEmptySections')),
     detailMode: detailMode === 'summary' || detailMode === 'audit' ? detailMode : defaults.detailMode,
     sections: normalizeSections(getAll(input, 'section')),
   };
@@ -150,6 +155,7 @@ export function buildProjectCostReportSearchParams(filters: ProjectCostReportFil
   if (filters.detailMode !== 'detailed') params.set('detailMode', filters.detailMode);
   if (filters.includeDraftPending) params.set('includeDraftPending', '1');
   if (filters.includeReversedCancelled) params.set('includeReversedCancelled', '1');
+  if (!filters.includeEmptySections) params.set('includeEmptySections', '0');
 
   for (const phaseId of filters.phaseIds) params.append('phase', phaseId);
   for (const sourceType of filters.sourceTypes) params.append('sourceType', sourceType);

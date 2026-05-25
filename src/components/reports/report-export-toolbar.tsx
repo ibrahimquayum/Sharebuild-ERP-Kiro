@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, Download, FileSpreadsheet, Printer } from 'lucide-react';
+import { ArrowLeft, Download, ExternalLink, FileSpreadsheet, Printer } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 
@@ -10,12 +10,14 @@ export function ReportExportToolbar({
   backLabel = 'Back to Reports',
   workbookHref,
   csvHref,
+  printHref,
   pdfLabel = 'Browser print / Save as PDF',
 }: {
   backHref?: string;
   backLabel?: string;
   workbookHref?: string;
   csvHref?: string;
+  printHref?: string;
   pdfLabel?: string;
 }) {
   return (
@@ -34,10 +36,19 @@ export function ReportExportToolbar({
         ) : null}
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={() => window.print()}>
-          <Printer className="mr-2 h-4 w-4" />
-          Print / Save as PDF
-        </Button>
+        {printHref ? (
+          <Button asChild type="button" variant="outline" size="sm">
+            <Link href={printHref}>
+              <ExternalLink className="mr-2 h-4 w-4" />
+              View Print/PDF Version
+            </Link>
+          </Button>
+        ) : (
+          <Button type="button" variant="outline" size="sm" onClick={() => window.print()}>
+            <Printer className="mr-2 h-4 w-4" />
+            Print / Save as PDF
+          </Button>
+        )}
         {workbookHref ? (
           <Button asChild type="button" variant="outline" size="sm">
             <a href={workbookHref}>

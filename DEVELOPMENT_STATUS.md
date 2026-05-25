@@ -406,6 +406,54 @@ This branch now has a buildable project-first finance foundation with vendor con
 - Complete Project Report is still the only native XLSX workbook export.
 - Dependency hardening and private upload storage are intentionally deferred to the next pass.
 
+## Phase / Print / Workbook Production Pass - May 25, 2026
+
+### Added
+
+- `PHASE_REPORT_PRINT_EXPORT_PRODUCTION_PASS.md`
+- dedicated Complete Project Report print route:
+  - `/projects/[id]/reports/complete-project/print`
+- print-specific report renderer:
+  - `src/components/reports/complete-project-print-document.tsx`
+- central phase finance summary helper:
+  - `getPhaseFinancialSummary(...)`
+
+### Improved
+
+- Browser Print / Save as PDF no longer depends on printing the scroll-constrained project workspace screen.
+- Global print CSS now releases height/overflow constraints and hides app shell surfaces without hiding report headers.
+- Complete Project Report screen now links to the dedicated print/PDF route.
+- Phase detail page now uses unified project cost data and the production billable-cost formula.
+- Unified project cost builder now adds live Company Service Charge / Supervision Fee rows when a phase has construction cost and a configured service-charge percentage.
+- Complete Project Report XLSX now includes a workbook index, numbered main sheets, and per-phase breakdown/daily-cost tabs.
+- Report index now groups reports as Project Reports, Billing Documents, Expense & Vendor Reports, Treasury Reports, and Compliance & Audit.
+
+### Verified
+
+- `npx prisma validate`
+- `npx prisma generate`
+- `npm run build`
+- `npm run db:seed`
+- authenticated production-style smoke:
+  - phase detail page opens and shows service charge plus total billable phase cost
+  - Complete Project Report screen opens and links to print/PDF version
+  - Complete Project Report print route opens without sidebar, controls, or app shell content
+  - print route document height is much larger than the viewport and is not trapped in app overflow
+  - Complete Project Report XLSX downloads
+  - workbook contains index, numbered sheets, and per-phase drilldown tabs
+  - supplier bill item `Iron rod - 3.5 ton` appears in daily project cost details
+  - no Radix Select empty-value runtime error observed
+- seed totals preserved:
+  - Income `100,143,800`
+  - Expense `104,659,890.40`
+  - Balance `-4,516,090.40`
+
+### Remaining
+
+- Server-generated PDF remains future.
+- Complete Project Report is still the only native XLSX workbook export.
+- Dependency/private-upload-storage hardening remains the next production step.
+
 ## Schema Changes
 
 Yes. One migration was added in the module completion pass:

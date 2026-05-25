@@ -118,7 +118,7 @@ export function Sidebar({ allowedModules }: { allowedModules: string[] }) {
   const visibleSections = filterSections(allowedModules);
 
   return (
-    <aside className="w-60 shrink-0 h-screen sticky top-0 flex flex-col border-r bg-background">
+    <aside data-app-shell-sidebar="true" className="w-60 shrink-0 h-screen sticky top-0 flex flex-col border-r bg-background">
       <div className="flex items-center gap-2 px-4 py-4 border-b">
         <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
           <Home className="h-4 w-4 text-primary-foreground" />

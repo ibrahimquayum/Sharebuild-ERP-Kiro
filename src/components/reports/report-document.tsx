@@ -34,6 +34,8 @@ export function ReportDocumentLayout({
   backLabel,
   workbookHref,
   csvHref,
+  printHref,
+  showToolbar = true,
   showHeader = true,
   children,
 }: {
@@ -46,15 +48,25 @@ export function ReportDocumentLayout({
   backLabel?: string;
   workbookHref?: string;
   csvHref?: string;
+  printHref?: string;
+  showToolbar?: boolean;
   showHeader?: boolean;
   children: ReactNode;
 }) {
   return (
-    <div className="mx-auto w-full max-w-[1120px] space-y-4 px-4 py-5 print:max-w-none print:px-0 print:py-0">
-      <ReportExportToolbar backHref={backHref} backLabel={backLabel} workbookHref={workbookHref} csvHref={csvHref} />
+    <div className="mx-auto w-full max-w-[1120px] space-y-4 px-4 py-5 print:block print:max-w-none print:space-y-0 print:px-0 print:py-0">
+      {showToolbar ? (
+        <ReportExportToolbar
+          backHref={backHref}
+          backLabel={backLabel}
+          workbookHref={workbookHref}
+          csvHref={csvHref}
+          printHref={printHref}
+        />
+      ) : null}
       <article
         data-report-document="true"
-        className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm print:rounded-none print:border-0 print:shadow-none"
+        className="overflow-visible rounded-2xl border border-slate-200 bg-white shadow-sm print:block print:rounded-none print:border-0 print:shadow-none"
       >
         {showHeader ? (
           <ReportHeader
@@ -65,7 +77,7 @@ export function ReportDocumentLayout({
             generatedAt={generatedAt}
           />
         ) : null}
-        <div className="space-y-8 px-6 py-6 print:px-0 print:py-0">{children}</div>
+        <div className="space-y-8 px-6 py-6 print:block print:space-y-0 print:px-0 print:py-0">{children}</div>
         <ReportFooter note={branding.reportFooterNote} generatedAt={generatedAt} />
       </article>
     </div>
@@ -241,8 +253,8 @@ export function ReportSection({
   compact?: boolean;
 }) {
   return (
-    <section className={cn('report-avoid-break space-y-4', compact ? 'space-y-3' : 'space-y-4')}>
-      <div className="space-y-1 border-b border-slate-200 pb-3">
+    <section className={cn('space-y-4 print:mb-5', compact ? 'space-y-3' : 'space-y-4')}>
+      <div className="report-section-heading space-y-1 border-b border-slate-200 pb-3">
         <h2 className="text-lg font-semibold tracking-tight text-slate-900">{title}</h2>
         {description ? <p className="text-sm leading-6 text-slate-600">{description}</p> : null}
       </div>
@@ -291,7 +303,7 @@ export function ReportTable({
   dense?: boolean;
 }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm print:overflow-visible print:rounded-none print:shadow-none">
       <table className={cn('w-full text-sm', dense ? 'text-xs' : 'text-sm')}>{children}</table>
     </div>
   );

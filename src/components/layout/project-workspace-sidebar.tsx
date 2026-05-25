@@ -213,7 +213,7 @@ export function ProjectWorkspaceSidebar({
   const displayName = project.name.length > 30 ? `${project.name.slice(0, 30)}…` : project.name;
 
   return (
-    <aside className="w-56 shrink-0 h-screen sticky top-0 flex flex-col border-r bg-background">
+    <aside data-project-workspace-sidebar="true" className="w-56 shrink-0 h-screen sticky top-0 flex flex-col border-r bg-background">
       <div className="border-b px-3 py-2.5 flex items-center justify-between gap-2">
         <Link
           href="/projects"

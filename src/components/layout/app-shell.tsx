@@ -26,7 +26,7 @@ export function AppShell({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div data-app-shell="true" className="flex h-screen overflow-hidden bg-background">
       <Sidebar allowedModules={allowedModules} />
       <main className="flex-1 overflow-y-auto">
         {children}

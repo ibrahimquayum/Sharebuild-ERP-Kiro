@@ -357,9 +357,21 @@ export async function getCompleteProjectReportData(
         status: phases.find((item) => item.id === phase.phaseId)?.status ?? '',
         directExpense: costGroup?.totals.DIRECT_EXPENSE ?? 0,
         supplierBillItemTotal: costGroup?.totals.SUPPLIER_BILL_ITEM ?? 0,
-        subcontractorBillItemTotal: costGroup?.totals.SUBCONTRACTOR_BILL ?? 0,
-        serviceChargeCostTotal: costGroup?.totals.SERVICE_CHARGE ?? 0,
+        subcontractorBillItemTotal: costGroup?.totals.SUBCONTRACTOR_PROGRESS_BILL ?? 0,
+        adjustmentTotal: costGroup?.totals.ADJUSTMENT ?? 0,
+        serviceChargeCostTotal: costGroup?.totals.COMPANY_SERVICE_CHARGE ?? 0,
+        actualConstructionCost:
+          (costGroup?.totals.DIRECT_EXPENSE ?? 0) +
+          (costGroup?.totals.SUPPLIER_BILL_ITEM ?? 0) +
+          (costGroup?.totals.SUBCONTRACTOR_PROGRESS_BILL ?? 0) +
+          (costGroup?.totals.ADJUSTMENT ?? 0),
+        serviceChargePercentage: Number(
+          costGroup?.rows.find((row) => row.sourceType === 'COMPANY_SERVICE_CHARGE')?.rate ??
+            phases.find((item) => item.id === phase.phaseId)?.serviceChargePct ??
+            0,
+        ),
         totalBillablePhaseCost: costGroup?.totalCost ?? 0,
+        phaseBalance: phase.collection - (costGroup?.totalCost ?? 0),
         phaseCostRows: costGroup?.rows.length ?? 0,
       };
     });
@@ -506,7 +518,7 @@ export async function getCompleteProjectReportData(
     costReport.rows.some((row) => row.sourceType === 'SUPPLIER_BILL_ITEM')
       ? 'Supplier bill items are included inside daily project cost details and phase category breakdown. Supplier ledger remains a separate payable-facing report.'
       : null,
-    costReport.rows.some((row) => row.sourceType === 'SUBCONTRACTOR_BILL')
+    costReport.rows.some((row) => row.sourceType === 'SUBCONTRACTOR_PROGRESS_BILL')
       ? 'Subcontractor progress bills are included inside daily project cost details. Subcontractor ledger remains a separate contract and payment report.'
       : null,
     filters.phaseIds.length > 0 || filters.from || filters.to || filters.sourceTypes.length > 0 || filters.categories.length > 0 || filters.partySearch

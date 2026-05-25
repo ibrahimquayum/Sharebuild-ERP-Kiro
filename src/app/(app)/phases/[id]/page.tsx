@@ -1,276 +1,375 @@
-import { prisma } from '@/lib/prisma';
-import { notFound } from 'next/navigation';
-import { Header } from '@/components/layout/header';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { StatCard } from '@/components/shared/stat-card';
-import { formatBDT, formatBDTCompact, formatDate, phaseStatusMeta, phaseTypeLabel, expenseCategoryLabel, balanceColor, cn } from '@/lib/utils';
-import { TrendingUp, TrendingDown, Users, ShoppingCart, CalendarDays, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import {
+  ArrowLeft,
+  BarChart3,
+  CalendarDays,
+  ClipboardList,
+  FileText,
+  Receipt,
+  ShieldCheck,
+  ShoppingCart,
+} from 'lucide-react';
+
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { getScopedProject } from '@/lib/access-control';
+import { getPhaseFinancialSummary } from '@/lib/project-cost-report';
+import { prisma } from '@/lib/prisma';
+import {
+  balanceColor,
+  cn,
+  expenseCategoryLabel,
+  formatBDT,
+  formatBDTCompact,
+  formatDate,
+  phaseStatusMeta,
+  phaseTypeLabel,
+} from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
-export default async function PhaseDetailPage({ params }: { params: { id: string } }) {
-  const phase = await prisma.phase.findUnique({
-    where: { id: params.id },
-    include: {
-      project: { select: { id: true, name: true } },
-      collections: {
-        include: { buyer: { select: { id: true, name: true, nameBn: true } } },
-        orderBy: { receivedDate: 'desc' },
-      },
-      expenses: {
-        include: { createdBy: { select: { name: true } } },
-        orderBy: { expenseDate: 'desc' },
-      },
-    },
-  });
+function sourceTypeLabel(value: string) {
+  return {
+    DIRECT_EXPENSE: 'Direct Expense',
+    SUPPLIER_BILL_ITEM: 'Supplier Bill Item',
+    SUBCONTRACTOR_PROGRESS_BILL: 'Subcontractor Progress Bill',
+    COMPANY_SERVICE_CHARGE: 'Company Service Charge / Supervision Fee',
+    ADJUSTMENT: 'Adjustment',
+  }[value] ?? value.replaceAll('_', ' ');
+}
 
-  if (!phase) notFound();
+function statusTone(status: string) {
+  const normalized = status.toUpperCase();
+  if (['APPROVED', 'PAID', 'FULLY_PAID', 'POSTED', 'SETTLED', 'PREVIEW'].includes(normalized)) {
+    return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+  }
+  if (['PENDING', 'PENDING_APPROVAL', 'DRAFT', 'CALCULATED', 'ISSUED', 'PARTIALLY_PAID'].includes(normalized)) {
+    return 'border-amber-200 bg-amber-50 text-amber-700';
+  }
+  if (['REVERSED', 'CANCELLED', 'REJECTED', 'BOUNCED'].includes(normalized)) {
+    return 'border-rose-200 bg-rose-50 text-rose-700';
+  }
+  return 'border-slate-200 bg-slate-50 text-slate-700';
+}
 
-  const totalIncome = phase.collections.reduce((s, c) => s + Number(c.amount), 0);
-  const totalExpense = phase.expenses.reduce((s, e) => s + Number(e.amount), 0);
-  const balance = totalIncome - totalExpense;
-  const meta = phaseStatusMeta(phase.status);
+function StatusBadge({ label }: { label: string }) {
+  return (
+    <span className={cn('inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide', statusTone(label))}>
+      {label.replaceAll('_', ' ')}
+    </span>
+  );
+}
 
-  // Group expenses by category
-  const expenseByCategory = phase.expenses.reduce<Record<string, number>>((acc, e) => {
-    acc[e.category] = (acc[e.category] ?? 0) + Number(e.amount);
-    return acc;
-  }, {});
-
-  const paymentMethodColors: Record<string, string> = {
-    CASH: 'bg-green-100 text-green-700',
-    CHEQUE: 'bg-blue-100 text-blue-700',
-    BANK_TRANSFER: 'bg-violet-100 text-violet-700',
-    MOBILE_BANKING: 'bg-pink-100 text-pink-700',
-    OTHER: 'bg-gray-100 text-gray-600',
-  };
+function MetricCard({
+  label,
+  value,
+  caption,
+  tone = 'default',
+}: {
+  label: string;
+  value: string;
+  caption?: string;
+  tone?: 'default' | 'positive' | 'negative' | 'warning' | 'info';
+}) {
+  const toneClass = {
+    default: 'border-slate-200 bg-white',
+    positive: 'border-emerald-200 bg-emerald-50/70',
+    negative: 'border-rose-200 bg-rose-50/70',
+    warning: 'border-amber-200 bg-amber-50/70',
+    info: 'border-sky-200 bg-sky-50/70',
+  }[tone];
 
   return (
-    <div className="flex flex-col min-h-full">
-      <Header title={phase.name} />
+    <div className={cn('rounded-lg border px-4 py-4 shadow-sm', toneClass)}>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</div>
+      <div className="mt-2 text-xl font-semibold tracking-tight text-slate-950">{value}</div>
+      {caption ? <div className="mt-1 text-xs leading-5 text-slate-600">{caption}</div> : null}
+    </div>
+  );
+}
 
-      <div className="p-6 space-y-6">
-        {/* Back */}
-        <Link href="/phases" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" /> Back to Phases
+export default async function PhaseDetailPage({ params }: { params: { id: string } }) {
+  const phaseLookup = await prisma.phase.findUnique({
+    where: { id: params.id },
+    select: { projectId: true },
+  });
+  if (!phaseLookup) notFound();
+
+  const { project } = await getScopedProject(phaseLookup.projectId, 'phases', 'view');
+  const summary = await getPhaseFinancialSummary(project.id, params.id);
+  if (!summary) notFound();
+
+  const phase = summary.phase;
+  const meta = phaseStatusMeta(phase.status);
+  const base = `/projects/${project.id}`;
+  const collectionsByBuyer = summary.buyerCollections.reduce<Record<string, number>>((map, row) => {
+    map[row.buyerName] = (map[row.buyerName] ?? 0) + row.amount;
+    return map;
+  }, {});
+
+  return (
+    <div className="space-y-6 px-5 py-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Link href={`${base}/phases`} className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-950">
+          <ArrowLeft className="h-4 w-4" />
+          Back to project phases
         </Link>
-
-        {/* Phase Header Card */}
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between flex-wrap gap-4">
-              <div>
-                <div className="flex items-center gap-3">
-                  <h2 className="text-xl font-bold">{phase.name}</h2>
-                  {phase.nameBn && <span className="bn text-base text-muted-foreground">({phase.nameBn})</span>}
-                  <span className={cn('text-xs px-2.5 py-1 rounded-full font-semibold', meta.color)}>{meta.label}</span>
-                </div>
-                <div className="flex flex-wrap gap-4 mt-2 text-sm text-muted-foreground">
-                  <span>Type: <strong>{phaseTypeLabel(phase.phaseType)}</strong></span>
-                  {phase.floorNo != null && <span>Floor: <strong>{phase.floorNo}</strong></span>}
-                  <Link href={`/projects/${phase.project.id}`} className="hover:text-primary hover:underline">
-                    Project: <strong>{phase.project.name}</strong>
-                  </Link>
-                </div>
-                {phase.workDesc && <p className="mt-2 text-sm text-muted-foreground">{phase.workDesc}</p>}
-                {(phase.startDate || phase.endDate) && (
-                  <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                    <CalendarDays className="h-3.5 w-3.5" />
-                    {phase.startDate && <span>{formatDate(phase.startDate)}</span>}
-                    {phase.endDate && <span>→ {formatDate(phase.endDate)}</span>}
-                  </div>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Financial KPIs */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard title="Total Collection" value={formatBDTCompact(totalIncome)} subtitle={formatBDT(totalIncome)} icon={TrendingUp} iconColor="text-green-600" iconBg="bg-green-50" />
-          <StatCard title="Total Expense" value={formatBDTCompact(totalExpense)} subtitle={formatBDT(totalExpense)} icon={TrendingDown} iconColor="text-red-500" iconBg="bg-red-50" />
-          <StatCard
-            title="Phase Balance"
-            value={formatBDTCompact(balance)}
-            subtitle={balance >= 0 ? 'Surplus' : 'Deficit'}
-            icon={balance >= 0 ? TrendingUp : TrendingDown}
-            iconColor={balance >= 0 ? 'text-emerald-600' : 'text-red-600'}
-            iconBg={balance >= 0 ? 'bg-emerald-50' : 'bg-red-50'}
-          />
-          <StatCard title="Payments Received" value={String(phase.collections.length)} subtitle={`from ${new Set(phase.collections.map(c => c.buyerId)).size} buyers`} icon={Users} iconColor="text-blue-600" iconBg="bg-blue-50" />
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href={`${base}/demands/batches/new?phaseId=${phase.id}`} className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-slate-50">
+            <FileText className="h-4 w-4" />
+            Issue Bill
+          </Link>
+          <Link href={`${base}/collections/new?phaseId=${phase.id}`} className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-slate-50">
+            <Receipt className="h-4 w-4" />
+            Record Collection
+          </Link>
+          <Link href={`${base}/expenses/new?phaseId=${phase.id}`} className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+            <ShoppingCart className="h-4 w-4" />
+            Add Cost
+          </Link>
         </div>
-
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          {/* LEFT: Income Side */}
-          <Card>
-            <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-green-600" />
-                Income (Collections)
-              </CardTitle>
-              <span className="text-sm font-bold text-green-600">{formatBDT(totalIncome)}</span>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/40">
-                      <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">#</th>
-                      <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Buyer</th>
-                      <th className="px-4 py-2 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Amount</th>
-                      <th className="px-4 py-2 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Method</th>
-                      <th className="px-4 py-2 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {phase.collections.length === 0 ? (
-                      <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground text-xs">No collections yet</td></tr>
-                    ) : (
-                      phase.collections.map((c, i) => (
-                        <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30">
-                          <td className="px-4 py-2.5 text-xs text-muted-foreground">{i + 1}</td>
-                          <td className="px-4 py-2.5">
-                            <Link href={`/buyers/${c.buyer.id}`} className="font-medium text-sm hover:text-primary hover:underline">{c.buyer.name}</Link>
-                            {c.buyer.nameBn && <div className="bn text-xs text-muted-foreground">{c.buyer.nameBn}</div>}
-                          </td>
-                          <td className="px-4 py-2.5 text-right font-bold text-green-600">{formatBDT(Number(c.amount))}</td>
-                          <td className="px-4 py-2.5 text-center">
-                            <span className={cn('text-xs px-1.5 py-0.5 rounded-full', paymentMethodColors[c.paymentMethod] ?? 'bg-gray-100 text-gray-600')}>
-                              {c.paymentMethod.replace('_', ' ')}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2.5 text-right text-xs text-muted-foreground">{formatDate(c.receivedDate)}</td>
-                        </tr>
-                      ))
-                    )}
-                    <tr className="border-t-2 bg-green-50/50 font-bold">
-                      <td className="px-4 py-2.5" colSpan={2}>Total Income</td>
-                      <td className="px-4 py-2.5 text-right text-green-600">{formatBDT(totalIncome)}</td>
-                      <td colSpan={2} />
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* RIGHT: Expense Side */}
-          <Card>
-            <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <TrendingDown className="h-4 w-4 text-red-500" />
-                Expenses
-              </CardTitle>
-              <span className="text-sm font-bold text-red-500">{formatBDT(totalExpense)}</span>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/40">
-                      <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">#</th>
-                      <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Description</th>
-                      <th className="px-4 py-2 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Qty</th>
-                      <th className="px-4 py-2 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Amount</th>
-                      <th className="px-4 py-2 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {phase.expenses.length === 0 ? (
-                      <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground text-xs">No expenses recorded</td></tr>
-                    ) : (
-                      phase.expenses.map((e, i) => (
-                        <tr key={e.id} className="border-b last:border-0 hover:bg-muted/30">
-                          <td className="px-4 py-2.5 text-xs text-muted-foreground">{i + 1}</td>
-                          <td className="px-4 py-2.5">
-                            <div className="font-medium text-sm">{e.description}</div>
-                            {e.descriptionBn && <div className="bn text-xs text-muted-foreground">{e.descriptionBn}</div>}
-                            <div className="text-xs text-muted-foreground">{expenseCategoryLabel(e.category)}</div>
-                          </td>
-                          <td className="px-4 py-2.5 text-right text-xs text-muted-foreground">
-                            {e.quantity != null ? `${e.quantity} ${e.unit ?? ''}` : '—'}
-                          </td>
-                          <td className="px-4 py-2.5 text-right font-bold text-red-500">{formatBDT(Number(e.amount))}</td>
-                          <td className="px-4 py-2.5 text-center">
-                            <span className={cn(
-                              'text-xs px-1.5 py-0.5 rounded-full font-medium',
-                              e.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
-                              e.status === 'PENDING_APPROVAL' ? 'bg-yellow-100 text-yellow-700' :
-                              e.status === 'PAID' ? 'bg-blue-100 text-blue-700' :
-                              'bg-gray-100 text-gray-600'
-                            )}>
-                              {e.status.replace('_', ' ')}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                    <tr className="border-t-2 bg-red-50/50 font-bold">
-                      <td className="px-4 py-2.5" colSpan={3}>Total Expense</td>
-                      <td className="px-4 py-2.5 text-right text-red-500">{formatBDT(totalExpense)}</td>
-                      <td />
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Phase Balance Summary */}
-        <Card>
-          <CardContent className="p-5">
-            <div className="grid grid-cols-3 gap-6 text-center">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Income</p>
-                <p className="text-2xl font-bold text-green-600 mt-1">{formatBDT(totalIncome)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Expense</p>
-                <p className="text-2xl font-bold text-red-500 mt-1">{formatBDT(totalExpense)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Phase Balance</p>
-                <p className={cn('text-2xl font-bold mt-1', balanceColor(balance))}>{formatBDT(balance)}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{balance >= 0 ? '✅ Surplus' : '⚠️ Deficit'}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Expense Category Breakdown */}
-        {Object.keys(expenseByCategory).length > 0 && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Expense Breakdown by Category</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y">
-                {Object.entries(expenseByCategory)
-                  .sort(([, a], [, b]) => b - a)
-                  .map(([cat, amount]) => (
-                    <div key={cat} className="flex items-center justify-between px-4 py-2.5">
-                      <span className="text-sm">{expenseCategoryLabel(cat)}</span>
-                      <div className="flex items-center gap-4">
-                        <div className="w-32 bg-muted rounded-full h-1.5">
-                          <div
-                            className="bg-red-400 h-1.5 rounded-full"
-                            style={{ width: `${Math.min(100, (amount / totalExpense) * 100)}%` }}
-                          />
-                        </div>
-                        <span className="text-sm font-medium text-right w-28">{formatBDT(amount)}</span>
-                        <span className="text-xs text-muted-foreground w-10 text-right">
-                          {totalExpense > 0 ? Math.round((amount / totalExpense) * 100) : 0}%
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
+
+      <Card className="overflow-hidden border-slate-200">
+        <CardContent className="p-0">
+          <div className="border-b bg-slate-50 px-6 py-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <h1 className="text-2xl font-semibold tracking-tight text-slate-950">{phase.name}</h1>
+                  {phase.nameBn ? <span className="bn text-sm text-slate-600">{phase.nameBn}</span> : null}
+                  <span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold', meta.color)}>{meta.label}</span>
+                </div>
+                <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-600">
+                  <span>Project: <strong className="text-slate-900">{project.name}</strong></span>
+                  <span>Type: <strong className="text-slate-900">{phaseTypeLabel(phase.phaseType)}</strong></span>
+                  {phase.floorNo != null ? <span>Floor: <strong className="text-slate-900">{phase.floorNo}</strong></span> : null}
+                  <span>Service charge: <strong className="text-slate-900">{summary.serviceChargePercentage.toFixed(2)}%</strong></span>
+                </div>
+                {phase.workDesc ? <p className="max-w-4xl text-sm leading-6 text-slate-600">{phase.workDesc}</p> : null}
+                {(phase.startDate || phase.endDate) ? (
+                  <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600">
+                    <CalendarDays className="h-3.5 w-3.5" />
+                    {phase.startDate ? formatDate(phase.startDate) : 'Start not set'} to {phase.endDate ? formatDate(phase.endDate) : 'End not set'}
+                  </div>
+                ) : null}
+              </div>
+              <Link href={`${base}/reports/complete-project?phase=${phase.id}`} className="inline-flex items-center gap-2 rounded-md border bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50">
+                <BarChart3 className="h-4 w-4" />
+                Report Slice
+              </Link>
+            </div>
+          </div>
+
+          <div className="grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-6">
+            <MetricCard label="Total Collection" value={formatBDTCompact(summary.totalCollection)} caption={formatBDT(summary.totalCollection)} tone="positive" />
+            <MetricCard label="Construction Cost" value={formatBDTCompact(summary.actualConstructionCost)} caption="Direct + supplier items + subcontractor bills" tone="negative" />
+            <MetricCard label="Service Charge" value={formatBDTCompact(summary.serviceChargeAmount)} caption="Company Service Charge / Supervision Fee" tone="info" />
+            <MetricCard label="Total Billable Cost" value={formatBDTCompact(summary.totalBillablePhaseCost)} caption="Construction cost + service charge" tone="negative" />
+            <MetricCard label="Phase Balance" value={formatBDTCompact(summary.phaseBalance)} caption={summary.phaseBalance >= 0 ? 'Surplus after billable cost' : 'Deficit after billable cost'} tone={summary.phaseBalance >= 0 ? 'positive' : 'negative'} />
+            <MetricCard label="Payments Received" value={String(summary.buyerCollections.length)} caption={`${Object.keys(collectionsByBuyer).length} buyer account(s)`} tone="default" />
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-5 xl:grid-cols-[1fr_1fr]">
+        <Card className="border-slate-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Receipt className="h-4 w-4 text-emerald-600" />
+              Billing and Collection
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-4">
+              <MetricCard label="Issued Demand" value={formatBDTCompact(summary.issuedDemand)} tone={summary.issuedDemand > 0 ? 'info' : 'warning'} />
+              <MetricCard label="Allocated" value={formatBDTCompact(summary.allocatedCollection)} tone="positive" />
+              <MetricCard label="Buyer Due" value={formatBDTCompact(summary.buyerDue)} tone={summary.buyerDue > 0 ? 'negative' : 'default'} />
+              <MetricCard label="Advance" value={formatBDTCompact(summary.buyerAdvance)} tone={summary.buyerAdvance > 0 ? 'warning' : 'default'} />
+            </div>
+
+            <div className="overflow-x-auto rounded-lg border">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Buyer</th>
+                    <th className="px-3 py-2 text-left">Method / Account</th>
+                    <th className="px-3 py-2 text-right">Amount</th>
+                    <th className="px-3 py-2 text-right">Unallocated</th>
+                    <th className="px-3 py-2 text-right">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summary.buyerCollections.length === 0 ? (
+                    <tr>
+                      <td className="px-3 py-8 text-center text-sm text-slate-500" colSpan={5}>No collections recorded for this phase.</td>
+                    </tr>
+                  ) : (
+                    summary.buyerCollections.map((row) => (
+                      <tr key={row.id} className="border-t">
+                        <td className="px-3 py-2 font-medium text-slate-900">
+                          {row.buyerName}
+                          {row.buyerNameBn ? <div className="bn text-xs text-slate-500">{row.buyerNameBn}</div> : null}
+                        </td>
+                        <td className="px-3 py-2 text-slate-600">
+                          {row.paymentMethod}
+                          {row.accountName ? <div className="text-xs text-slate-500">{row.accountName}</div> : null}
+                        </td>
+                        <td className="px-3 py-2 text-right font-medium text-emerald-700">{formatBDT(row.amount)}</td>
+                        <td className="px-3 py-2 text-right text-amber-700">{formatBDT(row.unallocatedAmount)}</td>
+                        <td className="px-3 py-2 text-right text-slate-600">{formatDate(row.receivedDate)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-slate-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ClipboardList className="h-4 w-4 text-rose-600" />
+              Cost Overview
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div className="grid gap-3 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-slate-600">Actual Construction Cost</span>
+                  <span className="font-semibold tabular-nums text-slate-950">{formatBDT(summary.actualConstructionCost)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-slate-600">Company Service Charge / Supervision Fee ({summary.serviceChargePercentage.toFixed(2)}%)</span>
+                  <span className="font-semibold tabular-nums text-sky-700">{formatBDT(summary.serviceChargeAmount)}</span>
+                </div>
+                <div className="border-t border-slate-200 pt-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-semibold text-slate-900">Total Billable Phase Cost</span>
+                    <span className="font-semibold tabular-nums text-rose-700">{formatBDT(summary.totalBillablePhaseCost)}</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-slate-600">Total Collection</span>
+                  <span className="font-semibold tabular-nums text-emerald-700">{formatBDT(summary.totalCollection)}</span>
+                </div>
+                <div className="border-t border-slate-200 pt-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-semibold text-slate-900">Phase Balance</span>
+                    <span className={cn('font-semibold tabular-nums', balanceColor(summary.phaseBalance))}>{formatBDT(summary.phaseBalance)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <MetricCard label="Direct Expense" value={formatBDTCompact(summary.directExpenseTotal)} tone="negative" />
+              <MetricCard label="Supplier Bill Items" value={formatBDTCompact(summary.supplierBillItemTotal)} tone="negative" />
+              <MetricCard label="Subcontractor Bills" value={formatBDTCompact(summary.subcontractorBillTotal)} tone="negative" />
+              <MetricCard label="Adjustments" value={formatBDTCompact(summary.adjustmentTotal)} tone={summary.adjustmentTotal ? 'warning' : 'default'} />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="border-slate-200">
+        <CardHeader>
+          <CardTitle className="text-base">Category Breakdown</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {summary.categoryBreakdown.length === 0 ? (
+            <div className="rounded-lg border border-dashed p-8 text-center text-sm text-slate-500">No cost rows found for this phase.</div>
+          ) : (
+            <div className="space-y-3">
+              {summary.categoryBreakdown.map((row) => (
+                <div key={row.category} className="grid gap-3 rounded-lg border border-slate-200 px-4 py-3 md:grid-cols-[220px_1fr_140px_70px] md:items-center">
+                  <div>
+                    <div className="font-medium text-slate-900">{expenseCategoryLabel(row.category)}</div>
+                    <div className="text-xs text-slate-500">{row.rowCount} row{row.rowCount === 1 ? '' : 's'}</div>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                    <div className="h-full rounded-full bg-slate-700" style={{ width: `${Math.min(100, row.percentage)}%` }} />
+                  </div>
+                  <div className="text-right font-medium tabular-nums text-slate-950">{formatBDT(row.amount)}</div>
+                  <div className="text-right text-sm text-slate-500">{row.percentage.toFixed(1)}%</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-slate-200">
+        <CardHeader>
+          <CardTitle className="text-base">Daily Project Cost Details</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-3 py-2 text-left">Date</th>
+                  <th className="px-3 py-2 text-left">Source</th>
+                  <th className="px-3 py-2 text-left">Bill / Voucher</th>
+                  <th className="px-3 py-2 text-left">Party</th>
+                  <th className="px-3 py-2 text-left">Description</th>
+                  <th className="px-3 py-2 text-right">Qty</th>
+                  <th className="px-3 py-2 text-right">Rate</th>
+                  <th className="px-3 py-2 text-right">Amount</th>
+                  <th className="px-3 py-2 text-left">Voucher</th>
+                  <th className="px-3 py-2 text-left">Approval</th>
+                </tr>
+              </thead>
+              <tbody>
+                {summary.dailyProjectCostRows.length === 0 ? (
+                  <tr>
+                    <td className="px-3 py-8 text-center text-sm text-slate-500" colSpan={10}>No cost rows found for this phase.</td>
+                  </tr>
+                ) : (
+                  summary.dailyProjectCostRows.map((row) => (
+                    <tr key={row.id} className="border-t align-top">
+                      <td className="px-3 py-2 text-slate-600">{formatDate(row.date)}</td>
+                      <td className="px-3 py-2"><StatusBadge label={sourceTypeLabel(row.sourceType)} /></td>
+                      <td className="px-3 py-2 font-mono text-xs text-slate-600">{row.sourceNo}</td>
+                      <td className="px-3 py-2 text-slate-700">{row.partyName}</td>
+                      <td className="px-3 py-2">
+                        <div className="font-medium text-slate-900">{row.description}</div>
+                        <div className="text-xs text-slate-500">{expenseCategoryLabel(row.category)}</div>
+                      </td>
+                      <td className="px-3 py-2 text-right text-slate-600">{row.quantity != null ? `${row.quantity} ${row.unit ?? ''}` : '-'}</td>
+                      <td className="px-3 py-2 text-right text-slate-600">{row.rate != null ? formatBDT(row.rate) : '-'}</td>
+                      <td className="px-3 py-2 text-right font-semibold tabular-nums text-slate-950">{formatBDT(row.amount)}</td>
+                      <td className="px-3 py-2"><StatusBadge label={row.voucherStatus} /></td>
+                      <td className="px-3 py-2"><StatusBadge label={row.approvalStatus} /></td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-slate-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ShieldCheck className="h-4 w-4 text-slate-700" />
+            Audit and Voucher Notes
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 md:grid-cols-3">
+            <MetricCard label="Missing Vouchers" value={String(summary.missingVoucherCount)} tone={summary.missingVoucherCount ? 'warning' : 'default'} />
+            <MetricCard label="Pending Approvals" value={String(summary.pendingApprovalCount)} tone={summary.pendingApprovalCount ? 'warning' : 'default'} />
+            <MetricCard label="Reversed Rows Included" value={String(summary.reversedCount)} tone={summary.reversedCount ? 'warning' : 'default'} />
+          </div>
+          <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm leading-6 text-sky-800">
+            Supplier bill items are intentionally included inside Daily Project Cost Details. Supplier Ledger remains the separate payable/payment report for party-wise accounting.
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

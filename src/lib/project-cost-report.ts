@@ -1,6 +1,7 @@
 import { FINAL_EXPENSE_STATUSES } from '@/lib/accounting';
 import { prisma } from '@/lib/prisma';
 import {
+  getDefaultProjectCostReportFilters,
   type ProjectCostReportFilters,
   type ProjectCostSourceType,
   PROJECT_COST_SOURCE_TYPES,
@@ -101,13 +102,17 @@ export async function getUnifiedProjectCostReport(
   projectId: string,
   filters: ProjectCostReportFilters,
 ): Promise<ProjectCostReportData> {
-  const [phases, expenses, payables, serviceChargeEntries] = await Promise.all([
+  const [project, phases, expenses, payables, serviceChargeEntries] = await Promise.all([
+    prisma.project.findUnique({
+      where: { id: projectId },
+      select: { defaultServiceChargePct: true },
+    }),
     prisma.phase.findMany({
       where: {
         projectId,
         status: { notIn: ['CANCELLED', 'DUPLICATE'] },
       },
-      select: { id: true, name: true, sequence: true },
+      select: { id: true, name: true, sequence: true, serviceChargePct: true },
       orderBy: [{ sequence: 'asc' }, { createdAt: 'asc' }],
     }),
     prisma.expense.findMany({
@@ -134,7 +139,7 @@ export async function getUnifiedProjectCostReport(
       include: {
         phase: { select: { id: true, name: true, sequence: true } },
       },
-      orderBy: [{ approvedAt: 'asc' }, { calculatedAt: 'asc' }, { createdAt: 'asc' }],
+      orderBy: [{ updatedAt: 'desc' }, { approvedAt: 'desc' }, { calculatedAt: 'desc' }, { createdAt: 'desc' }],
     }),
   ]);
 
@@ -173,7 +178,7 @@ export async function getUnifiedProjectCostReport(
     const phaseId = payable.phase?.id ?? null;
     const phaseSequence = payable.phase?.sequence ?? 9999;
     const sourceType: ProjectCostSourceType = isSubcontractorSupplierType(payable.supplier.supplierType)
-      ? 'SUBCONTRACTOR_BILL'
+      ? 'SUBCONTRACTOR_PROGRESS_BILL'
       : 'SUPPLIER_BILL_ITEM';
     const voucherStatus: UnifiedVoucherStatus = payable.documents.length > 0 ? 'ATTACHED' : 'MISSING';
     const approvalStatus = payable.reversedAt ? 'REVERSED' : payable.status;
@@ -190,9 +195,9 @@ export async function getUnifiedProjectCostReport(
       : [
           {
             id: `${sourceType.toLowerCase()}:${payable.id}`,
-            category: sourceType === 'SUBCONTRACTOR_BILL' ? 'CONTRACTOR_BILL' : 'OTHER',
+            category: sourceType === 'SUBCONTRACTOR_PROGRESS_BILL' ? 'CONTRACTOR_BILL' : 'OTHER',
             description:
-              sourceType === 'SUBCONTRACTOR_BILL'
+              sourceType === 'SUBCONTRACTOR_PROGRESS_BILL'
                 ? `Progress bill - ${payable.supplier.name}`
                 : `Supplier bill - ${payable.supplier.name}`,
             quantity: null,
@@ -231,20 +236,80 @@ export async function getUnifiedProjectCostReport(
     }
   }
 
+  const constructionCostByPhase = new Map<string, number>();
+  for (const row of allRows) {
+    if (row.reversed || row.pending || !row.phaseId) continue;
+    constructionCostByPhase.set(row.phaseId, (constructionCostByPhase.get(row.phaseId) ?? 0) + row.amount);
+  }
+
+  const latestServiceChargeByPhase = new Map<string, (typeof serviceChargeEntries)[number]>();
+  const manualServiceChargeEntries: typeof serviceChargeEntries = [];
   for (const entry of serviceChargeEntries) {
+    if (!entry.phaseId) {
+      manualServiceChargeEntries.push(entry);
+      continue;
+    }
+    if (entry.reversedAt || entry.status === 'REVERSED') continue;
+    if (!latestServiceChargeByPhase.has(entry.phaseId)) {
+      latestServiceChargeByPhase.set(entry.phaseId, entry);
+    }
+  }
+
+  for (const phase of phases) {
+    const actualConstructionCost = constructionCostByPhase.get(phase.id) ?? 0;
+    const percentage = numberValue(phase.serviceChargePct ?? project?.defaultServiceChargePct ?? 0);
+    const entry = latestServiceChargeByPhase.get(phase.id);
+    const amount = entry
+      ? numberValue(entry.serviceChargeAmount)
+      : roundMoney((actualConstructionCost * percentage) / 100);
+
+    if (amount <= 0 && !entry) continue;
+
+    allRows.push({
+      id: entry ? `service-charge:${entry.id}` : `service-charge-preview:${phase.id}`,
+      projectId,
+      phaseId: phase.id,
+      phaseName: phase.name,
+      phaseSequence: phase.sequence,
+      date: entry?.approvedAt ?? entry?.calculatedAt ?? entry?.updatedAt ?? new Date(),
+      sourceType: 'COMPANY_SERVICE_CHARGE',
+      sourceId: entry?.id ?? phase.id,
+      sourceNo: entry ? `SC-${entry.id.slice(0, 8)}` : `SC-PREVIEW-${String(phase.sequence).padStart(2, '0')}`,
+      category: 'SERVICE_CHARGE',
+      description: 'Company Service Charge / Supervision Fee',
+      partyName: 'Company supervision fee',
+      quantity: null,
+      unit: null,
+      rate: entry?.percentage ? numberValue(entry.percentage) : percentage,
+      amount,
+      paymentMethod: entry?.includedInDemand
+        ? 'Included in demand'
+        : entry?.settlementMethod
+          ? paymentMethodLabel(entry.settlementMethod)
+          : 'Calculated live from phase percentage',
+      voucherStatus: 'NOT_REQUIRED',
+      approvalStatus: entry ? entry.status : 'PREVIEW',
+      documentCount: 0,
+      notes: entry?.notes ?? `Calculated as ${percentage.toFixed(2)}% of actual construction cost ${actualConstructionCost.toFixed(2)}.`,
+      reversed: Boolean(entry?.reversedAt),
+      pending: entry ? ['DRAFT', 'PENDING_APPROVAL'].includes(entry.status) : false,
+    });
+  }
+
+  for (const entry of manualServiceChargeEntries) {
     allRows.push({
       id: `service-charge:${entry.id}`,
       projectId,
-      phaseId: entry.phaseId ?? null,
-      phaseName: entry.phase?.name ?? 'Project General',
-      phaseSequence: entry.phase?.sequence ?? 9999,
+      phaseId: null,
+      phaseName: 'Project General',
+      phaseSequence: 9999,
       date: entry.approvedAt ?? entry.calculatedAt ?? entry.updatedAt ?? entry.createdAt,
-      sourceType: 'SERVICE_CHARGE',
+      sourceType: 'COMPANY_SERVICE_CHARGE',
       sourceId: entry.id,
-      sourceNo: entry.id,
+      sourceNo: `SC-${entry.id.slice(0, 8)}`,
       category: 'SERVICE_CHARGE',
       description: 'Company Service Charge / Supervision Fee',
-      partyName: 'Sharebuild Supervision',
+      partyName: 'Company supervision fee',
       quantity: null,
       unit: null,
       rate: entry.percentage ? numberValue(entry.percentage) : null,
@@ -253,13 +318,13 @@ export async function getUnifiedProjectCostReport(
         ? 'Included in demand'
         : entry.settlementMethod
           ? paymentMethodLabel(entry.settlementMethod)
-          : 'System generated',
+          : 'Manual service charge',
       voucherStatus: 'NOT_REQUIRED',
       approvalStatus: entry.reversedAt ? 'REVERSED' : entry.status,
       documentCount: 0,
       notes: entry.notes ?? '',
       reversed: Boolean(entry.reversedAt),
-      pending: !['APPROVED', 'SETTLED'].includes(entry.status),
+      pending: ['DRAFT', 'PENDING_APPROVAL'].includes(entry.status),
     });
   }
 
@@ -304,8 +369,8 @@ export async function getUnifiedProjectCostReport(
       totals: {
         DIRECT_EXPENSE: 0,
         SUPPLIER_BILL_ITEM: 0,
-        SUBCONTRACTOR_BILL: 0,
-        SERVICE_CHARGE: 0,
+        SUBCONTRACTOR_PROGRESS_BILL: 0,
+        COMPANY_SERVICE_CHARGE: 0,
         ADJUSTMENT: 0,
       },
       totalCost: 0,
@@ -367,5 +432,229 @@ export async function getUnifiedProjectCostReport(
       new Set(allRows.map((row) => row.approvalStatus.toUpperCase())),
     ).sort((a, b) => a.localeCompare(b)),
     availableSourceTypes: [...PROJECT_COST_SOURCE_TYPES],
+  };
+}
+
+export type PhaseFinancialSummary = {
+  phase: {
+    id: string;
+    projectId: string;
+    projectName: string;
+    name: string;
+    nameBn: string | null;
+    status: string;
+    phaseType: string;
+    sequence: number;
+    floorNo: number | null;
+    workDesc: string | null;
+    startDate: Date | null;
+    endDate: Date | null;
+    serviceChargePct: number;
+  };
+  totalCollection: number;
+  issuedDemand: number;
+  buyerDue: number;
+  buyerAdvance: number;
+  allocatedCollection: number;
+  actualConstructionCost: number;
+  directExpenseTotal: number;
+  supplierBillItemTotal: number;
+  subcontractorBillTotal: number;
+  adjustmentTotal: number;
+  serviceChargePercentage: number;
+  serviceChargeAmount: number;
+  totalBillablePhaseCost: number;
+  phaseBalance: number;
+  categoryBreakdown: Array<{
+    category: string;
+    amount: number;
+    rowCount: number;
+    percentage: number;
+  }>;
+  dailyProjectCostRows: UnifiedProjectCostRow[];
+  missingVoucherCount: number;
+  pendingApprovalCount: number;
+  reversedCount: number;
+  buyerCollections: Array<{
+    id: string;
+    buyerName: string;
+    buyerNameBn: string | null;
+    amount: number;
+    allocatedAmount: number;
+    unallocatedAmount: number;
+    paymentMethod: string;
+    receivedDate: Date;
+    accountName: string | null;
+    referenceNo: string | null;
+  }>;
+  demands: Array<{
+    id: string;
+    title: string;
+    buyerName: string;
+    unitNo: string | null;
+    amount: number;
+    allocatedAmount: number;
+    dueAmount: number;
+    status: string;
+    dueDate: Date | null;
+  }>;
+};
+
+export async function getPhaseFinancialSummary(
+  projectId: string,
+  phaseId: string,
+  controls: Partial<ProjectCostReportFilters> = {},
+): Promise<PhaseFinancialSummary | null> {
+  const defaultFilters = getDefaultProjectCostReportFilters();
+  const filters: ProjectCostReportFilters = {
+    ...defaultFilters,
+    ...controls,
+    phaseIds: [phaseId],
+    sourceTypes: controls.sourceTypes ?? defaultFilters.sourceTypes,
+    categories: controls.categories ?? defaultFilters.categories,
+    approvalStatuses: controls.approvalStatuses ?? defaultFilters.approvalStatuses,
+    sections: controls.sections ?? defaultFilters.sections,
+  };
+  const fromDate = normalizeDateStart(filters.from);
+  const toDate = normalizeDateEnd(filters.to);
+
+  const [phase, costReport, collections, demands] = await Promise.all([
+    prisma.phase.findFirst({
+      where: { id: phaseId, projectId },
+      include: {
+        project: {
+          select: { id: true, name: true, defaultServiceChargePct: true },
+        },
+      },
+    }),
+    getUnifiedProjectCostReport(projectId, filters),
+    prisma.collection.findMany({
+      where: { phaseId, status: { not: 'REVERSED' } },
+      include: {
+        buyer: { select: { name: true, nameBn: true } },
+        account: { select: { name: true } },
+        allocations: { select: { amount: true } },
+      },
+      orderBy: [{ receivedDate: 'asc' }, { createdAt: 'asc' }],
+    }),
+    prisma.demand.findMany({
+      where: { phaseId, status: { not: 'CANCELLED' } },
+      include: {
+        buyer: { select: { name: true } },
+        unit: { select: { unitNo: true } },
+        allocations: {
+          where: { collection: { status: { not: 'REVERSED' } } },
+          select: { amount: true },
+        },
+        collections: {
+          where: { status: { not: 'REVERSED' } },
+          select: { amount: true },
+        },
+      },
+      orderBy: [{ dueDate: 'asc' }, { createdAt: 'asc' }],
+    }),
+  ]);
+
+  if (!phase) return null;
+
+  const filteredCollections = collections.filter((collection) => {
+    if (fromDate && collection.receivedDate < fromDate) return false;
+    if (toDate && collection.receivedDate > toDate) return false;
+    return true;
+  });
+
+  const filteredDemands = demands.filter((demand) => {
+    const date = demand.issuedAt ?? demand.createdAt;
+    if (fromDate && date < fromDate) return false;
+    if (toDate && date > toDate) return false;
+    return true;
+  });
+
+  const costGroup = costReport.phaseGroups.find((group) => group.phaseId === phaseId);
+  const directExpenseTotal = costGroup?.totals.DIRECT_EXPENSE ?? 0;
+  const supplierBillItemTotal = costGroup?.totals.SUPPLIER_BILL_ITEM ?? 0;
+  const subcontractorBillTotal = costGroup?.totals.SUBCONTRACTOR_PROGRESS_BILL ?? 0;
+  const adjustmentTotal = costGroup?.totals.ADJUSTMENT ?? 0;
+  const serviceChargeAmount = costGroup?.totals.COMPANY_SERVICE_CHARGE ?? 0;
+  const actualConstructionCost = directExpenseTotal + supplierBillItemTotal + subcontractorBillTotal + adjustmentTotal;
+  const serviceChargePercentage = numberValue(phase.serviceChargePct ?? phase.project.defaultServiceChargePct ?? 0);
+  const totalBillablePhaseCost = actualConstructionCost + serviceChargeAmount;
+  const totalCollection = filteredCollections.reduce((sum, collection) => sum + numberValue(collection.amount), 0);
+  const issuedDemand = filteredDemands.reduce((sum, demand) => sum + numberValue(demand.amount), 0);
+
+  const demandRows = filteredDemands.map((demand) => {
+    const allocationTotal = demand.allocations.reduce((sum, allocation) => sum + numberValue(allocation.amount), 0);
+    const legacyCollectionTotal = demand.collections.reduce((sum, collection) => sum + numberValue(collection.amount), 0);
+    const allocatedAmount = allocationTotal > 0 ? allocationTotal : legacyCollectionTotal;
+    const amount = numberValue(demand.amount);
+    return {
+      id: demand.id,
+      title: demand.title,
+      buyerName: demand.buyer.name,
+      unitNo: demand.unit?.unitNo ?? null,
+      amount,
+      allocatedAmount,
+      dueAmount: Math.max(amount - allocatedAmount, 0),
+      status: demand.status,
+      dueDate: demand.dueDate,
+    };
+  });
+  const allocatedCollection = demandRows.reduce((sum, demand) => sum + demand.allocatedAmount, 0);
+
+  return {
+    phase: {
+      id: phase.id,
+      projectId: phase.projectId,
+      projectName: phase.project.name,
+      name: phase.name,
+      nameBn: phase.nameBn,
+      status: phase.status,
+      phaseType: phase.phaseType,
+      sequence: phase.sequence,
+      floorNo: phase.floorNo,
+      workDesc: phase.workDesc,
+      startDate: phase.startDate,
+      endDate: phase.endDate,
+      serviceChargePct: serviceChargePercentage,
+    },
+    totalCollection,
+    issuedDemand,
+    buyerDue: demandRows.reduce((sum, demand) => sum + demand.dueAmount, 0),
+    buyerAdvance: Math.max(totalCollection - allocatedCollection, 0),
+    allocatedCollection,
+    actualConstructionCost,
+    directExpenseTotal,
+    supplierBillItemTotal,
+    subcontractorBillTotal,
+    adjustmentTotal,
+    serviceChargePercentage,
+    serviceChargeAmount,
+    totalBillablePhaseCost,
+    phaseBalance: totalCollection - totalBillablePhaseCost,
+    categoryBreakdown: (costGroup?.categoryBreakdown ?? []).map((row) => ({
+      ...row,
+      percentage: totalBillablePhaseCost > 0 ? roundMoney((row.amount / totalBillablePhaseCost) * 100) : 0,
+    })),
+    dailyProjectCostRows: costGroup?.rows ?? [],
+    missingVoucherCount: costGroup?.voucherMissingCount ?? 0,
+    pendingApprovalCount: costGroup?.pendingCount ?? 0,
+    reversedCount: costGroup?.reversedCount ?? 0,
+    buyerCollections: filteredCollections.map((collection) => {
+      const allocatedAmount = collection.allocations.reduce((sum, allocation) => sum + numberValue(allocation.amount), 0);
+      const amount = numberValue(collection.amount);
+      return {
+        id: collection.id,
+        buyerName: collection.buyer.name,
+        buyerNameBn: collection.buyer.nameBn,
+        amount,
+        allocatedAmount,
+        unallocatedAmount: Math.max(amount - allocatedAmount, 0),
+        paymentMethod: paymentMethodLabel(collection.paymentMethod),
+        receivedDate: collection.receivedDate,
+        accountName: collection.account?.name ?? null,
+        referenceNo: collection.reference,
+      };
+    }),
+    demands: demandRows,
   };
 }

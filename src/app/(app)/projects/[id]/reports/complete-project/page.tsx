@@ -44,8 +44,8 @@ function sourceTypeLabel(value: string) {
   return {
     DIRECT_EXPENSE: 'Direct Expense',
     SUPPLIER_BILL_ITEM: 'Supplier Bill Item',
-    SUBCONTRACTOR_BILL: 'Subcontractor Progress Bill',
-    SERVICE_CHARGE: 'Service Charge',
+    SUBCONTRACTOR_PROGRESS_BILL: 'Subcontractor Progress Bill',
+    COMPANY_SERVICE_CHARGE: 'Company Service Charge / Supervision Fee',
     ADJUSTMENT: 'Adjustment',
   }[value] ?? value;
 }
@@ -92,6 +92,7 @@ export default async function CompleteProjectReportPage({
       subtitle={reportSubtitle}
       generatedAt={data.generatedAt}
       backHref={`/projects/${data.project.id}/reports`}
+      printHref={`/projects/${data.project.id}/reports/complete-project/print${suffix}`}
       workbookHref={`/api/projects/${data.project.id}/reports/complete-project/xlsx${suffix}`}
       csvHref={`/api/projects/${data.project.id}/reports/complete-project/excel${suffix}`}
       showHeader={false}
@@ -189,8 +190,8 @@ export default async function CompleteProjectReportPage({
             />
             <ReportKpiCard label="Direct Expense" value={formatBDT(data.costReport.totals.DIRECT_EXPENSE)} tone="negative" />
             <ReportKpiCard label="Supplier Bill Items" value={formatBDT(data.costReport.totals.SUPPLIER_BILL_ITEM)} tone="negative" />
-            <ReportKpiCard label="Subcontractor Bills" value={formatBDT(data.costReport.totals.SUBCONTRACTOR_BILL)} tone="negative" />
-            <ReportKpiCard label="Service Charge" value={formatBDT(data.costReport.totals.SERVICE_CHARGE)} tone="info" />
+            <ReportKpiCard label="Subcontractor Bills" value={formatBDT(data.costReport.totals.SUBCONTRACTOR_PROGRESS_BILL)} tone="negative" />
+            <ReportKpiCard label="Service Charge" value={formatBDT(data.costReport.totals.COMPANY_SERVICE_CHARGE)} tone="info" />
             <ReportKpiCard label="Unified Cost Total" value={formatBDT(data.costReport.totals.total)} caption="Current report slice from the unified project cost engine." tone="negative" />
             <ReportKpiCard label="Supplier Payable" value={formatBDT(data.summary.supplierPayable)} tone={data.summary.supplierPayable > 0 ? 'negative' : 'default'} />
             <ReportKpiCard label="Subcontractor Payable" value={formatBDT(data.summary.subcontractorPayable)} tone={data.summary.subcontractorPayable > 0 ? 'negative' : 'default'} />
@@ -321,8 +322,8 @@ export default async function CompleteProjectReportPage({
                   <ReportSummaryGrid>
                     <ReportKpiCard label="Direct Expense" value={formatBDT(group.totals.DIRECT_EXPENSE)} tone="negative" />
                     <ReportKpiCard label="Supplier Bill Items" value={formatBDT(group.totals.SUPPLIER_BILL_ITEM)} tone="negative" />
-                    <ReportKpiCard label="Subcontractor Bills" value={formatBDT(group.totals.SUBCONTRACTOR_BILL)} tone="negative" />
-                    <ReportKpiCard label="Service Charge" value={formatBDT(group.totals.SERVICE_CHARGE)} tone="info" />
+                    <ReportKpiCard label="Subcontractor Bills" value={formatBDT(group.totals.SUBCONTRACTOR_PROGRESS_BILL)} tone="negative" />
+                    <ReportKpiCard label="Service Charge" value={formatBDT(group.totals.COMPANY_SERVICE_CHARGE)} tone="info" />
                     <ReportKpiCard label="Total Billable Cost" value={formatBDT(group.totalCost)} tone="negative" />
                     <ReportKpiCard label="Voucher Gaps" value={String(group.voucherMissingCount)} tone={group.voucherMissingCount > 0 ? 'warning' : 'default'} />
                     <ReportKpiCard label="Pending Rows" value={String(group.pendingCount)} tone={group.pendingCount > 0 ? 'warning' : 'default'} />

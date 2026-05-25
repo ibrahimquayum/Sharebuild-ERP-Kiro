@@ -364,6 +364,36 @@
 - Some thinner report pages still need deeper standalone export parity if/when they gain workbook support.
 - Private object storage and dependency hardening remain intentionally deferred to the next pass.
 
+## Phase / Print / Workbook Production Pass - May 25, 2026
+
+- Added `PHASE_REPORT_PRINT_EXPORT_PRODUCTION_PASS.md`.
+- Complete Project Report now has a dedicated print/PDF document route:
+  - `/projects/[id]/reports/complete-project/print`
+- Print CSS now releases app-shell height/overflow constraints, hides app navigation, preserves report headers, and allows long report sections to continue across pages.
+- Report toolbar now separates:
+  - View Print/PDF Version
+  - Export Excel Workbook
+  - Export CSV
+  - Back to Reports
+- Phase detail page was redesigned around the production finance formula:
+  - actual construction cost
+  - company service charge / supervision fee
+  - total billable phase cost
+  - phase balance
+  - category breakdown
+  - daily project cost details
+  - audit/voucher notes
+- Unified project cost now calculates live phase service-charge rows when no posted service-charge ledger row exists.
+- Complete Project Report workbook now includes:
+  - `00 Index`
+  - numbered main sheets
+  - per-phase breakdown sheets
+  - per-phase daily-cost sheets
+- Relax Tower Top Sheet totals remain exact:
+  - Income `100,143,800`
+  - Expense `104,659,890.40`
+  - Balance `-4,516,090.40`
+
 ## Current Finance Limitations
 
 - Final reconciliation posting exists, but refund-style surplus settlement still does not have a dedicated operations flow beyond reconciliation records and buyer credit handling.

@@ -414,3 +414,30 @@ Login: `admin@relaxdevelopers.com` / `admin123`
 - [ ] Confirm `/projects/project-madina-demo-complete/reports/complete-project` redirects to `/access-denied`.
 - [ ] Confirm `GET /api/projects/project-madina-demo-complete/reports/complete-project/xlsx` returns `403`.
 - [ ] Confirm no Radix Select empty-value runtime error appears on the checked routes.
+
+## X. Phase / Print / Workbook Production Pass
+
+- [ ] Login with `admin@relaxdevelopers.com` / `admin123`.
+- [ ] Open `/phases/demo-phase-piling` and confirm the redesigned phase page shows:
+  - construction cost
+  - Company Service Charge / Supervision Fee
+  - total billable phase cost
+  - phase balance
+  - category breakdown
+  - daily project cost details
+- [ ] Open `/projects/project-madina-demo-complete/reports/complete-project` and confirm the toolbar shows `View Print/PDF Version` and `Export Excel Workbook`.
+- [ ] Open `/projects/project-madina-demo-complete/reports/complete-project/print` and confirm:
+  - no sidebar, app header, filters, or controls appear
+  - report header/cover appears
+  - supplier bill item rows such as `Iron rod - 3.5 ton` appear in daily project cost details
+  - signature page appears near the end
+- [ ] Use browser Print / Save as PDF on the print route and confirm the report spans multiple pages instead of one clipped viewport.
+- [ ] Download `/api/projects/project-madina-demo-complete/reports/complete-project/xlsx` and confirm:
+  - `00 Index` exists
+  - numbered main sheets `01` through `15` exist
+  - every demo phase has both `Pxx Breakdown - [Phase]` and `Pxx Daily Cost - [Phase]` tabs
+  - amount columns open as numeric values
+  - supplier bill items appear inside daily project cost sheets
+  - Supplier Ledger remains separate
+- [ ] Login with `engineer@relaxdevelopers.com` / `engineer123`.
+- [ ] Confirm `GET /api/projects/project-madina-demo-complete/reports/complete-project/xlsx` returns `403`.
