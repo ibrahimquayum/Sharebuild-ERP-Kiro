@@ -354,16 +354,17 @@ Login: `admin@relaxdevelopers.com` / `admin123`
 - [ ] Open `/projects/project-relax-tower/reports/service-charge` and `/projects/project-relax-tower/reports/final-reconciliation`.
 - [ ] Open `/projects/project-relax-tower/demands/batches/[batchId]/print` and confirm the demand notice layout is business-facing and print-friendly.
 - [ ] Download `/api/projects/project-relax-tower/reports/complete-project/xlsx` and confirm sheets:
-  - Summary
-  - Top Sheet
+  - Project Overview
+  - Executive Summary
   - Phase Summary
-  - Daily Expenses
+  - Phase Expense Breakdown
+  - Daily Project Cost Details
+  - Buyer Billing & Due
   - Supplier Ledger
   - Subcontractor Ledger
-  - Buyer Due
   - Cash Bank Book
-  - Cheques
-  - Tax Deductions
+  - Cheque Register
+  - Tax Deduction
   - Retention
   - Service Charge
   - Final Reconciliation
@@ -371,3 +372,45 @@ Login: `admin@relaxdevelopers.com` / `admin123`
 - [ ] Confirm the workbook Top Sheet includes a grand total row.
 - [ ] Login with `engineer@relaxdevelopers.com` / `engineer123`.
 - [ ] Confirm `GET /api/projects/project-relax-tower/reports/complete-project/xlsx` returns 403.
+
+## W. Report Control / Invoice / Dummy Data Phase
+
+- [ ] Login with `admin@relaxdevelopers.com` / `admin123`.
+- [ ] Open `/projects/project-madina-demo-complete/reports/complete-project`.
+- [ ] Confirm the report-control panel changes the URL query and the screen report updates without crashing.
+- [ ] Confirm Daily Project Cost Details shows mixed source rows, including:
+  - direct expense
+  - supplier bill item
+  - subcontractor bill
+  - service charge
+- [ ] Confirm supplier bill item rows include `Iron rod - 3.5 ton` under `New SK Traders`.
+- [ ] Confirm supplier bill items appear inside Daily Project Cost Details, not as a duplicate separate phase-detail bill section.
+- [ ] Confirm `/projects/project-madina-demo-complete/reports/expense-report` uses the same filtered cost story as the Complete Project Report.
+- [ ] Download `/api/projects/project-madina-demo-complete/reports/complete-project/xlsx` and confirm sheets:
+  - Project Overview
+  - Executive Summary
+  - Phase Summary
+  - Phase Expense Breakdown
+  - Daily Project Cost Details
+  - Buyer Billing & Due
+  - Supplier Ledger
+  - Subcontractor Ledger
+  - Cash Bank Book
+  - Cheque Register
+  - Tax Deduction
+  - Retention
+  - Service Charge
+  - Final Reconciliation
+  - Audit Summary
+- [ ] Confirm the workbook opens without repair prompts and reflects the selected filters.
+- [ ] Confirm `/projects/project-madina-demo-complete/demands/batches/demo-batch-piling/print` opens and shows a real buyer bill breakdown.
+- [ ] Confirm `/projects/project-madina-demo-complete/collections/demo-col-001/receipt` opens.
+- [ ] Confirm `/projects/project-madina-demo-complete/payables/demo-payable-sk-001/invoice` opens.
+- [ ] Confirm `/projects/project-madina-demo-complete/payables/demo-payable-structure-02/payments/demo-payment-structure-progress/voucher` opens.
+- [ ] Confirm `/projects/project-madina-demo-complete/expenses/demo-exp-legal-reg/voucher` opens.
+- [ ] Confirm `/projects/project-madina-demo-complete/payables/demo-payable-structure-02/retention-release/demo-payment-structure-release/voucher` opens.
+- [ ] Confirm `/projects/project-madina-demo-complete/finance/final-reconciliation/demo-final-reconciliation-001/notice` opens.
+- [ ] Login with `engineer@relaxdevelopers.com` / `engineer123`.
+- [ ] Confirm `/projects/project-madina-demo-complete/reports/complete-project` redirects to `/access-denied`.
+- [ ] Confirm `GET /api/projects/project-madina-demo-complete/reports/complete-project/xlsx` returns `403`.
+- [ ] Confirm no Radix Select empty-value runtime error appears on the checked routes.

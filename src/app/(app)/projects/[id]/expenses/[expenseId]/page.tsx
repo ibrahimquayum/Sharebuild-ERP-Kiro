@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getServerSession } from 'next-auth';
-import { ArrowLeft, RotateCcw, Upload } from 'lucide-react';
+import { ArrowLeft, FileText, RotateCcw, Upload } from 'lucide-react';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { can } from '@/lib/permissions';
@@ -40,6 +40,9 @@ export default async function ExpenseDetailPage({ params }: { params: { id: stri
           <p className="text-xs text-muted-foreground">{expense.description}</p>
         </div>
         <div className="flex gap-2">
+          <Link href={`/projects/${params.id}/expenses/${expense.id}/voucher`} className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted">
+            <FileText className="h-3.5 w-3.5" /> Print Voucher
+          </Link>
           <Link href={`/expenses/${expense.id}/upload`} className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted">
             <Upload className="h-3.5 w-3.5" /> Voucher
           </Link>

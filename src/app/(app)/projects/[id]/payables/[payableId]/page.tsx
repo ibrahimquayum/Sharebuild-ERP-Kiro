@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getServerSession } from 'next-auth';
-import { ArrowLeft, FileUp, RotateCcw } from 'lucide-react';
+import { ArrowLeft, FileText, FileUp, RotateCcw } from 'lucide-react';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { can } from '@/lib/permissions';
@@ -45,18 +45,23 @@ export default async function PayableDetailPage({ params }: { params: { id: stri
           <h2 className="text-base font-semibold">{isSubcontractor ? 'Subcontractor Bill' : 'Supplier Bill'}</h2>
           <p className="text-xs text-muted-foreground">{payable.supplier.name} · Bill {payable.billNo ?? payable.id}</p>
         </div>
-        {canReverse && (
-          <div className="flex gap-2">
-            {retentionOutstanding > 0 && (
-              <Link href={`/projects/${params.id}/payables/${payable.id}/retention-release`} className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted">
-                Release Retention
+        <div className="flex gap-2">
+          <Link href={`/projects/${params.id}/payables/${payable.id}/invoice`} className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted">
+            <FileText className="h-3.5 w-3.5" /> Print Bill
+          </Link>
+          {canReverse && (
+            <>
+              {retentionOutstanding > 0 && (
+                <Link href={`/projects/${params.id}/payables/${payable.id}/retention-release`} className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted">
+                  Release Retention
+                </Link>
+              )}
+              <Link href={`/projects/${params.id}/payables/${payable.id}/reverse`} className="inline-flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50">
+                <RotateCcw className="h-3.5 w-3.5" /> Reverse Bill
               </Link>
-            )}
-            <Link href={`/projects/${params.id}/payables/${payable.id}/reverse`} className="inline-flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50">
-              <RotateCcw className="h-3.5 w-3.5" /> Reverse Bill
-            </Link>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -131,7 +136,12 @@ export default async function PayableDetailPage({ params }: { params: { id: stri
                     <td className="px-4 py-2">{formatDate(payment.paidAt)}<div className="text-xs text-muted-foreground">{payment.paymentMethod.replaceAll('_', ' ')}</div></td>
                     <td className="px-4 py-2 text-right text-green-600">{formatBDT(Number(payment.amount))}</td>
                     <td className="px-4 py-2 text-center"><StatusBadge status={payment.status} tone={payment.status === 'REVERSED' ? 'danger' : 'success'} /></td>
-                    <td className="px-4 py-2 text-right">{payment.status !== 'REVERSED' && <Link href={`/projects/${params.id}/payables/${payable.id}/payments/${payment.id}/reverse`} className="text-xs text-red-700 hover:underline">Reverse</Link>}</td>
+                    <td className="px-4 py-2 text-right">
+                      <div className="flex justify-end gap-3">
+                        <Link href={`/projects/${params.id}/payables/${payable.id}/payments/${payment.id}/voucher`} className="text-xs text-primary hover:underline">Voucher</Link>
+                        {payment.status !== 'REVERSED' && <Link href={`/projects/${params.id}/payables/${payable.id}/payments/${payment.id}/reverse`} className="text-xs text-red-700 hover:underline">Reverse</Link>}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -342,6 +342,70 @@ This branch now has a buildable project-first finance foundation with vendor con
 - Only Complete Project Report has native XLSX.
 - Seeded demand-batch history is still too sparse to demonstrate a rich live issued-demand bill pack without creating fresh batch data during QA.
 
+## Report Control / Invoice / Dummy Data Pass - May 25, 2026
+
+### Added
+
+- `REPORT_CONTROL_INVOICE_DUMMY_DATA_PHASE.md`
+- shared report control/filter helper:
+  - `src/lib/report-controls.ts`
+- shared report control UI:
+  - `src/components/reports/report-control-panel.tsx`
+- shared unified project cost builder:
+  - `src/lib/project-cost-report.ts`
+- printable business-document routes:
+  - `/projects/[id]/collections/[collectionId]/receipt`
+  - `/projects/[id]/payables/[payableId]/invoice`
+  - `/projects/[id]/payables/[payableId]/payments/[paymentId]/voucher`
+  - `/projects/[id]/expenses/[expenseId]/voucher`
+  - `/projects/[id]/payables/[payableId]/retention-release/[releaseId]/voucher`
+  - `/projects/[id]/finance/final-reconciliation/[reconciliationId]/notice`
+  - subcontractor invoice and payment-voucher aliases
+- idempotent demo seed helper:
+  - `prisma/seed-demo-project.ts`
+
+### Improved
+
+- Complete Project Report and Expense / Project Cost Report now read from the same unified filtered cost engine.
+- Daily Project Cost Details now include supplier bill line items alongside direct expenses, subcontractor bills, and approved service charge.
+- Supplier/subcontractor payments remain excluded from project cost and continue to live in treasury and ledger reporting only.
+- Complete Project Report XLSX now follows the same filters and section data used by the screen report.
+- Report document routes now use shared project document context for branding, scope checks, and print-safe layout.
+- A richer QA project, `Madina Demo Complete Project`, now exercises:
+  - demand batches
+  - allocations and buyer advance
+  - supplier multi-item bills
+  - subcontractor progress billing
+  - cheque and transfer activity
+  - retention release
+  - final reconciliation
+
+### Verified
+
+- `npx prisma validate`
+- `npx prisma generate`
+- `npm run build`
+- `npm run db:seed`
+- authenticated production-style smoke:
+  - Relax Tower Complete Project Report opens
+  - Madina Demo Complete Project Complete Project Report opens
+  - dummy workbook export downloads with all expected sheets
+  - supplier bill item rows appear inside Daily Project Cost Details
+  - supplier ledger remains separate
+  - buyer receipt, supplier invoice, supplier payment voucher, expense voucher, retention release voucher, and final reconciliation notice all open
+  - project-only engineer receives `403` on workbook export
+  - no Radix Select empty-value runtime error observed
+- seed totals preserved:
+  - Income `100,143,800`
+  - Expense `104,659,890.40`
+  - Balance `-4,516,090.40`
+
+### Remaining
+
+- Server-generated PDF remains future.
+- Complete Project Report is still the only native XLSX workbook export.
+- Dependency hardening and private upload storage are intentionally deferred to the next pass.
+
 ## Schema Changes
 
 Yes. One migration was added in the module completion pass:
@@ -384,7 +448,7 @@ It adds:
 
 ## Next Recommended Build Step
 
-Build the accountant-facing reversal/adjustment UI and expand supplier/subcontractor ledgers before real PDF/Excel exports and SaaS onboarding.
+Start the dependency/private-upload-storage hardening pass, then return for deeper accountant-facing reversal/adjustment UX and broader native workbook coverage before SaaS onboarding.
 
 ## Accounting Hardening Pass - May 18, 2026
 

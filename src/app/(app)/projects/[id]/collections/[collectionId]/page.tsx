@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getServerSession } from 'next-auth';
-import { ArrowLeft, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Receipt, RotateCcw } from 'lucide-react';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { can } from '@/lib/permissions';
@@ -39,11 +39,16 @@ export default async function CollectionDetailPage({ params }: { params: { id: s
           <h2 className="text-base font-semibold">Collection Detail</h2>
           <p className="text-xs text-muted-foreground">Receipt {collection.receiptNo ?? collection.id}</p>
         </div>
-        {canReverse && (
-          <Link href={`/projects/${params.id}/collections/${collection.id}/reverse`} className="inline-flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50">
-            <RotateCcw className="h-3.5 w-3.5" /> Reverse
+        <div className="flex gap-2">
+          <Link href={`/projects/${params.id}/collections/${collection.id}/receipt`} className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted">
+            <Receipt className="h-3.5 w-3.5" /> Receipt
           </Link>
-        )}
+          {canReverse && (
+            <Link href={`/projects/${params.id}/collections/${collection.id}/reverse`} className="inline-flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50">
+              <RotateCcw className="h-3.5 w-3.5" /> Reverse
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

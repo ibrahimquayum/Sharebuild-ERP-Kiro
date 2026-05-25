@@ -88,6 +88,36 @@ Remaining architectural gaps after this step:
 - native XLSX workbook export is still absent
 - browser print remains the PDF path
 
+## Phase 5 Status Update
+
+The report-control, unified-cost, and business-document layer is now materially implemented on `feat/erp-v1`:
+
+- shared report control parsing now exists in `src/lib/report-controls.ts`
+- screen, print, CSV, and Complete Project Report XLSX now read from the same filtered reporting inputs
+- unified project cost rows now exist in `src/lib/project-cost-report.ts`
+- project cost detail now includes:
+  - direct expenses
+  - supplier bill line items
+  - subcontractor bills
+  - approved service charge rows
+- supplier and subcontractor payments remain outside project cost and stay in ledger/treasury reporting
+- Complete Project Report now acts as the main control-driven audit-style report surface
+- printable business documents now exist for:
+  - buyer receipt
+  - supplier invoice
+  - supplier payment voucher
+  - direct expense voucher
+  - retention release voucher
+  - final reconciliation notice
+- a full modern-system QA project now exists in seed data:
+  - `Madina Demo Complete Project`
+
+Remaining architectural gaps after this step:
+
+- server-generated PDF is still future work
+- Complete Project Report is the only native XLSX workbook export today
+- private object storage remains the next production storage step
+
 ## 1. Finance Philosophy
 
 Sharebuild ERP should treat project finance as five separate truths that must reconcile but must not be merged:
@@ -630,11 +660,14 @@ The dashboard must present cost, payable, and cash separately. One single number
 
 ### Project Cost Report
 
-- Data source: direct expenses, supplier bills, subcontractor bills, service charge entries optional
+- Data source: unified project cost rows from direct expenses, supplier bill items, subcontractor bills, and approved service charge entries
 - Filters: project, phase, date range, category, approval status
 - Columns: source type, vendor, description, gross amount, deductions, net payable, status
 - Totals: direct cost, supplier cost, subcontractor cost, total project cost
 - PDF/Excel: grouped by phase and by source type
+- Important rule:
+  - supplier bill items appear inside project cost detail
+  - supplier ledger remains separate as the supplier-wise payable/payment report
 
 ### Cash/Bank Book
 

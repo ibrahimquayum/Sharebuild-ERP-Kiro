@@ -320,16 +320,60 @@
   - Expense `104,659,890.40`
   - Balance `-4,516,090.40`
 
+## Report Control / Invoice / Dummy Data Pass - May 25, 2026
+
+- Added `REPORT_CONTROL_INVOICE_DUMMY_DATA_PHASE.md`.
+- Added a shared report control/filter engine:
+  - `src/lib/report-controls.ts`
+  - `src/components/reports/report-control-panel.tsx`
+- Added a shared unified project cost builder:
+  - `src/lib/project-cost-report.ts`
+- Complete Project Report, Expense / Project Cost Report, CSV exports, and Complete Project Report XLSX now read from the same filtered report engine.
+- Daily Project Cost Details now include:
+  - direct expenses
+  - supplier bill line items
+  - subcontractor progress/work bills
+  - approved service charge rows
+- Supplier bill items are now part of project cost detail, while Supplier Ledger and Subcontractor Ledger remain separate party/accounting reports.
+- Added printable business-document routes:
+  - `/projects/[id]/collections/[collectionId]/receipt`
+  - `/projects/[id]/payables/[payableId]/invoice`
+  - `/projects/[id]/payables/[payableId]/payments/[paymentId]/voucher`
+  - `/projects/[id]/expenses/[expenseId]/voucher`
+  - `/projects/[id]/payables/[payableId]/retention-release/[releaseId]/voucher`
+  - `/projects/[id]/finance/final-reconciliation/[reconciliationId]/notice`
+  - subcontractor invoice / payment-voucher aliases under `/projects/[id]/subcontractors/bills/*`
+- Added an idempotent complete demo seed project:
+  - `Madina Demo Complete Project`
+  - 8 phases
+  - 14 units
+  - 8 buyers
+  - multi-unit and co-owned ownership scenarios
+  - demand batches with service charge
+  - collections, payables, payments, cheque, transfer, retention, and reconciliation examples
+- Seeded placeholder documents now point to safe real paths under `public/uploads/demo-docs`.
+- Relax Tower totals remain exact:
+  - Income `100,143,800`
+  - Expense `104,659,890.40`
+  - Balance `-4,516,090.40`
+
+## Current Reporting / Document Gaps
+
+- Browser Print / Save as PDF is still the supported PDF path; no server-generated PDF exists yet.
+- Complete Project Report remains the only native XLSX workbook export.
+- Some thinner report pages still need deeper standalone export parity if/when they gain workbook support.
+- Private object storage and dependency hardening remain intentionally deferred to the next pass.
+
 ## Current Finance Limitations
 
-- Final reconciliation is preview-only in this pass; it does not yet post buyer demand rows.
-- Service charge is currently computed for reporting from phase/project percentages; it is not yet persisted as a dedicated ledger entry.
+- Final reconciliation posting exists, but refund-style surplus settlement still does not have a dedicated operations flow beyond reconciliation records and buyer credit handling.
+- Service charge is persisted in the ledger and reported consistently, but a separate service-charge collection workflow is still future work.
 - Direct-expense cheque bounce/cancel cancels treasury movement but keeps the approved cost record.
-- CSV is the real finance export path today; native XLSX and server PDF remain future work.
+- CSV remains the export path for most finance reports. Native XLSX currently exists for Complete Project Report only, and server PDF remains future work.
 
 ## Next Safest Build Step
 
-Build the accountant-facing reversal/adjustment UI and expand supplier/subcontractor ledgers before real PDF/Excel exports, buyer portals, SaaS billing, SMS/WhatsApp, or mobile apps.
+Begin the dependency/private-storage hardening pass, then come back for deeper accountant-facing reversal/adjustment UI and broader native workbook coverage before SaaS onboarding.
 
 ## Accounting Hardening Added
 

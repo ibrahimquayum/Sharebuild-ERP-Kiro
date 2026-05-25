@@ -17,6 +17,7 @@ import {
 } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { DEFAULT_ROLE_TEMPLATES, PERMISSION_MODULES, permissionModuleToDb } from '../src/lib/permissions';
+import { seedDemoProject } from './seed-demo-project';
 
 const prisma = new PrismaClient();
 
@@ -852,6 +853,13 @@ async function main() {
 
   console.log('\n🌱  Seed complete.');
   console.log('  Login → admin@relaxdevelopers.com  /  admin123');
+  await seedDemoProject({
+    prisma,
+    companyId: company.id,
+    adminId: admin.id,
+    officeCashAccountId: officeCash.id,
+    mainBankAccountId: mainBank.id,
+  });
 }
 
 main()

@@ -218,3 +218,27 @@
   - final reconciliation demand
 - Complete Project Report workbook export is now a real multi-sheet `.xlsx` built with `exceljs`, including all required sheets plus Top Sheet grand totals.
 - Server-generated PDF remains future; browser Print / Save as PDF remains the supported PDF workflow.
+
+## Report Control / Invoice / Dummy Data Update - May 25, 2026
+
+- Added `REPORT_CONTROL_INVOICE_DUMMY_DATA_PHASE.md`.
+- Report/export consistency now uses a shared control layer:
+  - `src/lib/report-controls.ts`
+  - `src/components/reports/report-control-panel.tsx`
+- Unified project cost reporting now uses:
+  - `src/lib/project-cost-report.ts`
+- Complete Project Report, Expense / Project Cost Report, CSV exports, and Complete Project Report XLSX now use the same filtered data story.
+- Daily Project Cost Details now include:
+  - direct expenses
+  - supplier bill line items
+  - subcontractor bills
+  - approved service charge rows
+- Supplier/subcontractor payments remain outside project cost and stay only in party ledger and treasury reporting.
+- Added printable business-document routes for receipt, invoice, voucher, retention release, and final reconciliation notice workflows.
+- Added a full modern-system QA seed project:
+  - `Madina Demo Complete Project`
+- Authenticated smoke confirmed:
+  - Relax Tower and Madina Demo Complete Project complete reports open
+  - dummy workbook downloads with all expected sheets
+  - supplier line items appear inside daily project cost detail
+  - project-only engineer is denied workbook export with `403`

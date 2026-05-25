@@ -1,22 +1,29 @@
 import { NextResponse } from 'next/server';
+
+import { apiAccessError, assertApiProjectPermission } from '@/lib/access-control';
+import { safeAuditLog } from '@/lib/audit';
 import { getCompleteProjectReportData } from '@/lib/complete-project-report';
 import { csvResponse, csvSection } from '@/lib/csv';
-import { formatDate } from '@/lib/utils';
-import { safeAuditLog } from '@/lib/audit';
-import { apiAccessError, assertApiProjectPermission } from '@/lib/access-control';
+import { parseProjectCostReportFilters } from '@/lib/report-controls';
+import { expenseCategoryLabel, formatDate } from '@/lib/utils';
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: { id: string } }) {
   const access = await assertApiProjectPermission({ projectId: params.id, module: 'reports', action: 'export' });
   if (!access.ok) return apiAccessError(access);
 
-  const data = await getCompleteProjectReportData(access.context.companyId, params.id);
+  const filters = parseProjectCostReportFilters(new URL(req.url).searchParams);
+  const data = await getCompleteProjectReportData(access.context.companyId, params.id, filters);
   if (!data) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
   const content = [
-    csvSection('Summary', [
+    csvSection('Project Overview', [
       ['Company', data.branding.name],
       ['Project', data.project.name],
       ['Generated', data.generatedAt.toISOString()],
+      ['Reporting Period', data.reportingPeriod],
+      ['Report Mode', filters.detailMode],
+    ]),
+    csvSection('Executive Summary', [
       ['Historical Collection', data.summary.totalCollected],
       ['Issued Demand', data.summary.issuedDemand],
       ['Final Reconciliation Demand', data.summary.finalReconciliationDemand],
@@ -24,62 +31,73 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       ['Unallocated Collection', data.summary.unallocatedCollection],
       ['Buyer Receivable', data.summary.buyerReceivable],
       ['Buyer Advance', data.summary.buyerAdvance],
-      ['Approved Expense', data.summary.totalExpense],
-      ['Service Charge', data.summary.serviceChargeAccrued],
-      ['Tax / Deductions', data.summary.taxDeductionTotal],
-      ['Retention Held', data.summary.retentionHeld],
-      ['Supplier Payable', data.summary.supplierPayable],
-      ['Subcontractor Payable', data.summary.subcontractorPayable],
+      ['Direct Expense', data.costReport.totals.DIRECT_EXPENSE],
+      ['Supplier Bill Items', data.costReport.totals.SUPPLIER_BILL_ITEM],
+      ['Subcontractor Bills', data.costReport.totals.SUBCONTRACTOR_BILL],
+      ['Service Charge', data.costReport.totals.SERVICE_CHARGE],
+      ['Unified Cost Total', data.costReport.totals.total],
       ['Project Balance', data.summary.projectBalance],
-      ['Cash In', data.summary.cashIn],
-      ['Cash Out', data.summary.cashOut],
-      ['Pending Received Cheques', data.summary.pendingReceivedCheques],
-      ['Pending Issued Cheques', data.summary.pendingIssuedCheques],
+      ['Final Surplus / Deficit', data.summary.finalSurplusDeficit],
     ]),
     csvSection('Report Notes', data.reportNotes.map((note) => [note])),
-    csvSection('Top Sheet', [
-      ['Phase', 'Type', 'Income', 'Expense', 'Balance'],
-      ...data.topSheet.map((row) => [row.phaseName, row.phaseType, row.income, row.expense, row.balance]),
-    ]),
     csvSection('Phase Summary', [
-      ['Phase', 'Status', 'Demand', 'Collection', 'Approved Expense', 'Supplier Bill', 'Subcontractor Bill', 'Carry In', 'Carry Out', 'Audit Locked'],
-      ...data.phaseSummary.map((row) => [row.phaseName, row.status, row.demand, row.collection, row.expense, row.supplierBill, row.subcontractorBill, row.carryIn, row.carryOut, row.auditLocked ? 'Yes' : 'No']),
+      ['Phase', 'Status', 'Collection', 'Direct Expense', 'Supplier Items', 'Subcontractor Bills', 'Service Charge', 'Total Billable Cost', 'Carry Out'],
+      ...data.phaseSummary.map((row) => [
+        row.phaseName,
+        row.status,
+        row.collection,
+        row.directExpense,
+        row.supplierBillItemTotal,
+        row.subcontractorBillItemTotal,
+        row.serviceChargeCostTotal,
+        row.totalBillablePhaseCost,
+        row.carryOut,
+      ]),
     ]),
-    csvSection('Daily Expenses', [
-      ['Date', 'Phase', 'Category', 'Description', 'Supplier / Local Shop', 'Amount', 'Payment Method', 'Status', 'Voucher', 'Entered By', 'Approved By', 'Notes'],
-      ...data.expenses.map((expense) => [formatDate(expense.expenseDate), expense.phase.name, expense.category, expense.description, expense.supplier?.name ?? expense.localShopName ?? 'Cash / no supplier', Number(expense.amount), expense.paymentMethod, expense.status, expense.documents.length > 0 ? 'Attached' : 'Missing', expense.createdBy.name, expense.approvedBy?.name ?? '', expense.notes ?? '']),
+    csvSection('Phase Expense Breakdown', [
+      ['Phase', 'Category', 'Rows', 'Amount'],
+      ...data.costReport.phaseGroups.flatMap((group) =>
+        group.categoryBreakdown.map((row) => [group.phaseName, expenseCategoryLabel(row.category), row.rowCount, row.amount]),
+      ),
     ]),
-    csvSection('Supplier Summary', [
-      ['Supplier', 'Phase', 'Bill No', 'Bill Date', 'Bill Total', 'Paid', 'Payable', 'Status', 'Cheque Status'],
-      ...data.supplierSummary.map((payable) => [payable.supplier.name, payable.phase?.name ?? 'Project general', payable.billNo ?? '', formatDate(payable.billDate), Number(payable.totalAmount), payable.validPaid, Number(payable.dueAmount), payable.status, payable.payments.find((payment) => payment.chequeStatus)?.chequeStatus ?? '']),
+    csvSection('Daily Project Cost Details', [
+      ['Date', 'Phase', 'Source Type', 'Bill / Voucher', 'Party', 'Category', 'Description', 'Quantity', 'Unit', 'Rate', 'Amount', 'Voucher', 'Approval'],
+      ...data.costReport.rows.map((row) => [
+        formatDate(row.date),
+        row.phaseName,
+        row.sourceType,
+        row.sourceNo,
+        row.partyName,
+        expenseCategoryLabel(row.category),
+        row.description,
+        row.quantity ?? '',
+        row.unit ?? '',
+        row.rate ?? '',
+        row.amount,
+        row.voucherStatus,
+        row.approvalStatus,
+      ]),
     ]),
-    csvSection('Subcontractor Summary', [
-      ['Subcontractor', 'Phase', 'Bill No', 'Bill Date', 'Bill Total', 'Paid', 'Due', 'Status', 'Documents'],
-      ...data.subcontractorSummary.map((payable) => [payable.supplier.name, payable.phase?.name ?? 'Project general', payable.billNo ?? '', formatDate(payable.billDate), Number(payable.totalAmount), payable.validPaid, Number(payable.dueAmount), payable.status, payable.documents.length]),
-    ]),
-    csvSection('Tax Deductions', [
-      ['Party', 'Bill No', 'VAT', 'AIT/TDS', 'Other Deduction', 'Reference'],
-      ...[...data.supplierSummary, ...data.subcontractorSummary]
-        .filter((payable) => Number(payable.vatAmount ?? 0) > 0 || Number(payable.aitTdsAmount ?? 0) > 0 || Number(payable.otherDeductionAmount ?? 0) > 0)
-        .map((payable) => [payable.supplier.name, payable.billNo ?? '', Number(payable.vatAmount ?? 0), Number(payable.aitTdsAmount ?? 0), Number(payable.otherDeductionAmount ?? 0), payable.deductionReference ?? '']),
-    ]),
-    csvSection('Retention', [
-      ['Party', 'Bill No', 'Held', 'Released', 'Outstanding', 'Status'],
-      ...[...data.supplierSummary, ...data.subcontractorSummary]
-        .filter((payable) => Number(payable.retentionAmount ?? 0) > 0)
-        .map((payable) => [payable.supplier.name, payable.billNo ?? '', Number(payable.retentionAmount ?? 0), Number(payable.retentionReleasedAmount ?? 0), Math.max(Number(payable.retentionAmount ?? 0) - Number(payable.retentionReleasedAmount ?? 0), 0), payable.retentionStatus]),
-    ]),
-    csvSection('Buyer Due', [
-      ['Buyer', 'Phone', 'Units', 'Issued Demand', 'Final Reconciliation', 'Paid', 'Allocated', 'Due', 'Advance', 'Oldest Due'],
-      ...data.buyerDue.map((row) => [row.buyerName, row.phone ?? '', row.unitsText || '', row.regularDemanded, row.finalReconciliationDemand, row.paid, row.allocated, row.due, row.advance, formatDate(row.oldestDue)]),
+    csvSection('Buyer Billing & Due', [
+      ['Buyer', 'Phone', 'Units', 'Issued Demand', 'Final Reconciliation', 'Collection', 'Allocated', 'Due', 'Advance'],
+      ...data.buyerBillingSummary.map((row) => [
+        row.buyerName,
+        row.phone ?? '',
+        row.unitsText || '',
+        row.regularDemanded,
+        row.finalReconciliationDemand,
+        row.collected,
+        row.allocated,
+        row.due,
+        row.advance,
+      ]),
     ]),
     csvSection('Audit Summary', [
-      ['Type', 'Label', 'Amount', 'Reason'],
+      ['Type', 'Record', 'Amount', 'Reason / Note'],
       ...data.auditSummary.reversedRecords.map((row) => [row.type, row.label, row.amount, row.reason]),
-      [],
-      ['Missing Voucher Count', data.auditSummary.missingVoucher.length],
-      ['Pending Approval Count', data.auditSummary.pendingApprovals.length],
-      ['Audit Locked Phase Count', data.auditSummary.lockedPhases.length],
+      ['Missing Voucher Count', '', data.auditSummary.missingVoucher.length, ''],
+      ['Pending Approval Count', '', data.auditSummary.pendingApprovals.length, ''],
+      ['Audit Locked Phase Count', '', data.auditSummary.lockedPhases.length, ''],
     ]),
   ].join('\r\n');
 
