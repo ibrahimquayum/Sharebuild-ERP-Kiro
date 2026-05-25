@@ -206,3 +206,30 @@ These documents use tenant branding, project reference, document number/date, am
 - Complete Project Report remains the only native XLSX workbook export.
 - Browser print quality depends on the user's browser print engine, but the app no longer traps the report inside a scroll container.
 - Private upload storage and dependency hardening remain deferred to the next pass.
+
+## Universal Print And Phase UX Follow-Up - May 26, 2026
+
+- Added `UNIVERSAL_PRINT_PHASE_REPORT_DOCUMENT_PASS.md`.
+- Complete Project Report print route now uses dedicated print-document primitives instead of dashboard KPI cards.
+- Print CSS now includes universal document classes:
+  - `.print-hidden`
+  - `.screen-only`
+  - `.print-only`
+  - `.avoid-break`
+  - `.page-break-before`
+  - `.page-break-after`
+  - `.print-document`
+  - `.report-page`
+  - `.report-section`
+- Phase detail page returned to the stronger side-by-side mental model:
+  - left: Income / Collections
+  - right: Expenses / Project Cost
+- Service charge is now shown inside the expense footing:
+  - Subtotal Construction Cost
+  - Company Service Charge / Supervision Fee
+  - Total Phase Cost
+  - Phase Balance
+- Complete Project Report workbook now adds:
+  - auto-filtered table sheets
+  - totals rows for key financial sheets
+  - cleaner per-phase sheet naming within Excel limits

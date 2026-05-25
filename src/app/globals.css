@@ -87,6 +87,12 @@ body {
 }
 
 /* Print styles */
+@media screen {
+  .print-only {
+    display: none !important;
+  }
+}
+
 @media print {
   @page {
     size: A4;
@@ -106,7 +112,10 @@ body {
   [data-project-workspace-sidebar="true"],
   [data-project-workspace-header="true"],
   [data-report-toolbar="true"],
+  .screen-only,
+  .print-hidden,
   .no-print { display: none !important; }
+  .print-only { display: initial !important; }
   .h-screen,
   .min-h-screen,
   .overflow-hidden,
@@ -128,10 +137,23 @@ body {
     overflow: visible !important;
   }
   .print-break,
-  .report-page-break { page-break-before: always; break-before: page; }
+  .report-page-break,
+  .page-break-before { page-break-before: always; break-before: page; }
+  .page-break-after {
+    page-break-after: always;
+    break-after: page;
+  }
+  .avoid-break,
   .report-avoid-break {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+  .print-document,
+  .report-page,
+  .report-section {
+    width: auto !important;
+    max-width: none !important;
+    overflow: visible !important;
   }
   .report-section-heading {
     break-after: avoid;
@@ -153,6 +175,10 @@ body {
   main,
   section {
     box-shadow: none !important;
+  }
+  .report-page {
+    margin: 0;
+    padding: 0;
   }
   table thead {
     display: table-header-group;

@@ -201,6 +201,14 @@ Still honest about limited depth where data is sparse:
   - CSV only where implemented
   - PDF means browser Print / Save as PDF
 
+## Universal Print Document Follow-Up - May 26, 2026
+
+- Added a print-specific document component layer so the print route no longer depends on dashboard KPI cards.
+- Complete Project Report print output now uses compact summary tables, document-style section hierarchy, and cleaner phase detail tables.
+- Cover-page spacing was tightened to reduce the “web page on paper” feeling.
+- Phase detail screen now treats service charge as part of total phase cost footing rather than a dominant standalone KPI.
+- Workbook polish now includes auto-filtered sheets, totals rows, and improved per-phase drilldown sheet names.
+
 ## Dummy Project Coverage Added
 
 - Added `Madina Demo Complete Project` as the complete modern-system demo seed.

@@ -66,6 +66,11 @@
 - Reports are separate from Finance.
 - Top Sheet remains live and accurate.
 - Core project report pages now use a shared professional report shell.
+- Complete Project Report print now uses a dedicated document-oriented print component layer instead of dashboard KPI cards.
+- Phase detail now shows total phase cost using:
+  - actual construction cost
+  - company service charge / supervision fee
+  - phase balance from total collection minus total phase cost
 - Browser Print / Save as PDF is the supported PDF path.
 - Complete Project Report now has a native multi-sheet XLSX workbook.
 - Other implemented report exports remain CSV until native workbook export is added per report.

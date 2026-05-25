@@ -419,23 +419,27 @@ Login: `admin@relaxdevelopers.com` / `admin123`
 
 - [ ] Login with `admin@relaxdevelopers.com` / `admin123`.
 - [ ] Open `/phases/demo-phase-piling` and confirm the redesigned phase page shows:
-  - construction cost
-  - Company Service Charge / Supervision Fee
-  - total billable phase cost
-  - phase balance
+  - side-by-side `Income / Collections` and `Expenses / Project Cost` panels
+  - top KPI cards only for collection, total phase cost, phase balance, and payments received
+  - Company Service Charge / Supervision Fee inside the expense footing, not as a dominant top KPI
+  - total phase cost and phase balance calculated from the shared phase summary helper
   - category breakdown
   - daily project cost details
 - [ ] Open `/projects/project-madina-demo-complete/reports/complete-project` and confirm the toolbar shows `View Print/PDF Version` and `Export Excel Workbook`.
 - [ ] Open `/projects/project-madina-demo-complete/reports/complete-project/print` and confirm:
   - no sidebar, app header, filters, or controls appear
-  - report header/cover appears
+  - compact document cover appears without excessive empty space
+  - executive summary uses compact report tables rather than dashboard cards
+  - major sections start on clean pages
   - supplier bill item rows such as `Iron rod - 3.5 ton` appear in daily project cost details
   - signature page appears near the end
 - [ ] Use browser Print / Save as PDF on the print route and confirm the report spans multiple pages instead of one clipped viewport.
 - [ ] Download `/api/projects/project-madina-demo-complete/reports/complete-project/xlsx` and confirm:
   - `00 Index` exists
   - numbered main sheets `01` through `15` exist
-  - every demo phase has both `Pxx Breakdown - [Phase]` and `Pxx Daily Cost - [Phase]` tabs
+  - every demo phase has both `Pxx ... Breakdown` and `Pxx ... Daily Cost` tabs
+  - main and phase sheets include totals rows where relevant
+  - sheet headers are filterable
   - amount columns open as numeric values
   - supplier bill items appear inside daily project cost sheets
   - Supplier Ledger remains separate

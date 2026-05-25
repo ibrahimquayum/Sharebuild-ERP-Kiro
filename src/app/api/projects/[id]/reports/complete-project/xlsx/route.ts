@@ -26,8 +26,10 @@ function uniqueSheetName(workbook: ExcelJS.Workbook, name: string) {
 }
 
 function phaseSheetName(prefix: string, phaseName: string, kind: 'Breakdown' | 'Daily Cost') {
-  const cleanPhaseName = phaseName.replace(/\s+/g, ' ').trim();
-  return `${prefix} ${kind} - ${cleanPhaseName}`;
+  const cleanPhaseName = phaseName.replace(/[\\/*?:[\]]/g, ' ').replace(/\s+/g, ' ').trim();
+  const suffix = kind === 'Breakdown' ? ' Breakdown' : ' Daily Cost';
+  const available = Math.max(3, 31 - prefix.length - suffix.length - 1);
+  return `${prefix} ${cleanPhaseName.slice(0, available).trim()}${suffix}`;
 }
 
 function sectionHeader(worksheet: ExcelJS.Worksheet, title: string, subtitle: string, company: string, project: string) {
@@ -98,6 +100,8 @@ function addTableSheet(
     rows: Array<Array<string | number | Date | null>>;
     widths: number[];
     currencyColumns?: number[];
+    totalsColumns?: number[];
+    totalLabel?: string;
   },
 ) {
   const worksheet = workbook.addWorksheet(uniqueSheetName(workbook, input.name), {
@@ -109,9 +113,31 @@ function addTableSheet(
 
   const headerRow = worksheet.addRow(input.headers);
   styleHeaderRow(headerRow);
+  worksheet.autoFilter = {
+    from: { row: headerRow.number, column: 1 },
+    to: { row: headerRow.number, column: input.headers.length },
+  };
 
   const startRow = headerRow.number + 1;
   input.rows.forEach((row) => worksheet.addRow(row));
+  if (input.rows.length > 0 && input.totalsColumns?.length) {
+    const totalsRow = worksheet.addRow(
+      input.headers.map((_, index) => {
+        const column = index + 1;
+        if (column === 1) return input.totalLabel ?? 'Totals';
+        if (input.totalsColumns?.includes(column)) {
+          return input.rows.reduce((sum, row) => sum + (typeof row[index] === 'number' ? Number(row[index]) : 0), 0);
+        }
+        return '';
+      }),
+    );
+    totalsRow.font = { bold: true, color: { argb: '1F2937' } };
+    totalsRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'F8FAFC' },
+    };
+  }
   const endRow = worksheet.rowCount;
   if (endRow >= startRow) {
     styleBodyRows(worksheet, startRow, endRow, input.currencyColumns);
@@ -224,6 +250,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     ]),
     widths: [28, 18, 16, 16, 18, 18, 16, 18, 16],
     currencyColumns: [3, 4, 5, 6, 7, 8, 9],
+    totalsColumns: [3, 4, 5, 6, 7, 8, 9],
   }), 'Phase-wise collection, actual construction cost, service charge, billable cost, and phase balance.');
 
   trackSheet(addTableSheet(workbook, {
@@ -243,6 +270,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     ),
     widths: [28, 26, 12, 18],
     currencyColumns: [4],
+    totalsColumns: [4],
   }), 'All visible phase category breakdown rows from the unified project cost report.');
 
   trackSheet(addTableSheet(workbook, {
@@ -269,6 +297,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     ]),
     widths: [14, 24, 18, 18, 24, 20, 32, 10, 10, 14, 16, 14, 16],
     currencyColumns: [10, 11],
+    totalsColumns: [11],
+    totalLabel: 'Total visible cost rows',
   }), 'All visible daily project cost rows, including supplier bill item lines and service charge rows.');
 
   trackSheet(addTableSheet(workbook, {
@@ -291,6 +321,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     ]),
     widths: [26, 18, 30, 16, 18, 16, 16, 16, 16],
     currencyColumns: [4, 5, 6, 7, 8, 9],
+    totalsColumns: [4, 5, 6, 7, 8, 9],
   }), 'Buyer-wise demand, collection, allocation, due, and advance.');
 
   trackSheet(addTableSheet(workbook, {
@@ -311,6 +342,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     ]),
     widths: [28, 28, 16, 16, 16, 18, 16],
     currencyColumns: [3, 4, 5],
+    totalsColumns: [3, 4, 5],
   }), 'Supplier-wise payable and payment summary kept separate from daily cost details.');
 
   trackSheet(addTableSheet(workbook, {
@@ -332,6 +364,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     ]),
     widths: [28, 22, 18, 16, 16, 16, 16, 18],
     currencyColumns: [3, 4, 5, 6, 7],
+    totalsColumns: [3, 4, 5, 6, 7],
   }), 'Subcontractor work-package ledger with contract, bill, paid, due, retention, and document quality.');
 
   trackSheet(addTableSheet(workbook, {
@@ -351,6 +384,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     ]),
     widths: [28, 18, 16, 16, 16, 16],
     currencyColumns: [3, 4, 5, 6],
+    totalsColumns: [4, 5, 6],
   }), 'Account-wise treasury movement for the selected report slice.');
 
   trackSheet(addTableSheet(workbook, {
@@ -371,6 +405,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     ]),
     widths: [18, 16, 24, 14, 16, 16, 18],
     currencyColumns: [5],
+    totalsColumns: [5],
   }), 'Issued and received cheque register for the selected report slice.');
 
   trackSheet(addTableSheet(workbook, {
@@ -392,6 +427,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     ]),
     widths: [28, 18, 20, 16, 16, 16],
     currencyColumns: [4, 5, 6],
+    totalsColumns: [4, 5, 6],
   }), 'VAT, AIT/TDS, and other bill-level deductions.');
 
   trackSheet(addTableSheet(workbook, {
@@ -413,6 +449,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     ]),
     widths: [28, 18, 16, 16, 18, 16],
     currencyColumns: [3, 4, 5],
+    totalsColumns: [3, 4, 5],
   }), 'Retention held, released, and outstanding by bill.');
 
   trackSheet(addTableSheet(workbook, {
@@ -432,6 +469,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     ]),
     widths: [28, 16, 14, 16, 18, 16],
     currencyColumns: [2, 4],
+    totalsColumns: [2, 4],
   }), 'Company Service Charge / Supervision Fee by phase or manual entry.');
 
   trackSheet(addTableSheet(workbook, {
@@ -450,6 +488,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     ]),
     widths: [28, 34, 14, 16, 16],
     currencyColumns: [4],
+    totalsColumns: [4],
   }), 'Ownership-based final reconciliation distribution.');
 
   trackSheet(addTableSheet(workbook, {
@@ -467,6 +506,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     ],
     widths: [24, 36, 16, 38],
     currencyColumns: [3],
+    totalsColumns: [3],
   }), 'Voucher gaps, pending approvals, reversals, audit locks, and report limitations.');
 
   data.costReport.phases.forEach((phase, index) => {
@@ -504,6 +544,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       ]),
       widths: [30, 12, 18, 22],
       currencyColumns: [3],
+      totalsColumns: [3],
     }), `${group.phaseName} phase-specific category breakdown.`);
 
     trackSheet(addTableSheet(workbook, {
@@ -530,6 +571,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       ]),
       widths: [14, 24, 18, 24, 20, 34, 10, 10, 14, 16, 14, 16, 32],
       currencyColumns: [9, 10],
+      totalsColumns: [10],
+      totalLabel: 'Total phase cost rows',
     }), `${group.phaseName} phase-specific daily project cost detail.`);
   });
 

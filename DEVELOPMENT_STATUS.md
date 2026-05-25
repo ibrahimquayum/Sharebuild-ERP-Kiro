@@ -738,3 +738,16 @@ Cash/bank account architecture and cheque lifecycle.
 ### Next Recommended Build Step
 
 VAT/AIT/TDS plus retention/security architecture and accounting flows.
+
+## Universal Print / Phase Report Update - May 26, 2026
+
+- Added `UNIVERSAL_PRINT_PHASE_REPORT_DOCUMENT_PASS.md`.
+- Complete Project Report print route now renders through dedicated document primitives rather than dashboard KPI cards.
+- Global print CSS now includes universal print document classes and page-break helpers.
+- Phase detail UX now restores the side-by-side collection vs project-cost mental model.
+- Service charge is now displayed inside the expense footing:
+  - Subtotal Construction Cost
+  - Company Service Charge / Supervision Fee
+  - Total Phase Cost
+  - Phase Balance
+- Complete Project Report workbook now includes auto-filtered sheets, totals rows, and improved per-phase sheet naming.

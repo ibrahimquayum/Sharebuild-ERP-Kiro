@@ -258,3 +258,11 @@
   - `Pxx Breakdown - [Phase]` tabs
   - `Pxx Daily Cost - [Phase]` tabs
 - Authenticated smoke confirmed admin workbook export succeeds and the project-only engineer receives `403` for the unassigned demo project export.
+
+## Universal Print / Phase Document Update - May 26, 2026
+
+- Added `UNIVERSAL_PRINT_PHASE_REPORT_DOCUMENT_PASS.md`.
+- Complete Project Report print output now uses dedicated print-document primitives with compact summary tables.
+- Print CSS now includes universal print classes for hiding screen chrome and controlling page breaks.
+- Phase detail UX now returns to a clearer collection-vs-cost layout while keeping the shared unified cost builder and service-charge formula intact.
+- Workbook sheets now include auto-filter plus totals rows on major financial tabs.

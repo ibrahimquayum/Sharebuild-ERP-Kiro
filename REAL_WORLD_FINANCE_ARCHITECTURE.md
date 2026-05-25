@@ -1110,3 +1110,26 @@ Use this as the next coding prompt for Phase 1 only:
 > 4. Update supplier and subcontractor vendor screens, bill forms, and ledgers to use project assignment rows instead of inferring project relationship only from bills.
 > 5. Preserve current bill, payment, and report behavior while making the project contract layer formal.
 > 6. Update docs, run `npx prisma generate`, `npm run build`, and `npm run db:seed`, then stop.
+
+## Implementation Note - May 26, 2026
+
+The current app now treats phase cost reporting with the following rule:
+
+```text
+Actual Construction Cost
+= direct expenses
++ supplier bill items
++ subcontractor bills
++ adjustments
+
+Company Service Charge / Supervision Fee
+= Actual Construction Cost x phase service charge percentage
+
+Total Phase Cost
+= Actual Construction Cost + Company Service Charge
+
+Phase Balance
+= Total Collection - Total Phase Cost
+```
+
+Supplier bill items remain part of daily project cost detail and category breakdown, while Supplier Ledger remains the supplier-wise payable/payment report.

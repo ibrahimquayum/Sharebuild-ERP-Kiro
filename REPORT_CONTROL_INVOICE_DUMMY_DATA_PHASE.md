@@ -202,3 +202,14 @@ Sheet names are shortened where needed to satisfy Excel's 31-character limit.
 - Complete Project Report remains the only native XLSX workbook export.
 - Some thin report pages still need deeper filter/export parity improvements if they later gain standalone workbook export.
 - Local file storage remains public-disk based and is intentionally deferred to the later dependency/storage hardening pass.
+
+## May 26 Universal Print / Phase UX Follow-Up
+
+- Added the dedicated universal print-document primitive layer in `src/components/reports/print-document.tsx`.
+- Complete Project Report print route now uses compact document tables rather than web-style KPI cards.
+- Workbook sheets now include auto-filter and totals rows on major financial tabs.
+- Phase detail UX was corrected so the page again reads as:
+  - Income / Collections
+  - Expenses / Project Cost
+  - Total Phase Cost and Phase Balance
+- Service charge remains inside the phase cost footing instead of being treated like a dominant standalone KPI.
