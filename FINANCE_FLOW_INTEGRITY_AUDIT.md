@@ -215,3 +215,12 @@ Relax Tower totals preserved exactly:
 - Full authenticated browser automation was not available in this session, so the matrix was verified through the shared Prisma-backed helpers and build/seed output rather than end-to-end browser scripting.
 - Service charge remains visible as a ledger/reporting concept because historical and approved snapshot rows already exist.
 - Separate legacy service-charge settlement records are preserved, not deleted.
+## 2026-05-27 Stabilization Note
+
+- Dashboard, project overview, and project list wording now distinguish:
+  - `Actual Construction Cost`
+  - `Company Service Charge / Supervision Fee`
+  - `Total Billable Cost`
+  - `Project Balance = Total Collection - Total Billable Cost`
+- Service charge reporting wording was corrected away from normal-flow `UNSETTLED` language toward billed/collected/uncollected flow language.
+- Client-facing report cost references no longer fall back to raw internal IDs.

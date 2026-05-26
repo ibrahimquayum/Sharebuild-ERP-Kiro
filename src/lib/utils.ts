@@ -117,3 +117,26 @@ export function balanceColor(amount: number): string {
   if (amount < 0) return 'text-red-600';
   return 'text-gray-500';
 }
+
+export function normalizeDisplayText(value: string | null | undefined): string | null {
+  if (!value) return value ?? null;
+
+  if (!/[àâðÂ]/.test(value)) {
+    return value;
+  }
+
+  try {
+    const decoded = decodeURIComponent(escape(value));
+    return /�/.test(decoded) ? value : decoded;
+  } catch {
+    return value;
+  }
+}
+
+export function projectCostDetailModeLabel(mode: 'summary' | 'detailed' | 'audit'): string {
+  return {
+    summary: 'Client Summary',
+    detailed: 'Management Detailed',
+    audit: 'Full Audit',
+  }[mode];
+}

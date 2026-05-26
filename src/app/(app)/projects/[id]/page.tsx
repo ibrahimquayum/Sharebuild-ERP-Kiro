@@ -1,34 +1,45 @@
-import { prisma } from '@/lib/prisma';
-import { notFound } from 'next/navigation';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { StatCard } from '@/components/shared/stat-card';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  formatBDT, formatBDTCompact, formatDate,
-  phaseStatusMeta, balanceColor, cn,
-} from '@/lib/utils';
-import { FINAL_EXPENSE_STATUSES } from '@/lib/accounting';
-import {
-  TrendingUp, TrendingDown, Users, Layers,
-  AlertCircle, CheckCircle2, Clock, ArrowRight,
-  Truck, Plus, BarChart3, FileText, Upload,
-  Receipt, ShoppingCart, Building2,
-} from 'lucide-react';
 import Link from 'next/link';
+import { getServerSession } from 'next-auth';
+import { notFound } from 'next/navigation';
+import {
+  AlertCircle,
+  ArrowRight,
+  BarChart3,
+  Building2,
+  CheckCircle2,
+  Clock,
+  FileText,
+  MoreHorizontal,
+  Receipt,
+  ShoppingCart,
+  Truck,
+  Upload,
+  Users,
+} from 'lucide-react';
+
+import { authOptions } from '@/lib/auth';
+import { getProjectFinanceSummary } from '@/lib/project-finance';
+import { prisma } from '@/lib/prisma';
+import { balanceColor, cn, formatBDT, formatBDTCompact, formatDate, normalizeDisplayText, phaseStatusMeta } from '@/lib/utils';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { StatCard } from '@/components/shared/stat-card';
 
 export const dynamic = 'force-dynamic';
 
-interface QuickAction {
-  label: string;
-  href: string;
-  icon: React.ElementType;
-  color: string;
+function actionButtonClassName(kind: 'primary' | 'secondary' | 'subtle') {
+  if (kind === 'primary') {
+    return 'inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90';
+  }
+  if (kind === 'secondary') {
+    return 'inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted';
+  }
+  return 'inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground';
 }
 
 export default async function ProjectOverviewPage({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  const companyId = (session?.user as any)?.companyId ?? '';
+  const companyId = (session?.user as { companyId?: string } | undefined)?.companyId ?? '';
 
   const project = await prisma.project.findFirst({
     where: { id: params.id, companyId },
@@ -47,336 +58,239 @@ export default async function ProjectOverviewPage({ params }: { params: { id: st
 
   if (!project) notFound();
 
-  const base = `/projects/${project.id}`;
-
-  // ── Financial aggregates ─────────────────────────────────────
-  const [
-    incAgg,
-    expAgg,
-    supplierPayableAgg,
-    subcontractorPayableAgg,
-    pendingApprovalCount,
-    missingVoucherCount,
-    activePhaseCount,
-  ] = await Promise.all([
-    // Total collection
-    prisma.collection.aggregate({
-      where: { phase: { projectId: project.id }, status: { not: 'REVERSED' } },
-      _sum: { amount: true },
-    }),
-    // Total expense
-    prisma.expense.aggregate({
-      where: { phase: { projectId: project.id }, status: { in: [...FINAL_EXPENSE_STATUSES] }, reversedAt: null },
-      _sum: { amount: true },
-    }),
-    // Supplier payable (MATERIAL_SUPPLIER, EQUIPMENT_SUPPLIER, SERVICE_PROVIDER, CONSULTANT)
-    prisma.supplierPayable.aggregate({
-      where: {
-        projectId: project.id,
-        reversedAt: null,
-        supplier: {
-          supplierType: { in: ['MATERIAL_SUPPLIER', 'EQUIPMENT_SUPPLIER', 'SERVICE_PROVIDER', 'CONSULTANT'] },
-        },
-      },
-      _sum: { dueAmount: true },
-    }),
-    // Subcontractor payable (LABOUR_CONTRACTOR only)
-    prisma.supplierPayable.aggregate({
-      where: {
-        projectId: project.id,
-        reversedAt: null,
-        supplier: { supplierType: 'LABOUR_CONTRACTOR' },
-      },
-      _sum: { dueAmount: true },
-    }),
-    // Pending approval count
-    prisma.expense.count({
-      where: { phase: { projectId: project.id }, status: 'PENDING_APPROVAL', reversedAt: null },
-    }),
-    // Missing voucher count
-    prisma.expense.count({
-      where: {
-        phase: { projectId: project.id },
-        documents: { none: {} },
-        status: { in: ['APPROVED', 'PENDING_APPROVAL'] },
-        reversedAt: null,
-      },
-    }),
-    // Active phase count
-    prisma.phase.count({
-      where: { projectId: project.id, status: 'ACTIVE' },
-    }),
-  ]);
-
-  const income              = Number(incAgg._sum.amount ?? 0);
-  const expense             = Number(expAgg._sum.amount ?? 0);
-  const balance             = income - expense;
-  const supplierPayable     = Number(supplierPayableAgg._sum.dueAmount ?? 0);
-  const subcontractorPayable = Number(subcontractorPayableAgg._sum.dueAmount ?? 0);
-
-  // ── Buyer due (sum of outstanding demands) ────────────────────
-  const buyerDueAgg = await prisma.demand.aggregate({
-    where: {
-      phase: { projectId: project.id },
-      status: { notIn: ['FULLY_PAID', 'CANCELLED'] },
-    },
-    _sum: { amount: true },
-  });
-  const buyerDue = Number(buyerDueAgg._sum.amount ?? 0);
-
-  // ── Quick actions ─────────────────────────────────────────────
-  const quickActions: QuickAction[] = [
-    { label: 'Add Expense',          href: `${base}/expenses/new`,       icon: ShoppingCart, color: 'bg-red-600 hover:bg-red-700 text-white' },
-    { label: 'Record Collection',    href: `${base}/collections/new`,    icon: Receipt,      color: 'bg-green-600 hover:bg-green-700 text-white' },
-    { label: 'Issue Demand',         href: `${base}/demands/new`,        icon: FileText,     color: 'bg-blue-600 hover:bg-blue-700 text-white' },
-    { label: 'Add Supplier Bill',    href: `${base}/payables/new`,       icon: Truck,        color: 'bg-orange-600 hover:bg-orange-700 text-white' },
-    { label: 'Add Subcontractor Bill', href: `${base}/subcontractors/bills/new`, icon: Building2, color: 'bg-purple-600 hover:bg-purple-700 text-white' },
-    { label: 'Add Buyer / Assign Unit', href: `${base}/buyers`,          icon: Users,        color: 'bg-violet-600 hover:bg-violet-700 text-white' },
-    { label: 'Upload Document',      href: `${base}/documents/upload`,   icon: Upload,       color: 'bg-teal-600 hover:bg-teal-700 text-white' },
-    { label: 'View Due',             href: `${base}/due-followup`,       icon: AlertCircle,  color: 'bg-amber-600 hover:bg-amber-700 text-white' },
-    { label: 'Top Sheet',            href: `${base}/reports/top-sheet`,  icon: BarChart3,    color: 'border border-border hover:bg-muted text-foreground' },
-  ];
-
+  const finance = await getProjectFinanceSummary(project.id);
+  const pendingApprovalCount = finance.pendingApprovalCount;
+  const missingVoucherCount = finance.missingVoucherCount;
+  const activePhaseCount = project.phases.filter((phase) => phase.status === 'ACTIVE' || phase.status === 'INCLUDED_IN_SUMMARY').length;
   const recentPhases = project.phases.slice(0, 6);
+  const base = `/projects/${project.id}`;
+  const totalBillableCost = finance.projectCostTotal + finance.serviceChargeAccrued;
 
   return (
-    <div className="p-5 space-y-5">
+    <div className="space-y-5 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-base font-semibold">Project Overview</h1>
+          <p className="text-xs text-muted-foreground">
+            {project.code ? `${project.code} · ` : ''}
+            {project.address || 'Project address not recorded'}
+          </p>
+          {project.nameBn ? <p className="bn text-xs text-muted-foreground">{normalizeDisplayText(project.nameBn)}</p> : null}
+        </div>
 
-      {/* ── Quick Actions ─────────────────────────────────────── */}
-      <div>
-        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-          Quick Actions
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          {quickActions.map((action) => (
-            <Link
-              key={action.label}
-              href={action.href}
-              className={cn(
-                'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
-                action.color
-              )}
-            >
-              <action.icon className="h-3.5 w-3.5 shrink-0" />
-              {action.label}
-            </Link>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href={`${base}/collections/new`} className={actionButtonClassName('primary')}>
+            <Receipt className="h-3.5 w-3.5" />
+            Record Collection
+          </Link>
+          <Link href={`${base}/expenses/new`} className={actionButtonClassName('secondary')}>
+            <ShoppingCart className="h-3.5 w-3.5" />
+            Add Expense
+          </Link>
+          <Link href={`${base}/demands/new`} className={actionButtonClassName('secondary')}>
+            <FileText className="h-3.5 w-3.5" />
+            Issue Demand
+          </Link>
+          <DropdownMenu>
+            <DropdownMenuTrigger className={actionButtonClassName('subtle')}>
+              <MoreHorizontal className="h-3.5 w-3.5" />
+              More Actions
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href={`${base}/payables/new`}><Truck className="mr-2 h-4 w-4" />Add Supplier Bill</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={`${base}/subcontractors/bills/new`}><Building2 className="mr-2 h-4 w-4" />Add Subcontractor Bill</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={`${base}/buyers`}><Users className="mr-2 h-4 w-4" />Add Buyer / Assign Unit</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={`${base}/documents/upload`}><Upload className="mr-2 h-4 w-4" />Upload Document</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={`${base}/due-followup`}><AlertCircle className="mr-2 h-4 w-4" />View Due</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={`${base}/reports/top-sheet`}><BarChart3 className="mr-2 h-4 w-4" />Top Sheet</Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
-      {/* ── KPI Row 1: Financial ──────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           title="Total Collection"
-          value={formatBDTCompact(income)}
-          subtitle={formatBDT(income)}
-          icon={TrendingUp}
-          iconColor="text-green-600"
-          iconBg="bg-green-50"
+          value={formatBDTCompact(finance.totalCollected)}
+          subtitle={formatBDT(finance.totalCollected)}
+          icon={Receipt}
+          iconColor="text-emerald-600"
+          iconBg="bg-emerald-50"
         />
         <StatCard
-          title="Total Expense"
-          value={formatBDTCompact(expense)}
-          subtitle={formatBDT(expense)}
-          icon={TrendingDown}
-          iconColor="text-red-500"
-          iconBg="bg-red-50"
+          title="Actual Construction Cost"
+          value={formatBDTCompact(finance.projectCostTotal)}
+          subtitle={formatBDT(finance.projectCostTotal)}
+          icon={ShoppingCart}
+          iconColor="text-rose-600"
+          iconBg="bg-rose-50"
         />
         <StatCard
-          title="Net Balance"
-          value={formatBDTCompact(balance)}
-          subtitle={balance >= 0 ? 'Surplus' : 'Deficit'}
-          icon={balance >= 0 ? CheckCircle2 : AlertCircle}
-          iconColor={balance >= 0 ? 'text-emerald-600' : 'text-red-600'}
-          iconBg={balance >= 0 ? 'bg-emerald-50' : 'bg-red-50'}
+          title="Company Service Charge"
+          value={formatBDTCompact(finance.serviceChargeAccrued)}
+          subtitle={formatBDT(finance.serviceChargeAccrued)}
+          icon={FileText}
+          iconColor="text-sky-600"
+          iconBg="bg-sky-50"
         />
         <StatCard
-          title="Buyer Due"
-          value={formatBDTCompact(buyerDue)}
-          subtitle={formatBDT(buyerDue)}
-          icon={Users}
-          iconColor="text-amber-600"
-          iconBg="bg-amber-50"
+          title="Total Billable Cost"
+          value={formatBDTCompact(totalBillableCost)}
+          subtitle={formatBDT(totalBillableCost)}
+          icon={Building2}
+          iconColor="text-violet-600"
+          iconBg="bg-violet-50"
         />
       </div>
 
-      {/* ── KPI Row 2: Payables + Counts ─────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
-          title="Supplier Payable"
-          value={formatBDTCompact(supplierPayable)}
-          subtitle={formatBDT(supplierPayable)}
-          icon={Truck}
-          iconColor="text-orange-500"
-          iconBg="bg-orange-50"
+          title="Project Balance"
+          value={formatBDTCompact(finance.finalSurplusDeficit)}
+          subtitle={finance.finalSurplusDeficit >= 0 ? 'Total collection - total billable cost' : 'Below total billable cost'}
+          icon={finance.finalSurplusDeficit >= 0 ? CheckCircle2 : AlertCircle}
+          iconColor={finance.finalSurplusDeficit >= 0 ? 'text-emerald-600' : 'text-red-600'}
+          iconBg={finance.finalSurplusDeficit >= 0 ? 'bg-emerald-50' : 'bg-red-50'}
         />
         <StatCard
-          title="Subcontractor Payable"
-          value={formatBDTCompact(subcontractorPayable)}
-          subtitle={formatBDT(subcontractorPayable)}
-          icon={Building2}
-          iconColor="text-purple-500"
-          iconBg="bg-purple-50"
-        />
-        <StatCard
-          title="Active Phases"
-          value={String(activePhaseCount)}
-          subtitle="Currently running"
-          icon={Layers}
-          iconColor="text-blue-600"
-          iconBg="bg-blue-50"
+          title="Buyer Due"
+          value={formatBDTCompact(finance.buyerDue)}
+          subtitle={formatBDT(finance.buyerDue)}
+          icon={Users}
+          iconColor="text-amber-600"
+          iconBg="bg-amber-50"
         />
         <StatCard
           title="Pending Approvals"
           value={String(pendingApprovalCount)}
           subtitle="Expenses to review"
           icon={Clock}
-          iconColor="text-amber-600"
-          iconBg="bg-amber-50"
+          iconColor="text-orange-600"
+          iconBg="bg-orange-50"
         />
         <StatCard
           title="Missing Vouchers"
           value={String(missingVoucherCount)}
-          subtitle="Expenses without docs"
+          subtitle="Rows without document support"
           icon={AlertCircle}
-          iconColor={missingVoucherCount > 0 ? 'text-red-500' : 'text-green-600'}
-          iconBg={missingVoucherCount > 0 ? 'bg-red-50' : 'bg-green-50'}
+          iconColor={missingVoucherCount > 0 ? 'text-red-500' : 'text-emerald-600'}
+          iconBg={missingVoucherCount > 0 ? 'bg-red-50' : 'bg-emerald-50'}
         />
       </div>
 
-      {/* ── Balance summary + Phase snapshot ─────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-
-        {/* Balance card */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <Card className="lg:col-span-1">
-          <CardContent className="p-4 space-y-4">
+          <CardContent className="space-y-4 p-4">
             <h3 className="text-sm font-semibold">Project Balance</h3>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Income</span>
-                <span className="font-medium text-green-600">{formatBDT(income)}</span>
+                <span className="text-muted-foreground">Total Collection</span>
+                <span className="font-medium text-emerald-700">{formatBDT(finance.totalCollected)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Expense</span>
-                <span className="font-medium text-red-500">{formatBDT(expense)}</span>
+                <span className="text-muted-foreground">Actual Construction Cost</span>
+                <span className="font-medium text-rose-700">{formatBDT(finance.projectCostTotal)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Company Service Charge</span>
+                <span className="font-medium text-sky-700">{formatBDT(finance.serviceChargeAccrued)}</span>
               </div>
               <div className="h-px bg-border" />
               <div className="flex justify-between font-bold">
-                <span>Balance</span>
-                <span className={balanceColor(balance)}>{formatBDT(balance)}</span>
+                <span>Project Balance</span>
+                <span className={balanceColor(finance.finalSurplusDeficit)}>{formatBDT(finance.finalSurplusDeficit)}</span>
               </div>
             </div>
-            {income > 0 && (
+            <div className="grid grid-cols-2 gap-3 border-t pt-3 text-xs">
               <div>
-                <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                  <span>Expense / Income</span>
-                  <span>{Math.min(100, Math.round((expense / income) * 100))}%</span>
-                </div>
-                <div className="h-2 rounded-full bg-muted overflow-hidden">
-                  <div
-                    className={cn(
-                      'h-full rounded-full',
-                      expense > income ? 'bg-red-500' : 'bg-green-500'
-                    )}
-                    style={{ width: `${Math.min(100, Math.round((expense / income) * 100))}%` }}
-                  />
-                </div>
+                <p className="text-muted-foreground">Allocated Collection</p>
+                <p className="font-medium text-slate-900">{formatBDT(finance.allocatedCollection)}</p>
               </div>
-            )}
-            <div className="pt-2 space-y-2 text-xs">
-              <div className="flex justify-between text-muted-foreground">
-                <span>Supplier payable</span>
-                <span className="text-orange-600 font-medium">{formatBDT(supplierPayable)}</span>
+              <div>
+                <p className="text-muted-foreground">Buyer Advance / Unallocated</p>
+                <p className="font-medium text-slate-900">{formatBDT(finance.unallocatedCollection)}</p>
               </div>
-              <div className="flex justify-between text-muted-foreground">
-                <span>Subcontractor payable</span>
-                <span className="text-purple-600 font-medium">{formatBDT(subcontractorPayable)}</span>
+              <div>
+                <p className="text-muted-foreground">Service charge %</p>
+                <p className="font-medium text-slate-900">{Number(project.defaultServiceChargePct ?? 0).toFixed(2)}%</p>
               </div>
-              {project.startDate && (
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Started</span>
-                  <span>{formatDate(project.startDate)}</span>
-                </div>
-              )}
+              <div>
+                <p className="text-muted-foreground">Started</p>
+                <p className="font-medium text-slate-900">{project.startDate ? formatDate(project.startDate) : 'Not set'}</p>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Phase snapshot */}
         <Card className="lg:col-span-2">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-semibold">Phases</CardTitle>
-            <Link
-              href={`${base}/phases`}
-              className="text-xs text-primary flex items-center gap-1 hover:underline"
-            >
+            <Link href={`${base}/phases`} className="flex items-center gap-1 text-xs text-primary hover:underline">
               View all <ArrowRight className="h-3 w-3" />
             </Link>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y">
-              {recentPhases.map((ph, i) => {
-                const meta = phaseStatusMeta(ph.status);
+              {recentPhases.map((phase, index) => {
+                const meta = phaseStatusMeta(phase.status);
                 return (
-                  <Link key={ph.id} href={`${base}/phases`}>
-                    <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/40 transition-colors">
-                      <span className="text-xs text-muted-foreground w-5 shrink-0">{i + 1}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{ph.name}</p>
-                        {ph.nameBn && (
-                          <p className="text-xs bn text-muted-foreground truncate">{ph.nameBn}</p>
-                        )}
+                  <Link key={phase.id} href={`/phases/${phase.id}`}>
+                    <div className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/40">
+                      <span className="w-5 shrink-0 text-xs text-muted-foreground">{index + 1}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{phase.name}</p>
+                        {phase.nameBn ? <p className="bn truncate text-xs text-muted-foreground">{normalizeDisplayText(phase.nameBn)}</p> : null}
                       </div>
-                      <span
-                        className={cn(
-                          'text-xs px-2 py-0.5 rounded-full font-medium shrink-0',
-                          meta.color
-                        )}
-                      >
+                      <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-xs font-medium', meta.color)}>
                         {meta.label}
                       </span>
                     </div>
                   </Link>
                 );
               })}
-              {recentPhases.length === 0 && (
+              {recentPhases.length === 0 ? (
                 <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                  No phases yet.{' '}
-                  <Link href="/phases/new" className="text-primary hover:underline">
-                    Add a phase
-                  </Link>
+                  No phases yet. <Link href="/phases/new" className="text-primary hover:underline">Add a phase</Link>
                 </div>
-              )}
+              ) : null}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* ── Buyers snapshot ───────────────────────────────────── */}
-      {project.buyers.length > 0 && (
+      {project.buyers.length > 0 ? (
         <Card>
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-semibold">Buyers in This Project</CardTitle>
-            <Link
-              href={`${base}/buyers`}
-              className="text-xs text-primary flex items-center gap-1 hover:underline"
-            >
-              View all <ArrowRight className="h-3 w-3" />
-            </Link>
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <span>{project._count.units} units</span>
+              <span>{project._count.phases} phases</span>
+              <span>{activePhaseCount} active/current</span>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-x divide-y">
+            <div className="grid grid-cols-1 divide-x divide-y sm:grid-cols-2 lg:grid-cols-4">
               {project.buyers.map(({ buyer }) => (
                 <Link key={buyer.id} href={`${base}/buyers`}>
-                  <div className="flex items-center gap-2.5 px-4 py-3 hover:bg-muted/30 transition-colors">
-                    <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0">
+                  <div className="flex items-center gap-2.5 px-4 py-3 transition-colors hover:bg-muted/30">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
                       {buyer.name[0]?.toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{buyer.name}</p>
-                      {buyer.phone && (
-                        <p className="text-xs text-muted-foreground">{buyer.phone}</p>
-                      )}
+                      <p className="truncate text-sm font-medium">{buyer.name}</p>
+                      {buyer.phone ? <p className="text-xs text-muted-foreground">{buyer.phone}</p> : null}
                     </div>
                   </div>
                 </Link>
@@ -384,7 +298,7 @@ export default async function ProjectOverviewPage({ params }: { params: { id: st
             </div>
           </CardContent>
         </Card>
-      )}
+      ) : null}
     </div>
   );
 }

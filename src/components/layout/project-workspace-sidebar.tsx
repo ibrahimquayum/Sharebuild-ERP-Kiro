@@ -17,7 +17,7 @@ import {
   Settings,
   Shield,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, normalizeDisplayText } from '@/lib/utils';
 
 interface ProjectMeta {
   id: string;
@@ -240,7 +240,7 @@ export function ProjectWorkspaceSidebar({
             <p className="text-sm font-bold leading-tight truncate" title={project.name}>
               {displayName}
             </p>
-            {project.nameBn ? <p className="text-xs bn text-muted-foreground truncate">{project.nameBn}</p> : null}
+            {project.nameBn ? <p className="text-xs bn text-muted-foreground truncate">{normalizeDisplayText(project.nameBn)}</p> : null}
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
               <span
                 className={cn(

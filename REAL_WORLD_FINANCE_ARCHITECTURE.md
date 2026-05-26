@@ -1158,3 +1158,8 @@ Phase Balance
 ```
 
 Supplier bill items remain part of daily project cost detail and category breakdown, while Supplier Ledger remains the supplier-wise payable/payment report.
+## 2026-05-27 Reporting/UI clarification
+
+- Production-facing ERP screens should label construction outflow separately from company service charge.
+- Management reporting should treat service charge as demand-linked billing flow by default, with legacy separate settlement shown only as audit history.
+- Client-facing print/report surfaces must never leak raw internal database identifiers when voucher, bill, or receipt references are unavailable.

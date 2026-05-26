@@ -28,7 +28,7 @@ export default async function ServiceChargeFinancePage({ params }: { params: { i
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Calculated</div><div className="mt-1 text-lg font-bold">{formatBDT(ledger.totals.effectiveTotal)}</div></CardContent></Card>
-        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Billed in Demand</div><div className="mt-1 text-lg font-bold">{formatBDT(ledger.totals.billedTotal)}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Included in Demand / Billed</div><div className="mt-1 text-lg font-bold">{formatBDT(ledger.totals.billedTotal)}</div></CardContent></Card>
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Collected</div><div className="mt-1 text-lg font-bold">{formatBDT(ledger.totals.collectedTotal)}</div></CardContent></Card>
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Uncollected</div><div className="mt-1 text-lg font-bold">{formatBDT(ledger.totals.uncollectedTotal)}</div></CardContent></Card>
       </div>
@@ -58,7 +58,7 @@ export default async function ServiceChargeFinancePage({ params }: { params: { i
                   <th className="px-3 py-2 text-right text-xs uppercase text-muted-foreground">Billed</th>
                   <th className="px-3 py-2 text-right text-xs uppercase text-muted-foreground">Collected</th>
                   <th className="px-3 py-2 text-right text-xs uppercase text-muted-foreground">Uncollected</th>
-                  <th className="px-3 py-2 text-left text-xs uppercase text-muted-foreground">Status</th>
+                  <th className="px-3 py-2 text-left text-xs uppercase text-muted-foreground">Flow</th>
                 </tr>
               </thead>
               <tbody>
@@ -85,7 +85,17 @@ export default async function ServiceChargeFinancePage({ params }: { params: { i
                       <td className="px-3 py-2 text-right text-amber-700">{formatBDT(row.uncollectedAmount)}</td>
                       <td className="px-3 py-2 text-xs text-muted-foreground">
                         <div>{row.status.replaceAll('_', ' ')}</div>
-                        <div>{row.includedInDemand ? 'Demand-linked' : row.settlementStatus.replaceAll('_', ' ')}</div>
+                        <div>
+                          {row.includedInDemand
+                            ? row.billedAmount > 0
+                              ? 'Included in demand'
+                              : 'Included, not billed yet'
+                            : row.settlementStatus === 'SETTLED'
+                              ? 'Legacy separate settlement'
+                              : row.billedAmount > 0
+                                ? 'Billed'
+                                : 'Not billed yet'}
+                        </div>
                         {row.settlementReference ? <div>{row.settlementReference}</div> : null}
                       </td>
                     </tr>

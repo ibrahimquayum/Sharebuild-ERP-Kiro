@@ -814,3 +814,10 @@ VAT/AIT/TDS plus retention/security architecture and accounting flows.
   - Total phase cost `Tk 1,78,93,223.71`
   - Phase balance `-Tk 43,93,223.71`
 - Phase detail page now restores the actual side-by-side collection vs cost layout and shows real cost rows in the main right-side panel.
+## 2026-05-27 Stabilization pass
+
+- Scope held intentionally narrow: shell duplication, finance wording clarity, mojibake cleanup, and complete-project report presentation.
+- No schema changes.
+- No migration changes.
+- `next build` passes after the UI/report pass.
+- `prisma generate` is still intermittently blocked on Windows by a locked `query_engine-windows.dll.node` rename.

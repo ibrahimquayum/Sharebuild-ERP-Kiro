@@ -110,7 +110,7 @@ export default async function ProjectPhasesPage({ params }: { params: { id: stri
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Status</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Progress</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Collection</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Phase Cost</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Total Phase Cost</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Balance</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Buyer Due</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground whitespace-nowrap">Payable</th>
@@ -210,7 +210,7 @@ export default async function ProjectPhasesPage({ params }: { params: { id: stri
                           </Link>
                           <Link
                             href={`${base}/expenses/new?phaseId=${ph.id}`}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+                            className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted"
                             title="Add Expense"
                           >
                             <ShoppingCart className="h-3 w-3" />
@@ -218,7 +218,7 @@ export default async function ProjectPhasesPage({ params }: { params: { id: stri
                           </Link>
                           <Link
                             href={`${base}/collections/new?phaseId=${ph.id}`}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
+                            className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted"
                             title="Record Collection"
                           >
                             <Receipt className="h-3 w-3" />
@@ -226,7 +226,7 @@ export default async function ProjectPhasesPage({ params }: { params: { id: stri
                           </Link>
                           <Link
                             href={`${base}/demands?phaseId=${ph.id}`}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                            className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted"
                             title="Issue Demand"
                           >
                             <FileText className="h-3 w-3" />

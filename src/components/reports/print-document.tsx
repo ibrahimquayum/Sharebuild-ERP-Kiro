@@ -305,18 +305,43 @@ export function PrintNoteBox({
   );
 }
 
+export function PrintCompactEmptyState({
+  title,
+  message = 'No records found for this report scope.',
+}: {
+  title: string;
+  message?: string;
+}) {
+  return (
+    <div className="avoid-break rounded-sm border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-600">
+      <span className="font-medium text-slate-800">{title}:</span> {message}
+    </div>
+  );
+}
+
 export function PrintSignatureBlock({
   labels,
 }: {
   labels: string[];
 }) {
   return (
-    <div className="page-break-before grid gap-8 pt-12 md:grid-cols-3 xl:grid-cols-4">
-      {labels.map((label) => (
-        <div key={label} className="pt-12 text-center">
-          <div className="border-t border-slate-400 pt-2 text-sm font-medium text-slate-700">{label}</div>
+    <div className="space-y-8 pt-8">
+      <div>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Sign-off</div>
+        <h3 className="mt-1 text-lg font-semibold text-slate-950">Prepared, checked, and approved</h3>
+      </div>
+      <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-4">
+        {labels.map((label) => (
+          <div key={label} className="pt-12 text-center">
+            <div className="border-t border-slate-400 pt-2 text-sm font-medium text-slate-700">{label}</div>
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-8 md:grid-cols-2">
+        <div className="pt-8 text-center">
+          <div className="border-t border-slate-400 pt-2 text-sm font-medium text-slate-700">Date</div>
         </div>
-      ))}
+      </div>
     </div>
   );
 }

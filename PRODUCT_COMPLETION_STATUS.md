@@ -622,3 +622,9 @@ Begin the dependency/private-storage hardening pass, then come back for deeper a
 - No VAT/AIT/TDS yet.
 - No retention/security yet.
 - No final reconciliation yet.
+## 2026-05-27 Focused stabilization pass
+
+- Duplicate workspace shell behavior was tightened for project and phase detail routes.
+- `/dashboard`, `/projects`, and `/projects/[id]` now use post-service-charge finance wording instead of ambiguous expense/balance labels.
+- Complete Project print output was upgraded for management use with compact empty states, cleaner buyer/service-charge summaries, hidden internal IDs, and a proper signature page.
+- Bangla seed/display cleanup was applied for the visible Madina Garden mojibake issue.

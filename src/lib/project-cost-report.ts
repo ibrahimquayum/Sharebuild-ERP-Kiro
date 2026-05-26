@@ -42,6 +42,12 @@ function paymentMethodLabel(value: string | null | undefined) {
   return (value ?? '').replaceAll('_', ' ') || 'Bill / payable';
 }
 
+function clientFacingSourceNo(candidates: Array<string | null | undefined>, fallback: 'not-assigned' | 'imported-row' = 'not-assigned') {
+  const match = candidates.find((value) => value && value.trim().length > 0);
+  if (match) return match.trim();
+  return fallback === 'imported-row' ? 'Imported summary row' : 'Not assigned';
+}
+
 type UnifiedVoucherStatus = 'ATTACHED' | 'MISSING' | 'NOT_REQUIRED';
 
 export type UnifiedProjectCostRow = {
@@ -168,7 +174,7 @@ export async function getUnifiedProjectCostReport(
       date: expense.expenseDate,
       sourceType: 'DIRECT_EXPENSE',
       sourceId: expense.id,
-      sourceNo: expense.billNo ?? expense.referenceNo ?? expense.id,
+      sourceNo: clientFacingSourceNo([expense.billNo, expense.referenceNo]),
       category: expense.category,
       description: expense.description,
       partyName: expense.supplier?.name ?? expense.localShopName ?? 'Direct expense',
@@ -230,7 +236,7 @@ export async function getUnifiedProjectCostReport(
         date: payable.billDate,
         sourceType,
         sourceId: payable.id,
-        sourceNo: payable.billNo ?? payable.id,
+        sourceNo: clientFacingSourceNo([payable.billNo], payable.billItems.length > 0 ? 'not-assigned' : 'imported-row'),
         category: item.category,
         description: item.description,
         partyName: payable.supplier.name,
@@ -291,7 +297,7 @@ export async function getUnifiedProjectCostReport(
       date: entry?.approvedAt ?? entry?.calculatedAt ?? entry?.updatedAt ?? new Date(),
       sourceType: 'COMPANY_SERVICE_CHARGE',
       sourceId: entry?.id ?? phase.id,
-      sourceNo: entry ? `SC-${entry.id.slice(0, 8)}` : `SC-PREVIEW-${String(phase.sequence).padStart(2, '0')}`,
+      sourceNo: entry?.includedInDemand ? 'Included in demand' : entry ? 'Calculated service charge' : 'Preview service charge',
       category: 'SERVICE_CHARGE',
       description: 'Company Service Charge / Supervision Fee',
       partyName: 'Company supervision fee',
@@ -323,7 +329,7 @@ export async function getUnifiedProjectCostReport(
       date: entry.approvedAt ?? entry.calculatedAt ?? entry.updatedAt ?? entry.createdAt,
       sourceType: 'COMPANY_SERVICE_CHARGE',
       sourceId: entry.id,
-      sourceNo: `SC-${entry.id.slice(0, 8)}`,
+      sourceNo: entry.includedInDemand ? 'Included in demand' : 'Manual service charge',
       category: 'SERVICE_CHARGE',
       description: 'Company Service Charge / Supervision Fee',
       partyName: 'Company supervision fee',

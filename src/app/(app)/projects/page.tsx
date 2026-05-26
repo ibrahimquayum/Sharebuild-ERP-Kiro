@@ -1,13 +1,13 @@
-import { prisma } from '@/lib/prisma';
-import { requireCompanyPageAccess } from '@/lib/access-control';
+import Link from 'next/link';
+import { Building2, Layers, MapPin, ReceiptText, Users } from 'lucide-react';
+
 import { Header } from '@/components/layout/header';
 import { PageHeader } from '@/components/shared/page-header';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { formatBDT, formatDate } from '@/lib/utils';
-import { Building2, MapPin, Phone, Layers, Users, CalendarDays } from 'lucide-react';
-import Link from 'next/link';
-import { cn } from '@/lib/utils';
+import { requireCompanyPageAccess } from '@/lib/access-control';
+import { getProjectFinanceSummary } from '@/lib/project-finance';
+import { prisma } from '@/lib/prisma';
+import { balanceColor, cn, formatBDT, normalizeDisplayText } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,12 +23,16 @@ export default async function ProjectsPage() {
     include: {
       _count: { select: { phases: true, buyers: true, units: true } },
       phases: {
-        where: { status: { in: ['INCLUDED_IN_SUMMARY'] } },
-        select: { id: true },
+        where: { status: { in: ['ACTIVE', 'INCLUDED_IN_SUMMARY'] } },
+        select: { id: true, name: true, nameBn: true, status: true, sequence: true },
+        orderBy: [{ status: 'asc' }, { sequence: 'asc' }],
+        take: 1,
       },
     },
     orderBy: { createdAt: 'desc' },
   });
+
+  const financeSummaries = await Promise.all(projects.map((project) => getProjectFinanceSummary(project.id)));
 
   const statusColors: Record<string, string> = {
     ACTIVE: 'bg-blue-100 text-blue-700',
@@ -39,86 +43,118 @@ export default async function ProjectsPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-full">
+    <div className="flex min-h-full flex-col">
       <Header title="Projects" />
       <PageHeader
         title="All Projects"
-        subtitle={context.isCompanyWide ? 'Manage your construction projects' : 'Projects assigned to you'}
+        subtitle={context.isCompanyWide ? 'Project health, billing, and cost position in one view' : 'Projects assigned to you'}
         action={context.isCompanyWide ? { label: 'New Project', href: '/projects/new' } : undefined}
       />
 
       <div className="p-6">
         {projects.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center text-muted-foreground">
-            <Building2 className="h-12 w-12 mb-4 opacity-30" />
+            <Building2 className="mb-4 h-12 w-12 opacity-30" />
             <p className="text-lg font-medium">No projects yet</p>
-            <p className="text-sm mt-1">Create your first project to get started</p>
+            <p className="mt-1 text-sm">Create your first project to get started</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {projects.map((project) => (
-              <Link key={project.id} href={`/projects/${project.id}`}>
-                <Card className="h-full hover:shadow-lg transition-all cursor-pointer border-2 hover:border-primary/30">
-                  <CardContent className="p-5 flex flex-col gap-4">
-                    {/* Header */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h3 className="font-bold text-base leading-tight">{project.name}</h3>
-                        {project.nameBn && (
-                          <p className="bn text-sm text-muted-foreground mt-0.5">{project.nameBn}</p>
-                        )}
-                        {project.code && (
-                          <p className="text-xs text-muted-foreground mt-0.5 font-mono">{project.code}</p>
-                        )}
-                      </div>
-                      <span className={cn('text-xs px-2 py-1 rounded-full font-semibold shrink-0', statusColors[project.status] ?? 'bg-gray-100 text-gray-600')}>
-                        {project.status}
-                      </span>
-                    </div>
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {projects.map((project, index) => {
+              const finance = financeSummaries[index];
+              const currentPhase = project.phases[0];
 
-                    {/* Details */}
-                    <div className="space-y-1.5 text-sm text-muted-foreground">
-                      {project.address && (
-                        <div className="flex items-center gap-2">
+              return (
+                <Link key={project.id} href={`/projects/${project.id}`}>
+                  <Card className="h-full cursor-pointer border transition-all hover:border-primary/30 hover:shadow-lg">
+                    <CardContent className="flex h-full flex-col gap-4 p-5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h3 className="truncate text-base font-bold leading-tight">{project.name}</h3>
+                          {project.nameBn ? (
+                            <p className="bn mt-0.5 truncate text-sm text-muted-foreground">
+                              {normalizeDisplayText(project.nameBn)}
+                            </p>
+                          ) : null}
+                          {project.code ? <p className="mt-0.5 font-mono text-xs text-muted-foreground">{project.code}</p> : null}
+                        </div>
+                        <span
+                          className={cn(
+                            'shrink-0 rounded-full px-2 py-1 text-xs font-semibold',
+                            statusColors[project.status] ?? 'bg-gray-100 text-gray-600',
+                          )}
+                        >
+                          {project.status}
+                        </span>
+                      </div>
+
+                      {project.address ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <MapPin className="h-3.5 w-3.5 shrink-0" />
                           <span className="truncate">{project.address}</span>
                         </div>
-                      )}
-                      {project.phone && (
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-3.5 w-3.5 shrink-0" />
-                          <span>{project.phone}</span>
-                        </div>
-                      )}
-                      {project.startDate && (
-                        <div className="flex items-center gap-2">
-                          <CalendarDays className="h-3.5 w-3.5 shrink-0" />
-                          <span>Started {formatDate(project.startDate)}</span>
-                        </div>
-                      )}
-                    </div>
+                      ) : null}
 
-                    {/* Stats */}
-                    <div className="flex gap-4 pt-2 border-t text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Layers className="h-3.5 w-3.5" />
-                        <span>{project._count.phases} phases</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Users className="h-3.5 w-3.5" />
-                        <span>{project._count.buyers} buyers</span>
-                      </div>
-                      {project.totalFloors && (
-                        <div className="flex items-center gap-1">
-                          <Building2 className="h-3.5 w-3.5" />
-                          <span>{project.totalFloors} floors</span>
+                      <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/20 p-3 text-xs">
+                        <div>
+                          <p className="text-muted-foreground">Service charge</p>
+                          <p className="font-semibold text-slate-900">{Number(project.defaultServiceChargePct ?? 0).toFixed(2)}%</p>
                         </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+                        <div>
+                          <p className="text-muted-foreground">Current phase</p>
+                          <p className="truncate font-semibold text-slate-900">
+                            {currentPhase ? currentPhase.name : 'Not set'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 text-muted-foreground">
+                          <Layers className="h-3.5 w-3.5" />
+                          <span>{project._count.phases} phases</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-muted-foreground">
+                          <Users className="h-3.5 w-3.5" />
+                          <span>{project._count.buyers} buyers</span>
+                        </div>
+                        <div className="text-muted-foreground">Units / floors</div>
+                        <div className="font-medium text-slate-900">
+                          {project._count.units} / {project.totalFloors ?? 0}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
+                        <div>
+                          <p className="text-muted-foreground">Total Collection</p>
+                          <p className="font-medium text-emerald-700">{formatBDT(finance.totalCollected)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Actual Construction Cost</p>
+                          <p className="font-medium text-rose-700">{formatBDT(finance.projectCostTotal)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Total Billable Cost</p>
+                          <p className="font-medium text-slate-900">
+                            {formatBDT(finance.projectCostTotal + finance.serviceChargeAccrued)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Buyer Due</p>
+                          <p className="font-medium text-amber-700">{formatBDT(finance.buyerDue)}</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-auto flex items-center justify-between border-t pt-3 text-sm">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <ReceiptText className="h-4 w-4" />
+                          <span>Allocated {formatBDT(finance.allocatedCollection)}</span>
+                        </div>
+                        <div className={cn('font-semibold', balanceColor(finance.finalSurplusDeficit))}>
+                          {formatBDT(finance.finalSurplusDeficit)}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>

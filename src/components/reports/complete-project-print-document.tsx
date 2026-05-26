@@ -1,9 +1,10 @@
 import type { getCompleteProjectReportData } from '@/lib/complete-project-report';
 import { hasReportSection } from '@/lib/report-controls';
-import { expenseCategoryLabel, formatBDT, formatDate } from '@/lib/utils';
+import { expenseCategoryLabel, formatBDT, formatDate, normalizeDisplayText, projectCostDetailModeLabel } from '@/lib/utils';
 
 import {
   PrintAmount,
+  PrintCompactEmptyState,
   PrintCoverPage,
   PrintDocumentShell,
   PrintNoteBox,
@@ -54,7 +55,7 @@ export function CompleteProjectPrintDocument({
   generatedBy: string;
 }) {
   const filters = data.filters;
-  const showEmpty = filters.includeEmptySections;
+  const showEmpty = filters.detailMode === 'audit' ? filters.includeEmptySections : false;
   const taxRows = [...data.supplierSummary, ...data.subcontractorSummary].filter(
     (payable) =>
       Number(payable.vatAmount ?? 0) > 0 ||
@@ -74,12 +75,17 @@ export function CompleteProjectPrintDocument({
     >
       <PrintCoverPage
         branding={data.branding}
-        project={data.project}
+        project={{
+          ...data.project,
+          name: normalizeDisplayText(data.project.name) ?? data.project.name,
+          nameBn: normalizeDisplayText(data.project.nameBn),
+          address: normalizeDisplayText(data.project.address),
+        }}
         title="Complete Project Report"
         reportingPeriod={data.reportingPeriod}
         generatedAt={data.generatedAt}
         generatedBy={generatedBy}
-        note="This print and PDF route is intentionally separated from the screen view. It uses compact financial tables, full document flow, and the same controlled data slice as the screen report and Excel workbook."
+        note="Management report prepared from the same controlled data slice as the screen report and workbook export. Service charge is billed through buyer demand and collected through normal buyer collection."
       />
 
       {data.reportNotes.length > 0 ? (
@@ -105,7 +111,7 @@ export function CompleteProjectPrintDocument({
                 { label: 'Project code', value: data.project.code || 'Not assigned' },
                 { label: 'Project address', value: data.project.address || 'Project address not recorded' },
                 { label: 'Reporting period', value: data.reportingPeriod },
-                { label: 'Report mode', value: filters.detailMode.replace('-', ' ') },
+                { label: 'Report mode', value: projectCostDetailModeLabel(filters.detailMode) },
                 { label: 'Visible phases', value: filters.phaseIds.length ? `${filters.phaseIds.length} selected` : 'All phases' },
                 { label: 'Cost rows in slice', value: `${data.costReport.rows.length} of ${data.costReport.allRowsCount}` },
                 {
@@ -264,7 +270,7 @@ export function CompleteProjectPrintDocument({
               <PrintPage key={group.phaseId ?? `project-general-${index}`} breakBefore>
                 <PrintSection
                   title={`Phase Detail - ${group.phaseName}`}
-                  description="Supplier bill items remain inside daily project cost details; supplier ledger stays separate as the party-wise payable report."
+                  description="Phase collection, cost composition, and audit visibility for the selected reporting slice."
                 >
                   <PrintSubsection title="Phase Summary">
                     <PrintSummaryTable
@@ -330,7 +336,7 @@ export function CompleteProjectPrintDocument({
                   ) : null}
 
                   {shouldShow(showEmpty, group.rows.length) ? (
-                    <PrintSubsection title="Daily Project Cost Details">
+                      <PrintSubsection title="Daily Project Cost Details">
                       <PrintTable dense>
                         <thead>
                           <tr className="border-b border-slate-300 bg-slate-100 text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-700">
@@ -357,9 +363,9 @@ export function CompleteProjectPrintDocument({
                                 <td className="px-2 py-2 text-slate-700">{formatDate(row.date)}</td>
                                 <td className="px-2 py-2 text-slate-700">{sourceTypeLabel(row.sourceType)}</td>
                                 <td className="px-2 py-2 font-mono text-[10px] text-slate-600">{row.sourceNo}</td>
-                                <td className="px-2 py-2 text-slate-700">{row.partyName}</td>
+                                <td className="px-2 py-2 text-slate-700">{normalizeDisplayText(row.partyName) ?? row.partyName}</td>
                                 <td className="px-2 py-2">
-                                  <div className="font-medium text-slate-900">{row.description}</div>
+                                  <div className="font-medium text-slate-900">{normalizeDisplayText(row.description) ?? row.description}</div>
                                   <div className="text-[10px] text-slate-500">{expenseCategoryLabel(row.category)}</div>
                                 </td>
                                 <td className="px-2 py-2 text-right text-slate-700">{row.quantity != null ? `${row.quantity} ${row.unit ?? ''}` : '-'}</td>
@@ -403,6 +409,17 @@ export function CompleteProjectPrintDocument({
       {hasReportSection(filters, 'buyer-billing') && shouldShow(showEmpty, data.buyerBillingSummary.length) ? (
         <PrintPage breakBefore>
           <PrintSection title="Buyer Billing & Due" description="Buyer-wise demand, collection, allocation, due, and advance.">
+            <PrintSummaryTable
+              rows={[
+                { label: 'Total buyers', value: String(data.buyerBillingSummary.length) },
+                { label: 'Buyers with due', value: String(data.buyerBillingSummary.filter((row) => row.due > 0).length), tone: data.buyerBillingSummary.some((row) => row.due > 0) ? 'warning' : 'default' },
+                { label: 'Buyers with advance', value: String(data.buyerBillingSummary.filter((row) => row.advance > 0).length), tone: data.buyerBillingSummary.some((row) => row.advance > 0) ? 'info' : 'default' },
+                { label: 'Total issued demand', value: formatBDT(data.buyerBillingSummary.reduce((sum, row) => sum + row.demanded, 0)) },
+                { label: 'Total collection', value: formatBDT(data.buyerBillingSummary.reduce((sum, row) => sum + row.collected, 0)), tone: 'positive' },
+                { label: 'Total allocated', value: formatBDT(data.buyerBillingSummary.reduce((sum, row) => sum + row.allocated, 0)), tone: 'positive' },
+                { label: 'Total unallocated / advance', value: formatBDT(data.buyerBillingSummary.reduce((sum, row) => sum + row.advance, 0)), tone: 'info' },
+              ]}
+            />
             <PrintTable dense>
               <thead>
                 <tr className="border-b border-slate-300 bg-slate-100 text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-700">
@@ -418,7 +435,7 @@ export function CompleteProjectPrintDocument({
               <tbody>
                 {data.buyerBillingSummary.map((row) => (
                   <tr key={row.buyerId} className="border-b border-slate-200">
-                    <td className="px-2.5 py-2 font-medium text-slate-900">{row.buyerName}</td>
+                    <td className="px-2.5 py-2 font-medium text-slate-900">{normalizeDisplayText(row.buyerName) ?? row.buyerName}</td>
                     <td className="px-2.5 py-2 text-slate-700">{row.unitsText}</td>
                     <td className="px-2.5 py-2 text-right"><PrintAmount value={formatBDT(row.demanded)} /></td>
                     <td className="px-2.5 py-2 text-right"><PrintAmount value={formatBDT(row.collected)} tone="positive" /></td>
@@ -433,9 +450,12 @@ export function CompleteProjectPrintDocument({
         </PrintPage>
       ) : null}
 
-      {hasReportSection(filters, 'supplier-ledger') && shouldShow(showEmpty, data.projectSupplierAssignments.length) ? (
+      {hasReportSection(filters, 'supplier-ledger') ? (
         <PrintPage breakBefore>
           <PrintSection title="Supplier Ledger Summary" description="Supplier bill, paid, payable, and document status remain separate from project cost rows.">
+            {data.projectSupplierAssignments.length === 0 ? (
+              <PrintCompactEmptyState title="Supplier ledger" />
+            ) : (
             <PrintTable dense>
               <thead>
                 <tr className="border-b border-slate-300 bg-slate-100 text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-700">
@@ -450,7 +470,7 @@ export function CompleteProjectPrintDocument({
               <tbody>
                 {data.projectSupplierAssignments.map((assignment) => (
                   <tr key={assignment.id} className="border-b border-slate-200">
-                    <td className="px-2.5 py-2 font-medium text-slate-900">{assignment.supplier.name}</td>
+                    <td className="px-2.5 py-2 font-medium text-slate-900">{normalizeDisplayText(assignment.supplier.name) ?? assignment.supplier.name}</td>
                     <td className="px-2.5 py-2 text-slate-700">{assignment.materialCategory || assignment.paymentTerms || 'General supplier assignment'}</td>
                     <td className="px-2.5 py-2 text-right"><PrintAmount value={formatBDT(assignment.summary.totalBilled)} tone="negative" /></td>
                     <td className="px-2.5 py-2 text-right"><PrintAmount value={formatBDT(assignment.summary.totalPaid)} tone="positive" /></td>
@@ -460,13 +480,17 @@ export function CompleteProjectPrintDocument({
                 ))}
               </tbody>
             </PrintTable>
+            )}
           </PrintSection>
         </PrintPage>
       ) : null}
 
-      {hasReportSection(filters, 'subcontractor-ledger') && shouldShow(showEmpty, data.projectSubcontractorAssignments.length) ? (
+      {hasReportSection(filters, 'subcontractor-ledger') ? (
         <PrintPage breakBefore>
           <PrintSection title="Subcontractor Ledger Summary" description="Work-package bill, paid, due, retention, and document quality.">
+            {data.projectSubcontractorAssignments.length === 0 ? (
+              <PrintCompactEmptyState title="Subcontractor ledger" />
+            ) : (
             <PrintTable dense>
               <thead>
                 <tr className="border-b border-slate-300 bg-slate-100 text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-700">
@@ -482,7 +506,7 @@ export function CompleteProjectPrintDocument({
               <tbody>
                 {data.projectSubcontractorAssignments.map((assignment) => (
                   <tr key={assignment.id} className="border-b border-slate-200">
-                    <td className="px-2.5 py-2 font-medium text-slate-900">{assignment.supplier.name}</td>
+                    <td className="px-2.5 py-2 font-medium text-slate-900">{normalizeDisplayText(assignment.supplier.name) ?? assignment.supplier.name}</td>
                     <td className="px-2.5 py-2 text-slate-700">{assignment.workType.replaceAll('_', ' ')}</td>
                     <td className="px-2.5 py-2 text-right"><PrintAmount value={formatBDT(Number(assignment.contractAmount ?? 0) + Number(assignment.extraWorkAmount ?? 0))} /></td>
                     <td className="px-2.5 py-2 text-right"><PrintAmount value={formatBDT(assignment.summary.totalBilled)} tone="negative" /></td>
@@ -493,6 +517,7 @@ export function CompleteProjectPrintDocument({
                 ))}
               </tbody>
             </PrintTable>
+            )}
           </PrintSection>
         </PrintPage>
       ) : null}
@@ -512,9 +537,12 @@ export function CompleteProjectPrintDocument({
         </PrintPage>
       ) : null}
 
-      {hasReportSection(filters, 'cheques') && shouldShow(showEmpty, data.chequeSummary.cheques.length) ? (
+      {hasReportSection(filters, 'cheques') ? (
         <PrintPage breakBefore>
           <PrintSection title="Cheque Register Summary" description="Issued and received cheques by party, amount, and current status.">
+            {data.chequeSummary.cheques.length === 0 ? (
+              <PrintCompactEmptyState title="Cheque register" />
+            ) : (
             <PrintTable dense>
               <thead>
                 <tr className="border-b border-slate-300 bg-slate-100 text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-700">
@@ -530,22 +558,25 @@ export function CompleteProjectPrintDocument({
                   <tr key={cheque.id} className="border-b border-slate-200">
                     <td className="px-2.5 py-2 font-medium text-slate-900">{cheque.chequeNo}</td>
                     <td className="px-2.5 py-2 text-slate-700">{cheque.chequeType.replaceAll('_', ' ')}</td>
-                    <td className="px-2.5 py-2 text-slate-700">{cheque.partyName ?? cheque.partyType}</td>
+                    <td className="px-2.5 py-2 text-slate-700">{normalizeDisplayText(cheque.partyName ?? cheque.partyType) ?? cheque.partyType}</td>
                     <td className="px-2.5 py-2 text-right"><PrintAmount value={formatBDT(Number(cheque.amount))} /></td>
                     <td className="px-2.5 py-2"><PrintStatusPill label={cheque.status.replaceAll('_', ' ')} tone={statusTone(cheque.status)} /></td>
                   </tr>
                 ))}
               </tbody>
             </PrintTable>
+            )}
           </PrintSection>
         </PrintPage>
       ) : null}
 
       {hasReportSection(filters, 'tax-retention-service-charge') ? (
         <>
-          {shouldShow(showEmpty, taxRows.length) ? (
-            <PrintPage breakBefore>
-              <PrintSection title="Tax / Deduction Summary" description="Bill-level VAT, AIT/TDS, and other deductions.">
+          <PrintPage breakBefore>
+            <PrintSection title="Tax / Deduction Summary" description="Bill-level VAT, AIT/TDS, and other deductions.">
+              {taxRows.length === 0 ? (
+                <PrintCompactEmptyState title="Tax / deduction summary" />
+              ) : (
                 <PrintTable dense>
                   <thead>
                     <tr className="border-b border-slate-300 bg-slate-100 text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-700">
@@ -559,7 +590,7 @@ export function CompleteProjectPrintDocument({
                   <tbody>
                     {taxRows.map((payable) => (
                       <tr key={payable.id} className="border-b border-slate-200">
-                        <td className="px-2.5 py-2 font-medium text-slate-900">{payable.supplier.name}</td>
+                        <td className="px-2.5 py-2 font-medium text-slate-900">{normalizeDisplayText(payable.supplier.name) ?? payable.supplier.name}</td>
                         <td className="px-2.5 py-2 text-slate-700">{payable.billNo ?? 'Project bill'}</td>
                         <td className="px-2.5 py-2 text-right"><PrintAmount value={formatBDT(Number(payable.vatAmount ?? 0))} /></td>
                         <td className="px-2.5 py-2 text-right"><PrintAmount value={formatBDT(Number(payable.aitTdsAmount ?? 0))} /></td>
@@ -568,13 +599,15 @@ export function CompleteProjectPrintDocument({
                     ))}
                   </tbody>
                 </PrintTable>
-              </PrintSection>
-            </PrintPage>
-          ) : null}
+              )}
+            </PrintSection>
+          </PrintPage>
 
-          {shouldShow(showEmpty, retentionRows.length) ? (
-            <PrintPage breakBefore>
-              <PrintSection title="Retention Summary" description="Retention held, released, and outstanding balances.">
+          <PrintPage breakBefore>
+            <PrintSection title="Retention Summary" description="Retention held, released, and outstanding balances.">
+              {retentionRows.length === 0 ? (
+                <PrintCompactEmptyState title="Retention summary" />
+              ) : (
                 <PrintTable dense>
                   <thead>
                     <tr className="border-b border-slate-300 bg-slate-100 text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-700">
@@ -589,7 +622,7 @@ export function CompleteProjectPrintDocument({
                   <tbody>
                     {retentionRows.map((payable) => (
                       <tr key={payable.id} className="border-b border-slate-200">
-                        <td className="px-2.5 py-2 font-medium text-slate-900">{payable.supplier.name}</td>
+                        <td className="px-2.5 py-2 font-medium text-slate-900">{normalizeDisplayText(payable.supplier.name) ?? payable.supplier.name}</td>
                         <td className="px-2.5 py-2 text-slate-700">{payable.billNo ?? 'Project bill'}</td>
                         <td className="px-2.5 py-2 text-right"><PrintAmount value={formatBDT(Number(payable.retentionAmount ?? 0))} /></td>
                         <td className="px-2.5 py-2 text-right"><PrintAmount value={formatBDT(Number(payable.retentionReleasedAmount ?? 0))} tone="positive" /></td>
@@ -599,12 +632,15 @@ export function CompleteProjectPrintDocument({
                     ))}
                   </tbody>
                 </PrintTable>
-              </PrintSection>
-            </PrintPage>
-          ) : null}
+              )}
+            </PrintSection>
+          </PrintPage>
 
           <PrintPage breakBefore>
             <PrintSection title="Service Charge Summary" description="Company Service Charge / Supervision Fee by phase or work item.">
+              <PrintNoteBox title="Billing flow note">
+                Service charge is billed through buyer demand and collected through normal buyer collection.
+              </PrintNoteBox>
               <PrintTable dense>
                 <thead>
                   <tr className="border-b border-slate-300 bg-slate-100 text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-700">
@@ -621,7 +657,7 @@ export function CompleteProjectPrintDocument({
                 <tbody>
                   {(data.serviceChargeLedger?.rows ?? []).map((row) => (
                     <tr key={`${row.phaseId ?? 'project'}-${row.entryId ?? row.phaseName}`} className="border-b border-slate-200">
-                      <td className="px-2.5 py-2 font-medium text-slate-900">{row.phaseName}</td>
+                      <td className="px-2.5 py-2 font-medium text-slate-900">{normalizeDisplayText(row.phaseName) ?? row.phaseName}</td>
                       <td className="px-2.5 py-2 text-right"><PrintAmount value={formatBDT(row.basisAmount)} /></td>
                       <td className="px-2.5 py-2 text-right text-slate-700">{Number(row.percentage ?? 0).toFixed(2)}%</td>
                       <td className="px-2.5 py-2 text-right"><PrintAmount value={formatBDT(row.serviceChargeAmount)} tone="info" /></td>
@@ -632,10 +668,12 @@ export function CompleteProjectPrintDocument({
                         <PrintStatusPill
                           label={
                             row.includedInDemand
-                              ? 'Demand-linked'
+                              ? 'Included in demand'
+                              : row.billedAmount <= 0
+                                ? 'Not billed yet'
                               : row.settlementStatus === 'SETTLED'
                                 ? 'Legacy separate settlement'
-                                : row.settlementStatus.replaceAll('_', ' ')
+                                : 'Billed separately'
                           }
                           tone={row.includedInDemand ? 'positive' : statusTone(row.settlementStatus)}
                         />
@@ -679,7 +717,7 @@ export function CompleteProjectPrintDocument({
         </PrintPage>
       ) : null}
 
-      <PrintPage>
+      <PrintPage breakBefore>
         <PrintSignatureBlock labels={['Prepared by', 'Checked by', 'Approved by', 'Company seal / signature']} />
       </PrintPage>
     </PrintDocumentShell>

@@ -17,8 +17,8 @@ export function AppShell({
 }) {
   const pathname = usePathname();
 
-  // Match /projects/[id] and any sub-route
-  const isProjectWorkspace = /^\/projects\/[^/]+(\/|$)/.test(pathname);
+  // Match project workspace routes and phase detail routes that should reuse the project shell.
+  const isProjectWorkspace = /^\/projects\/[^/]+(\/|$)/.test(pathname) || /^\/phases\/[^/]+(\/|$)/.test(pathname);
 
   if (isProjectWorkspace) {
     // Project workspace: no global sidebar, full-width

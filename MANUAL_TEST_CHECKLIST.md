@@ -475,3 +475,14 @@ Login: `admin@relaxdevelopers.com` / `admin123`
   - Income: `100,143,800`
   - Expense: `104,659,890.40`
   - Balance: `-4,516,090.40`
+## 2026-05-27 UI/report stabilization retest
+
+- [x] `npx prisma validate`
+- [ ] `npx prisma generate` — blocked by Windows file lock on Prisma query engine rename
+- [x] `npm run build`
+- [x] `npm run db:seed`
+- [x] Relax Tower seeded totals preserved:
+  - Income `100,143,800`
+  - Expense `104,659,890.40`
+  - Balance `-4,516,090.40`
+- [ ] Browser route smoke test on local running server — blocked by local `500` response on `next start` despite successful build

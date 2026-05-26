@@ -106,7 +106,7 @@ export function getDefaultProjectCostReportFilters(): ProjectCostReportFilters {
     voucherStatus: 'all',
     includeDraftPending: false,
     includeReversedCancelled: false,
-    includeEmptySections: true,
+    includeEmptySections: false,
     detailMode: 'detailed',
     sections: [...DEFAULT_SECTIONS],
   };
