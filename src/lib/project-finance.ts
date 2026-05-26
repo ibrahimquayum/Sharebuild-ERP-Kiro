@@ -222,8 +222,8 @@ export async function getProjectPhaseBalances(projectId: string) {
     serviceChargeCalculated: number;
     serviceCharge: number;
     serviceChargeStatus: string;
-    carryIn: number;
     balance: number;
+    carryIn: number;
     carryOut: number;
   }> = [];
 
@@ -267,7 +267,8 @@ export async function getProjectPhaseBalances(projectId: string) {
     const serviceChargeCalculated = sumAmounts(calculatedEntries.map((entry) => entry.serviceChargeAmount));
     const serviceCharge = serviceChargeApproved || serviceChargeCalculated || serviceChargePreview;
     const totalPhaseCost = phaseCost + serviceCharge;
-    const balance = numberValue(collectionAgg._sum.amount) + carryIn - totalPhaseCost;
+    const phaseBalance = numberValue(collectionAgg._sum.amount) - totalPhaseCost;
+    const carryOut = carryIn + phaseBalance;
 
     rows.push({
       phaseId: phase.id,
@@ -296,19 +297,19 @@ export async function getProjectPhaseBalances(projectId: string) {
       serviceChargeCalculated,
       serviceCharge,
       serviceChargeStatus: approvedEntries.length ? 'APPROVED' : calculatedEntries.length ? calculatedEntries[0].status : 'PREVIEW',
+      balance: phaseBalance,
       carryIn,
-      balance,
-      carryOut: balance,
+      carryOut,
     });
 
-    carryIn = balance;
+    carryIn = carryOut;
   }
 
   return rows;
 }
 
 export async function getProjectServiceChargeLedger(projectId: string) {
-  const [project, phaseBalances, entries] = await Promise.all([
+  const [project, phaseBalances, entries, demands] = await Promise.all([
     prisma.project.findUnique({
       where: { id: projectId },
       select: { id: true, name: true, defaultServiceChargePct: true },
@@ -319,11 +320,52 @@ export async function getProjectServiceChargeLedger(projectId: string) {
       include: { phase: { select: { id: true, name: true } } },
       orderBy: [{ phaseId: 'asc' }, { updatedAt: 'desc' }],
     }),
+    prisma.demand.findMany({
+      where: {
+        phase: { projectId },
+        status: { not: 'CANCELLED' },
+        serviceChargeAmount: { gt: 0 },
+      },
+      select: {
+        phaseId: true,
+        amount: true,
+        serviceChargeAmount: true,
+        allocations: {
+          where: { collection: { status: { not: 'REVERSED' } } },
+          select: { amount: true },
+        },
+        collections: {
+          where: { status: { not: 'REVERSED' } },
+          select: { amount: true },
+        },
+      },
+    }),
   ]);
 
   if (!project) return null;
 
   const activeEntries = entries.filter((entry) => !entry.reversedAt && entry.status !== 'REVERSED');
+  const demandSummaryByPhase = demands.reduce<
+    Record<string, { billedAmount: number; collectedAmount: number }>
+  >((map, demand) => {
+    if (!demand.phaseId) return map;
+    const current = map[demand.phaseId] ?? { billedAmount: 0, collectedAmount: 0 };
+    const billedAmount = numberValue(demand.serviceChargeAmount);
+    const demandAmount = numberValue(demand.amount);
+    const allocationTotal = sumAmounts(demand.allocations.map((allocation) => allocation.amount));
+    const legacyCollectionTotal = sumAmounts(demand.collections.map((collection) => collection.amount));
+    const collectedAgainstDemand = allocationTotal > 0 ? allocationTotal : legacyCollectionTotal;
+    const collectedShare =
+      billedAmount > 0 && demandAmount > 0
+        ? roundMoney((collectedAgainstDemand * billedAmount) / demandAmount)
+        : 0;
+
+    current.billedAmount += billedAmount;
+    current.collectedAmount += Math.min(collectedShare, billedAmount);
+    map[demand.phaseId] = current;
+    return map;
+  }, {});
+
   const rows = phaseBalances
     .filter((row) => row.phaseCost > 0 || row.serviceChargePct > 0)
     .map((row) => {
@@ -331,6 +373,10 @@ export async function getProjectServiceChargeLedger(projectId: string) {
       const effectiveAmount = phaseEntry
         ? numberValue(phaseEntry.serviceChargeAmount)
         : row.serviceChargePreview;
+      const demandSummary = demandSummaryByPhase[row.phaseId] ?? { billedAmount: 0, collectedAmount: 0 };
+      const billedAmount = roundMoney(demandSummary.billedAmount);
+      const collectedAmount = roundMoney(Math.min(demandSummary.collectedAmount, billedAmount));
+      const uncollectedAmount = roundMoney(Math.max(billedAmount - collectedAmount, 0));
 
         return {
           phaseId: row.phaseId,
@@ -352,6 +398,9 @@ export async function getProjectServiceChargeLedger(projectId: string) {
           settledAt: phaseEntry?.settledAt ?? null,
           serviceChargeAmount: effectiveAmount,
           previewAmount: row.serviceChargePreview,
+          billedAmount,
+          collectedAmount,
+          uncollectedAmount,
           entryId: phaseEntry?.id,
           notes: phaseEntry?.notes ?? '',
         };
@@ -375,6 +424,9 @@ export async function getProjectServiceChargeLedger(projectId: string) {
         settledAt: entry.settledAt ?? null,
         serviceChargeAmount: numberValue(entry.serviceChargeAmount),
         previewAmount: 0,
+        billedAmount: 0,
+        collectedAmount: 0,
+        uncollectedAmount: 0,
         entryId: entry.id,
         notes: entry.notes ?? '',
       }));
@@ -393,6 +445,12 @@ export async function getProjectServiceChargeLedger(projectId: string) {
     const settledTotal = [...rows, ...manualRows]
       .filter((row) => row.settlementStatus === 'SETTLED')
       .reduce((sum, row) => sum + row.serviceChargeAmount, 0);
+    const billedTotal = rows.reduce((sum, row) => sum + row.billedAmount, 0);
+    const collectedTotal = rows.reduce((sum, row) => sum + row.collectedAmount, 0);
+    const uncollectedTotal = rows.reduce((sum, row) => sum + row.uncollectedAmount, 0);
+    const legacySeparateSettlementTotal = [...rows, ...manualRows]
+      .filter((row) => row.settlementStatus === 'SETTLED' && !row.includedInDemand)
+      .reduce((sum, row) => sum + row.serviceChargeAmount, 0);
     const previewTotal = rows.reduce((sum, row) => sum + row.previewAmount, 0);
     const effectiveTotal = approvedTotal || calculatedTotal || previewTotal;
 
@@ -407,6 +465,10 @@ export async function getProjectServiceChargeLedger(projectId: string) {
         effectiveTotal,
         includedInDemandTotal,
         settledTotal,
+        billedTotal,
+        collectedTotal,
+        uncollectedTotal,
+        legacySeparateSettlementTotal,
         pendingCount: activeEntries.filter((entry) => entry.status !== 'APPROVED').length,
       },
     };
@@ -536,6 +598,10 @@ export async function getProjectFinanceSummary(projectId: string) {
   const serviceChargeApproved = serviceChargeLedger?.totals.approvedTotal ?? 0;
   const serviceChargeSettled = serviceChargeLedger?.totals.settledTotal ?? 0;
   const serviceChargeIncludedInDemand = serviceChargeLedger?.totals.includedInDemandTotal ?? 0;
+  const serviceChargeBilled = serviceChargeLedger?.totals.billedTotal ?? 0;
+  const serviceChargeCollected = serviceChargeLedger?.totals.collectedTotal ?? 0;
+  const serviceChargeUncollected = serviceChargeLedger?.totals.uncollectedTotal ?? 0;
+  const legacySeparateServiceChargeSettled = serviceChargeLedger?.totals.legacySeparateSettlementTotal ?? 0;
   const projectBalance = totalCollected - projectCostTotal;
   const finalSurplusDeficit = projectBalance - serviceChargeAccrued;
   const unlockedPhases = phaseBalances.filter((row) => !row.auditLocked).length;
@@ -563,8 +629,8 @@ export async function getProjectFinanceSummary(projectId: string) {
     pendingReceivedCheques > 0 || pendingIssuedCheques > 0 ? 'Pending cheques are still unresolved.' : null,
     bouncedCheques > 0 ? 'Bounced cheques still need resolution.' : null,
     serviceChargeLedger && serviceChargeLedger.totals.pendingCount > 0 ? 'Service charge is not fully approved yet.' : null,
-    serviceChargeLedger && serviceChargeLedger.totals.approvedTotal > 0 && serviceChargeLedger.totals.settledTotal <= 0 && serviceChargeLedger.totals.includedInDemandTotal <= 0
-      ? 'Approved service charge is not yet included in demand or settled.'
+    serviceChargeLedger && serviceChargeLedger.totals.approvedTotal > 0 && serviceChargeLedger.totals.billedTotal <= 0
+      ? 'Approved service charge is not yet billed through buyer demand.'
       : null,
     !postedReconciliation ? 'Final reconciliation has not been posted yet.' : null,
     unlockedPhases > 0 ? `${unlockedPhases} phases are still open to finance changes.` : null,
@@ -593,6 +659,10 @@ export async function getProjectFinanceSummary(projectId: string) {
       serviceChargeApproved,
       serviceChargeSettled,
       serviceChargeIncludedInDemand,
+      serviceChargeBilled,
+      serviceChargeCollected,
+      serviceChargeUncollected,
+      legacySeparateServiceChargeSettled,
       supplierPayable,
     subcontractorPayable,
     supplierPaid,

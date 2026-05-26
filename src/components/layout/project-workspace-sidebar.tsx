@@ -85,7 +85,7 @@ function buildNav(projectId: string, allowedModules: string[]): NavItem[] {
         { label: 'Subcontractor Payments', href: `${base}/payables/payments?type=subcontractor`, module: 'subcontractors' },
         { label: 'Cash / Bank', href: `${base}/finance/cash-bank`, module: 'accounts' },
         { label: 'Cheques', href: `${base}/finance/cheques`, module: 'cheques' },
-        { label: 'Service Charge', href: `${base}/finance/service-charge`, module: 'serviceCharge' },
+        { label: 'Service Charge Summary', href: `${base}/finance/service-charge`, module: 'serviceCharge' },
         { label: 'Final Reconciliation', href: `${base}/finance/final-reconciliation`, module: 'finalReconciliation' },
         { label: 'Project Balance', href: `${base}/reports/top-sheet`, module: 'reports' },
       ],

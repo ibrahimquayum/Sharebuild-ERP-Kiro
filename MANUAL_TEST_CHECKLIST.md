@@ -31,6 +31,10 @@ Login: `admin@relaxdevelopers.com` / `admin123`
 
 - [ ] `/projects/new` creates a new project and redirects to `/projects/[newProjectId]`.
 - [ ] `/projects/[id]/settings` saves profile/planning fields.
+- [ ] Project default service charge saves and reloads correctly for:
+  - `5%`
+  - `7.5%`
+  - explicit `0%`
 - [ ] Financial totals cannot be manually edited.
 
 ## D. Units And Ownership
@@ -69,6 +73,7 @@ Login: `admin@relaxdevelopers.com` / `admin123`
 - [ ] `/projects/[id]/payables` remains project-scoped.
 - [ ] Supplier bill creation accepts multiple line items and paid amount.
 - [ ] Collection creation allocates FIFO to unpaid demands and updates demand status.
+- [ ] Demand batch creation shows effective phase service charge and keeps it inside buyer billing.
 
 ## G. Reports
 
@@ -236,7 +241,12 @@ Login: `admin@relaxdevelopers.com` / `admin123`
 - [ ] `/projects/[id]/finance/service-charge` opens and shows phase-wise service charge rows.
 - [ ] `POST /api/projects/[id]/service-charge` can calculate service charge rows without crashing.
 - [ ] Approved service charge rows appear in finance hub, service charge report, and complete project report.
-- [ ] Service charge can be settled separately to a treasury account and then shows as settled in the ledger.
+- [ ] Service charge summary shows:
+  - calculated
+  - billed in demand
+  - collected
+  - uncollected
+- [ ] Separate service-charge settlement is not required for the normal operating flow.
 - [ ] `/projects/[id]/finance/final-reconciliation` opens and shows finance readiness plus buyer distribution preview.
 - [ ] Final reconciliation posting is blocked when no ownership rows exist.
 - [ ] After assigning unit ownership, final reconciliation posting succeeds once.
@@ -256,7 +266,7 @@ Login: `admin@relaxdevelopers.com` / `admin123`
 - [ ] Open `/projects/project-relax-tower/finance/service-charge`.
 - [ ] Calculate service charge entries.
 - [ ] Approve service charge entries.
-- [ ] Settle one approved service charge entry to `Office Cash` or another active account.
+- [ ] Confirm service charge is billed through demand and later visible as billed/collected/uncollected instead of requiring separate settlement.
 - [ ] Open `/projects/project-relax-tower/finance/final-reconciliation`.
 - [ ] Confirm preview is not blocked for missing ownership.
 - [ ] Post final reconciliation once.

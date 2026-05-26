@@ -38,6 +38,10 @@ export function DemandBatchForm({
     () => serviceChargeEntries.filter((entry) => entry.phaseId === phaseId || entry.phaseId === null),
     [serviceChargeEntries, phaseId],
   );
+  const selectedPhase = useMemo(
+    () => phases.find((phase) => phase.id === phaseId) ?? null,
+    [phaseId, phases],
+  );
 
   useEffect(() => {
     if (serviceChargeEntryId === '__none') return;
@@ -137,6 +141,14 @@ export function DemandBatchForm({
         <TextField label="Adjustment Amount" id="adjustmentAmount" type="number" step="0.01" value={adjustmentAmount} onChange={(event) => setAdjustmentAmount(event.target.value)} />
         <TextField label="Carry Forward Amount" id="carryForwardAmount" type="number" step="0.01" value={carryForwardAmount} onChange={(event) => setCarryForwardAmount(event.target.value)} />
       </div>
+
+      {selectedPhase ? (
+        <div className="rounded-lg border bg-muted/20 p-4 text-sm text-muted-foreground">
+          Effective service charge for <span className="font-medium text-foreground">{selectedPhase.name}</span> is{' '}
+          <span className="font-semibold text-foreground">{selectedPhase.serviceChargePct.toFixed(2)}%</span>.
+          Keep service charge inside the demand amount. Separate settlement is legacy-only and should not be used for normal billing.
+        </div>
+      ) : null}
 
       <div className="rounded-lg border bg-muted/20 p-4">
         <div className="text-xs text-muted-foreground">Total Billable Amount</div>

@@ -20,7 +20,7 @@ export default async function DemandBatchDetailPage({
     where: { id: params.batchId, projectId: project.id },
     include: {
       phase: { select: { name: true } },
-      serviceChargeEntry: { select: { id: true, status: true } },
+      serviceChargeEntry: { select: { id: true, status: true, percentage: true } },
       demands: {
         include: {
           buyer: { select: { name: true } },
@@ -31,6 +31,12 @@ export default async function DemandBatchDetailPage({
     },
   });
   if (!batch) notFound();
+  const serviceChargePercent =
+    Number(batch.serviceChargeEntry?.percentage ?? 0) > 0
+      ? Number(batch.serviceChargeEntry?.percentage ?? 0)
+      : Number(batch.baseAmount) > 0
+        ? Number(((Number(batch.serviceChargeAmount) / Number(batch.baseAmount)) * 100).toFixed(2))
+        : 0;
 
   return (
     <div className="p-5 space-y-5">
@@ -51,7 +57,7 @@ export default async function DemandBatchDetailPage({
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Base Amount</div><div className="mt-1 text-lg font-bold">{formatBDT(Number(batch.baseAmount))}</div></CardContent></Card>
-        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Service Charge</div><div className="mt-1 text-lg font-bold">{formatBDT(Number(batch.serviceChargeAmount))}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Service Charge</div><div className="mt-1 text-lg font-bold">{formatBDT(Number(batch.serviceChargeAmount))}</div><div className="mt-1 text-xs text-muted-foreground">{serviceChargePercent.toFixed(2)}%</div></CardContent></Card>
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Total Billable</div><div className="mt-1 text-lg font-bold">{formatBDT(Number(batch.totalBillableAmount))}</div></CardContent></Card>
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Demand Rows</div><div className="mt-1 text-lg font-bold">{batch.demands.length}</div></CardContent></Card>
       </div>
@@ -63,6 +69,7 @@ export default async function DemandBatchDetailPage({
           <div><span className="font-medium">Basis:</span> {batch.basisType.replaceAll('_', ' ')}</div>
           <div><span className="font-medium">Adjustment:</span> {formatBDT(Number(batch.adjustmentAmount))}</div>
           <div><span className="font-medium">Carry Forward:</span> {formatBDT(Number(batch.carryForwardAmount))}</div>
+          <div><span className="font-medium">Service Charge %:</span> {serviceChargePercent.toFixed(2)}%</div>
           <div><span className="font-medium">Due Date:</span> {formatDate(batch.dueDate)}</div>
           <div><span className="font-medium">Status:</span> {batch.status}</div>
           <div><span className="font-medium">Service Charge Source:</span> {batch.serviceChargeEntry ? `Linked (${batch.serviceChargeEntry.status})` : 'Manual / none'}</div>

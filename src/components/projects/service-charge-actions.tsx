@@ -31,13 +31,8 @@ export function ServiceChargeActions({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState<string | null>(null);
-  const [includedInDemand, setIncludedInDemand] = useState(false);
+  const [includedInDemand, setIncludedInDemand] = useState(true);
   const [notes, setNotes] = useState('');
-  const [settlementEntryId, setSettlementEntryId] = useState('');
-  const [accountId, setAccountId] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('BANK_TRANSFER');
-  const [reference, setReference] = useState('');
-  const [settlementNote, setSettlementNote] = useState('');
 
   async function submit(body: Record<string, unknown>, savingState: string) {
     setSaving(savingState);
@@ -116,93 +111,24 @@ export function ServiceChargeActions({
           {saving === 'approve' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Approving...</> : 'Approve Service Charge'}
         </Button>
       </div>
-      <div className="rounded-md border border-dashed p-3 space-y-3">
+      <div className="rounded-md border border-dashed border-amber-200 bg-amber-50/70 p-3 space-y-2">
         <div>
-          <div className="text-sm font-medium">Settle Approved Service Charge</div>
-          <div className="text-xs text-muted-foreground">Use this only for service charge kept separate from buyer demand. Included-in-demand rows should stay linked to demand, not settled again.</div>
+          <div className="text-sm font-medium text-amber-900">Separate settlement is deprecated</div>
+          <div className="text-xs text-amber-800">
+            Service charge should be included in buyer demand and collected through normal receipts. Keep any older
+            separate-settlement records only for legacy audit history or internal adjustment review.
+          </div>
         </div>
         {settlementEntries.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No approved separate-income service charge rows are waiting for settlement.</p>
+          <p className="text-xs text-amber-800">No legacy separate-settlement rows need review right now.</p>
         ) : (
-          <>
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="space-y-1 text-sm">
-                <span className="text-xs text-muted-foreground">Approved entry</span>
-                <select
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                  value={settlementEntryId}
-                  onChange={(event) => setSettlementEntryId(event.target.value)}
-                >
-                  <option value="">Select an approved entry</option>
-                  {settlementEntries.map((entry) => (
-                    <option key={entry.entryId} value={entry.entryId}>
-                      {entry.phaseName} - {formatBDT(entry.amount)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="space-y-1 text-sm">
-                <span className="text-xs text-muted-foreground">Received into account</span>
-                <select
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                  value={accountId}
-                  onChange={(event) => setAccountId(event.target.value)}
-                >
-                  <option value="">Select account</option>
-                  {accounts.map((account) => (
-                    <option key={account.id} value={account.id}>{account.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="space-y-1 text-sm">
-                <span className="text-xs text-muted-foreground">Payment method</span>
-                <select
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                  value={paymentMethod}
-                  onChange={(event) => setPaymentMethod(event.target.value)}
-                >
-                  <option value="BANK_TRANSFER">Bank transfer</option>
-                  <option value="CASH">Cash</option>
-                  <option value="MOBILE_BANKING">Mobile banking</option>
-                  <option value="OTHER">Other</option>
-                </select>
-              </label>
-              <label className="space-y-1 text-sm">
-                <span className="text-xs text-muted-foreground">Reference</span>
-                <input
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                  value={reference}
-                  onChange={(event) => setReference(event.target.value)}
-                  placeholder="Receipt / transfer / note reference"
-                />
-              </label>
-              <label className="space-y-1 text-sm md:col-span-2">
-                <span className="text-xs text-muted-foreground">Settlement note</span>
-                <textarea
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                  rows={2}
-                  value={settlementNote}
-                  onChange={(event) => setSettlementNote(event.target.value)}
-                  placeholder="Optional note for this service charge settlement"
-                />
-              </label>
-            </div>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={Boolean(saving)}
-              onClick={() => void submit({
-                action: 'settle',
-                entryId: settlementEntryId || undefined,
-                accountId: accountId || undefined,
-                paymentMethod,
-                reference: reference.trim() || undefined,
-                notes: settlementNote.trim() || undefined,
-              }, 'settle')}
-            >
-              {saving === 'settle' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Settling...</> : 'Mark as Settled'}
-            </Button>
-          </>
+          <ul className="space-y-1 text-xs text-amber-900">
+            {settlementEntries.map((entry) => (
+              <li key={entry.entryId}>
+                {entry.phaseName} - {formatBDT(entry.amount)} ({entry.settlementStatus.replaceAll('_', ' ')})
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </div>

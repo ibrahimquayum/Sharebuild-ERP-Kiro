@@ -41,7 +41,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     ]),
     csvSection('Report Notes', data.reportNotes.map((note) => [note])),
     csvSection('Phase Summary', [
-      ['Phase', 'Status', 'Collection', 'Direct Expense', 'Supplier Items', 'Subcontractor Bills', 'Service Charge', 'Total Billable Cost', 'Carry Out'],
+      ['Phase', 'Status', 'Collection', 'Direct Expense', 'Supplier Items', 'Subcontractor Bills', 'Service Charge', 'Total Billable Cost', 'Phase Balance'],
       ...data.phaseSummary.map((row) => [
         row.phaseName,
         row.status,
@@ -51,7 +51,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
         row.subcontractorBillItemTotal,
         row.serviceChargeCostTotal,
         row.totalBillablePhaseCost,
-        row.carryOut,
+        row.phaseBalance,
       ]),
     ]),
     csvSection('Phase Expense Breakdown', [

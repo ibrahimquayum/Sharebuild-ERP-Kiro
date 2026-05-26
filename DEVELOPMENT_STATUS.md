@@ -213,6 +213,53 @@ This branch now has a buildable project-first finance foundation with vendor con
 - CSV remains the real export path for most reports; Complete Project Report now also has native XLSX.
 - Browser print remains the PDF path.
 
+## Finance Flow Integrity Pass - May 26, 2026
+
+### Added / Corrected
+
+- `FINANCE_FLOW_INTEGRITY_AUDIT.md`
+- shared project-specific service-charge verification across:
+  - phase detail
+  - project phase list
+  - demand batch builder
+  - service charge summary/report
+  - complete project report data
+  - XLSX / CSV surfaces that read the same helpers
+- company settings now preserves explicit `0%` default service charge
+- service charge settlement API action is deprecated for normal operations
+- `/projects/[id]/finance/service-charge` now acts as a summary/report page
+- seeded QA projects now prove:
+  - `5%`
+  - `7.5%`
+  - phase override `3%`
+  - explicit `0%`
+- `getProjectPhaseBalances()` now separates:
+  - `balance` = real phase surplus/deficit
+  - `carryOut` = cumulative carry-forward
+- project phase list and phase summary report now use real phase balance
+- Top Sheet row balance now remains historical `income - expense`
+
+### Verified
+
+- `npx prisma validate`
+- `npx prisma generate`
+- `npm run build`
+- `npm run db:seed`
+- helper/data verification confirmed:
+  - Relax Tower Piling = `5%`
+  - Madina Demo standard phases = `7.5%`
+  - Madina Demo 1st Slab override = `3%`
+  - Madina Garden planning phase = `0%`
+  - demand batches include service-charge portions
+  - service charge summary/report totals use billed / collected / uncollected tracking
+  - Relax Tower Top Sheet totals remain exact
+
+### Remaining
+
+- legacy separate service-charge settlement rows remain in the ledger for audit continuity
+- full authenticated browser automation was not available in this session
+- server-generated PDF and broader workbook parity remain future work
+
 ## Legacy Security / Report Export Polish - May 24, 2026
 
 ### Added

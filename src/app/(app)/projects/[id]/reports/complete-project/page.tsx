@@ -311,7 +311,7 @@ export default async function CompleteProjectReportPage({
                     <div className="text-sm text-slate-600">
                       {phaseRow ? (
                         <>
-                          Collection {formatBDT(phaseRow.collection)} | Carry out {formatBDT(phaseRow.carryOut)}
+                          Collection {formatBDT(phaseRow.collection)} | Phase balance {formatBDT(phaseRow.phaseBalance)}
                         </>
                       ) : (
                         'Project-level general cost rows'
@@ -554,7 +554,7 @@ export default async function CompleteProjectReportPage({
       ) : null}
 
       {hasReportSection(filters, 'cash-bank') ? (
-        <ReportSection title="Cash / Bank / Treasury Summary" description="Account-wise treasury movement posted from collections, expenses, vendor payments, and service charge settlements.">
+        <ReportSection title="Cash / Bank / Treasury Summary" description="Account-wise treasury movement posted from collections, expenses, vendor payments, and any legacy separate service-charge settlements.">
           <ReportSummaryGrid>
             <ReportKpiCard label="Cash In" value={formatBDT(data.cashBankSummary?.totals.inflow ?? 0)} tone="positive" />
             <ReportKpiCard label="Cash Out" value={formatBDT(data.cashBankSummary?.totals.outflow ?? 0)} tone="negative" />
@@ -690,16 +690,18 @@ export default async function CompleteProjectReportPage({
             </ReportTable>
           </ReportSection>
 
-          <ReportSection title="Service Charge Summary" description="Phase-level service charge basis, effective amount, settlement state, and billing inclusion.">
+          <ReportSection title="Service Charge Summary" description="Phase-level service charge basis, demand billing progress, collection progress, and legacy separate settlement visibility.">
             <ReportTable dense>
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                   <th className="px-3 py-3">Phase / Work</th>
-                  <th className="px-3 py-3 text-right">Basis Amount</th>
+                  <th className="px-3 py-3 text-right">Construction Cost</th>
                   <th className="px-3 py-3 text-right">Percent</th>
-                  <th className="px-3 py-3 text-right">Service Charge</th>
-                  <th className="px-3 py-3">Settlement</th>
-                  <th className="px-3 py-3">Included in Demand</th>
+                  <th className="px-3 py-3 text-right">Calculated</th>
+                  <th className="px-3 py-3 text-right">Billed</th>
+                  <th className="px-3 py-3 text-right">Collected</th>
+                  <th className="px-3 py-3 text-right">Uncollected</th>
+                  <th className="px-3 py-3">Flow Note</th>
                 </tr>
               </thead>
               <tbody>
@@ -709,8 +711,18 @@ export default async function CompleteProjectReportPage({
                     <td className="px-3 py-3 text-right"><ReportAmount value={formatBDT(row.basisAmount)} /></td>
                     <td className="px-3 py-3 text-right text-slate-700">{Number(row.percentage ?? 0).toFixed(2)}%</td>
                     <td className="px-3 py-3 text-right"><ReportAmount value={formatBDT(row.serviceChargeAmount)} tone="info" /></td>
-                    <td className="px-3 py-3"><ReportStatusBadge label={row.settlementStatus.replaceAll('_', ' ')} tone={statusTone(row.settlementStatus)} /></td>
-                    <td className="px-3 py-3">{row.includedInDemand ? <ReportStatusBadge label="Yes" tone="positive" /> : <ReportStatusBadge label="No" tone="warning" />}</td>
+                    <td className="px-3 py-3 text-right"><ReportAmount value={formatBDT(row.billedAmount)} tone="default" /></td>
+                    <td className="px-3 py-3 text-right"><ReportAmount value={formatBDT(row.collectedAmount)} tone="positive" /></td>
+                    <td className="px-3 py-3 text-right"><ReportAmount value={formatBDT(row.uncollectedAmount)} tone={amountTone(row.uncollectedAmount)} /></td>
+                    <td className="px-3 py-3">
+                      {row.includedInDemand ? (
+                        <ReportStatusBadge label="Demand-linked" tone="positive" />
+                      ) : row.settlementStatus === 'SETTLED' ? (
+                        <ReportStatusBadge label="Legacy separate settlement" tone="warning" />
+                      ) : (
+                        <ReportStatusBadge label={row.settlementStatus.replaceAll('_', ' ')} tone={statusTone(row.settlementStatus)} />
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

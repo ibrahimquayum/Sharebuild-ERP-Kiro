@@ -25,7 +25,7 @@ export default async function PhaseSummaryPage({ params }: { params: { id: strin
       branding={data.branding}
       project={data.project}
       title="Phase Summary"
-      subtitle="Phase-wise collection, demand, cost, carry-forward, service charge, and audit status."
+      subtitle="Phase-wise collection, demand, cost, service charge, phase balance, and audit status."
       generatedAt={data.generatedAt}
       backHref={`/projects/${data.project.id}/reports`}
     >
@@ -54,7 +54,7 @@ export default async function PhaseSummaryPage({ params }: { params: { id: strin
               <th className="px-3 py-3 text-right">Supplier</th>
               <th className="px-3 py-3 text-right">Subcontractor</th>
               <th className="px-3 py-3 text-right">Service Charge</th>
-              <th className="px-3 py-3 text-right">Carry Out</th>
+              <th className="px-3 py-3 text-right">Phase Balance</th>
               <th className="px-3 py-3">Audit</th>
             </tr>
           </thead>
@@ -69,7 +69,7 @@ export default async function PhaseSummaryPage({ params }: { params: { id: strin
                 <td className="px-3 py-3 text-right text-rose-700">{formatBDT(row.supplierBill)}</td>
                 <td className="px-3 py-3 text-right text-rose-700">{formatBDT(row.subcontractorBill)}</td>
                 <td className="px-3 py-3 text-right text-sky-700">{formatBDT(row.serviceCharge)}</td>
-                <td className="px-3 py-3 text-right font-medium">{formatBDT(row.carryOut)}</td>
+                <td className="px-3 py-3 text-right font-medium">{formatBDT(row.phaseBalance)}</td>
                 <td className="px-3 py-3">{row.auditLocked ? <ReportStatusBadge label="Locked" tone="positive" /> : <ReportStatusBadge label="Open" tone="warning" />}</td>
               </tr>
             ))}

@@ -167,8 +167,17 @@ Corrected service-charge fallback now feeds:
 - phase summary report data
 - expense / project cost report data
 
+## Follow-up Update - Finance Flow Integrity Pass
+
+This focused fix was later extended by the finance-flow audit pass:
+
+- `/projects/[id]/phases` now also uses the corrected billable phase cost and real phase balance.
+- phase summary and complete project report surfaces now distinguish:
+  - phase balance
+  - cumulative carry-out
+- service charge is now treated as demand-linked billing flow by default rather than a separate operational settlement process.
+
 ## Known Gaps
 
 - Browser download is not supported by the Codex in-app browser, so workbook verification in this pass was done through the shared report data/helper layer plus prior workbook route coverage.
-- The broader project phase list still presents its older collection/expense/balance table and was left out of this focused phase-detail fix.
 - Server-generated PDF remains future scope.

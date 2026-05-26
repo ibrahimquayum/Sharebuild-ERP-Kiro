@@ -50,7 +50,7 @@ export default async function ProjectPhasesPage({ params }: { params: { id: stri
         totalPhaseCost: row.totalPhaseCost,
         serviceCharge: row.serviceCharge,
         serviceChargePct: row.serviceChargePct,
-        balance: row.carryOut,
+        balance: row.balance,
         payable: row.supplierPayable + row.subcontractorPayable,
         buyerDue: Math.max(row.demand - row.collection, 0),
       },

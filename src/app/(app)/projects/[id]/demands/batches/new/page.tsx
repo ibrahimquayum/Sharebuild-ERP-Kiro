@@ -4,13 +4,14 @@ import { getScopedProject } from '@/lib/access-control';
 import { prisma } from '@/lib/prisma';
 import { DemandBatchForm } from '@/components/projects/demand-batch-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { getEffectiveServiceChargePercent, parseServiceChargePercentSetting } from '@/lib/service-charge';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DemandBatchNewPage({ params }: { params: { id: string } }) {
-  const { project } = await getScopedProject(params.id, 'demands', 'create');
+  const { context, project } = await getScopedProject(params.id, 'demands', 'create');
 
-  const [phases, serviceChargeEntries] = await Promise.all([
+  const [phases, serviceChargeEntries, companySetting] = await Promise.all([
     prisma.phase.findMany({
       where: { projectId: project.id, status: { notIn: ['CANCELLED', 'DUPLICATE'] } },
       orderBy: { sequence: 'asc' },
@@ -21,7 +22,17 @@ export default async function DemandBatchNewPage({ params }: { params: { id: str
       include: { phase: { select: { name: true } } },
       orderBy: [{ phaseId: 'asc' }, { updatedAt: 'desc' }],
     }),
+    prisma.companySetting.findUnique({
+      where: {
+        companyId_key: {
+          companyId: context.companyId,
+          key: 'defaultServiceChargePct',
+        },
+      },
+      select: { value: true },
+    }),
   ]);
+  const companyDefaultPct = parseServiceChargePercentSetting(companySetting?.value);
 
   return (
     <div className="p-5 max-w-5xl mx-auto space-y-4">
@@ -36,7 +47,15 @@ export default async function DemandBatchNewPage({ params }: { params: { id: str
         <CardContent>
           <DemandBatchForm
             projectId={project.id}
-            phases={phases.map((phase) => ({ id: phase.id, name: phase.name, serviceChargePct: Number(phase.serviceChargePct ?? 0) }))}
+            phases={phases.map((phase) => ({
+              id: phase.id,
+              name: phase.name,
+              serviceChargePct: getEffectiveServiceChargePercent({
+                companyDefaultPct: companyDefaultPct ?? undefined,
+                projectDefaultPct: project.defaultServiceChargePct,
+                phaseOverridePct: phase.serviceChargePct,
+              }),
+            }))}
             serviceChargeEntries={serviceChargeEntries.map((entry) => ({
               id: entry.id,
               phaseId: entry.phaseId,

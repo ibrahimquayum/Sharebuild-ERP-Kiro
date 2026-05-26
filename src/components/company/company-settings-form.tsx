@@ -86,7 +86,7 @@ export function CompanySettingsForm({ initial }: { initial: CompanySettingsData 
       if (taxId.trim()) data.set('taxId', taxId.trim());
       data.set('defaultCurrency', defaultCurrency.trim() || 'BDT');
       if (receiptPrefix.trim()) data.set('receiptPrefix', receiptPrefix.trim());
-      if (defaultServiceChargePct) data.set('defaultServiceChargePct', defaultServiceChargePct);
+      if (defaultServiceChargePct.trim() !== '') data.set('defaultServiceChargePct', defaultServiceChargePct.trim());
       if (fiscalYearStart.trim()) data.set('fiscalYearStart', fiscalYearStart.trim());
       if (reportFooterNote.trim()) data.set('reportFooterNote', reportFooterNote.trim());
       if (notes.trim()) data.set('notes', notes.trim());

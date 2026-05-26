@@ -207,6 +207,33 @@
 - Surplus credit/refund settlement exists in the ledger, but there is still no dedicated refund-operations screen beyond the reconciliation page actions.
 - CSV is the real export path for most reports; Complete Project Report now has native XLSX. Server-side PDF has not been added.
 
+## Finance Flow Integrity Update - May 26, 2026
+
+- Added `FINANCE_FLOW_INTEGRITY_AUDIT.md`.
+- Service charge is now enforced as project-specific by shared fallback:
+  - `Phase.serviceChargePct`
+  - else `Project.defaultServiceChargePct`
+  - else `CompanySetting(defaultServiceChargePct)`
+  - else `0`
+- Seeded QA matrix now proves distinct project behavior:
+  - Relax Tower `5%`
+  - Madina Demo Complete Project `7.5%`
+  - Madina Demo 1st Slab override `3%`
+  - Madina Garden `0%`
+- `/projects/[id]/finance/service-charge` is now a summary/report page, not a normal settlement workflow.
+- Demand batches and buyer bills now present service charge as part of buyer billing flow.
+- Phase balance and cumulative carry-forward are now separated in shared finance helpers.
+- `/projects/[id]/phases` now shows true billable phase cost and real phase balance instead of cumulative carry-out.
+
+### Current Finance Flow Notes
+
+- Service charge should be billed through demand and collected through normal buyer receipts.
+- Legacy separate service-charge settlement records are preserved only for audit/internal continuity.
+- Top Sheet historical totals remain unchanged:
+  - Income `100,143,800`
+  - Expense `104,659,890.40`
+  - Balance `-4,516,090.40`
+
 ## Access / Reporting / Billing Completion - May 24, 2026
 
 - Added `ACCESS_REPORTING_BILLING_COMPLETION_PLAN.md`.

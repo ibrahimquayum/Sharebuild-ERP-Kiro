@@ -26,6 +26,7 @@ export default async function DemandBatchPrintPage({
     where: { id: params.batchId, projectId: project.id },
     include: {
       phase: { select: { name: true } },
+      serviceChargeEntry: { select: { percentage: true } },
       demands: {
         include: {
           buyer: { select: { id: true, name: true, phone: true } },
@@ -36,6 +37,12 @@ export default async function DemandBatchPrintPage({
     },
   });
   if (!batch) notFound();
+  const serviceChargePercent =
+    Number(batch.serviceChargeEntry?.percentage ?? 0) > 0
+      ? Number(batch.serviceChargeEntry?.percentage ?? 0)
+      : Number(batch.baseAmount) > 0
+        ? Number(((Number(batch.serviceChargeAmount) / Number(batch.baseAmount)) * 100).toFixed(2))
+        : 0;
 
   const ownershipRows = await prisma.unitBuyer.findMany({
     where: {
@@ -135,6 +142,7 @@ export default async function DemandBatchPrintPage({
                 <div className="mt-3 space-y-2 text-sm text-slate-700">
                   <div><span className="font-medium text-slate-900">Project:</span> {project.name}</div>
                   <div><span className="font-medium text-slate-900">Phase:</span> {batch.phase.name}</div>
+                  <div><span className="font-medium text-slate-900">Service charge %:</span> {serviceChargePercent.toFixed(2)}%</div>
                   <div><span className="font-medium text-slate-900">Due date:</span> {formatDate(demand.dueDate)}</div>
                   <div><span className="font-medium text-slate-900">Notes:</span> {batch.notes || 'Please mention demand reference while paying.'}</div>
                 </div>
@@ -155,7 +163,7 @@ export default async function DemandBatchPrintPage({
                     <td className="px-4 py-3 text-right text-rose-700">{formatBDT(Number(demand.baseAmount))}</td>
                   </tr>
                   <tr className="border-b border-slate-200">
-                    <td className="px-4 py-3 text-slate-700">Service charge portion</td>
+                    <td className="px-4 py-3 text-slate-700">Service charge portion ({serviceChargePercent.toFixed(2)}%)</td>
                     <td className="px-4 py-3 text-right text-sky-700">{formatBDT(Number(demand.serviceChargeAmount))}</td>
                   </tr>
                   <tr className="border-b border-slate-200">

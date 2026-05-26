@@ -54,7 +54,7 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
     { label: 'Subcontractor Ledger', href: `/projects/${project.id}/reports/subcontractor-ledger`, icon: FileText },
     { label: 'Tax / Deduction Report', href: `/projects/${project.id}/reports/tax-deductions`, icon: FileText },
     { label: 'Retention Report', href: `/projects/${project.id}/reports/retention`, icon: FileText },
-    { label: 'Service Charge', href: `/projects/${project.id}/finance/service-charge`, icon: FileText },
+    { label: 'Service Charge Summary', href: `/projects/${project.id}/finance/service-charge`, icon: FileText },
     { label: 'Service Charge Report', href: `/projects/${project.id}/reports/service-charge`, icon: FileText },
     { label: 'Final Reconciliation', href: `/projects/${project.id}/finance/final-reconciliation`, icon: FileText },
     { label: 'Complete Project Report', href: `/projects/${project.id}/reports/complete-project`, icon: FileText },
@@ -106,9 +106,13 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
           iconBg="bg-amber-50"
         />
         <StatCard
-          title="Project Balance"
+          title="Construction Balance"
           value={formatBDTCompact(summary.projectBalance)}
-          subtitle={summary.postedReconciliation ? `Posted reconciliation ${formatBDT(Number(summary.postedReconciliation.finalAmount))}` : formatBDT(summary.projectBalance)}
+          subtitle={
+            summary.postedReconciliation
+              ? `Posted reconciliation ${formatBDT(Number(summary.postedReconciliation.finalAmount))}`
+              : `${formatBDT(summary.finalSurplusDeficit)} after service charge`
+          }
           icon={summary.projectBalance >= 0 ? CheckCircle2 : TrendingDown}
           iconColor={summary.projectBalance >= 0 ? 'text-emerald-600' : 'text-red-600'}
           iconBg={summary.projectBalance >= 0 ? 'bg-emerald-50' : 'bg-red-50'}
@@ -165,12 +169,12 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
           title="Service Charge"
           value={formatBDTCompact(summary.serviceChargeAccrued)}
           subtitle={
-            summary.serviceChargeSettled > 0
-              ? `${formatBDT(summary.serviceChargeSettled)} settled`
-              : summary.serviceChargeIncludedInDemand > 0
-                ? `${formatBDT(summary.serviceChargeIncludedInDemand)} included in demand`
+            summary.serviceChargeCollected > 0
+              ? `${formatBDT(summary.serviceChargeCollected)} collected`
+              : summary.serviceChargeBilled > 0
+                ? `${formatBDT(summary.serviceChargeBilled)} billed in demand`
                 : summary.serviceChargeApproved > 0
-                  ? `${formatBDT(summary.serviceChargeApproved)} approved`
+                  ? `${formatBDT(summary.serviceChargeApproved)} approved / calculated`
                   : 'Uses approved or calculated ledger'
           }
           icon={CircleDollarSign}
@@ -214,7 +218,7 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <Card className="lg:col-span-1">
           <CardHeader>
-            <CardTitle className="text-sm">Project Balance</CardTitle>
+            <CardTitle className="text-sm">Construction Balance</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div className="flex justify-between">
@@ -237,6 +241,24 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
               <span className="text-muted-foreground">Service charge</span>
               <span>{formatBDT(summary.serviceChargeAccrued)}</span>
             </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Service charge billed</span>
+              <span>{formatBDT(summary.serviceChargeBilled)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Service charge collected</span>
+              <span>{formatBDT(summary.serviceChargeCollected)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Service charge uncollected</span>
+              <span>{formatBDT(summary.serviceChargeUncollected)}</span>
+            </div>
+            {summary.legacySeparateServiceChargeSettled > 0 ? (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Legacy separate settlement</span>
+                <span>{formatBDT(summary.legacySeparateServiceChargeSettled)}</span>
+              </div>
+            ) : null}
             <div className="flex justify-between">
               <span className="text-muted-foreground">Tax / deduction</span>
               <span>{formatBDT(summary.taxDeductionTotal)}</span>
@@ -262,11 +284,11 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
               <span>{formatBDT(summary.bouncedCheques)}</span>
             </div>
             <div className="flex justify-between border-t pt-3">
-              <span>Project surplus / deficit</span>
+              <span>Construction surplus / deficit</span>
               <span className={`font-bold ${balanceColor(summary.surplusDeficit)}`}>{formatBDT(summary.surplusDeficit)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Final surplus / deficit</span>
+              <span className="text-muted-foreground">Billable surplus / deficit</span>
               <span className={`font-bold ${balanceColor(summary.finalSurplusDeficit)}`}>{formatBDT(summary.finalSurplusDeficit)}</span>
             </div>
             <div className="text-xs text-muted-foreground">

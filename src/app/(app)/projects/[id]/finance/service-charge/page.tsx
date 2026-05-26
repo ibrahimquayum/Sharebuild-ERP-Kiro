@@ -1,55 +1,50 @@
-import { getScopedProject } from '@/lib/access-control';
-import { ServiceChargeActions } from '@/components/projects/service-charge-actions';
 import { PageHeader } from '@/components/shared/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { getScopedProject } from '@/lib/access-control';
 import { getProjectServiceChargeLedger } from '@/lib/project-finance';
-import { prisma } from '@/lib/prisma';
 import { formatBDT } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ServiceChargeFinancePage({ params }: { params: { id: string } }) {
-  const { context, project } = await getScopedProject(params.id, 'serviceCharge', 'view');
-
-  const [ledger, accounts] = await Promise.all([
-    getProjectServiceChargeLedger(project.id),
-    prisma.cashBankAccount.findMany({
-      where: { companyId: context.companyId, isActive: true },
-      orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
-      select: { id: true, name: true, type: true },
-    }),
-  ]);
+  const { project } = await getScopedProject(params.id, 'serviceCharge', 'view');
+  const ledger = await getProjectServiceChargeLedger(project.id);
   if (!ledger) return null;
 
-  const settlementEntries = ledger.rows
-    .filter((row) => row.status === 'APPROVED' && !row.includedInDemand && row.settlementStatus !== 'SETTLED' && row.entryId)
-    .map((row) => ({
-      entryId: row.entryId!,
-      phaseName: row.phaseName,
-      amount: row.serviceChargeAmount,
-      settlementStatus: row.settlementStatus,
-    }));
-
   return (
-    <div className="p-5 space-y-5">
-      <PageHeader title="Service Charge" subtitle={`${project.name} - company income ledger separated from project cost`} />
+    <div className="space-y-5 p-5">
+      <PageHeader
+        title="Service Charge Summary"
+        subtitle={`${project.name} - service charge is billed through demand and collected through normal buyer receipts`}
+      />
+
+      <Card className="border-sky-200 bg-sky-50/70">
+        <CardContent className="p-4 text-sm leading-6 text-sky-900">
+          Service charge is part of phase billable cost. The normal flow is: phase demand or bill includes service
+          charge, buyer collection reduces the demand, and the service-charge portion is reported as company income.
+          Separate manual settlement is kept only for legacy or internal adjustment history.
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Approved</div><div className="mt-1 text-lg font-bold">{formatBDT(ledger.totals.approvedTotal)}</div></CardContent></Card>
-        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Calculated</div><div className="mt-1 text-lg font-bold">{formatBDT(ledger.totals.calculatedTotal)}</div></CardContent></Card>
-        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Included In Demand</div><div className="mt-1 text-lg font-bold">{formatBDT(ledger.totals.includedInDemandTotal)}</div></CardContent></Card>
-        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Settled Separately</div><div className="mt-1 text-lg font-bold">{formatBDT(ledger.totals.settledTotal)}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Calculated</div><div className="mt-1 text-lg font-bold">{formatBDT(ledger.totals.effectiveTotal)}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Billed in Demand</div><div className="mt-1 text-lg font-bold">{formatBDT(ledger.totals.billedTotal)}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Collected</div><div className="mt-1 text-lg font-bold">{formatBDT(ledger.totals.collectedTotal)}</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Uncollected</div><div className="mt-1 text-lg font-bold">{formatBDT(ledger.totals.uncollectedTotal)}</div></CardContent></Card>
       </div>
 
-      <ServiceChargeActions
-        projectId={project.id}
-        accounts={accounts.map((account) => ({ id: account.id, label: `${account.name} (${account.type.replaceAll('_', ' ')})` }))}
-        settlementEntries={settlementEntries}
-      />
+      {ledger.totals.legacySeparateSettlementTotal > 0 ? (
+        <Card className="border-amber-200 bg-amber-50/70">
+          <CardContent className="p-4 text-sm leading-6 text-amber-900">
+            Legacy separate service-charge settlement exists for {formatBDT(ledger.totals.legacySeparateSettlementTotal)}.
+            Keep these records for audit continuity, but do not use separate settlement as the normal operating flow.
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Phase-wise Service Charge Ledger</CardTitle>
+          <CardTitle className="text-sm">Phase-wise Service Charge Income Summary</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -57,31 +52,45 @@ export default async function ServiceChargeFinancePage({ params }: { params: { i
               <thead>
                 <tr className="border-b bg-muted/40">
                   <th className="px-3 py-2 text-left text-xs uppercase text-muted-foreground">Phase</th>
-                  <th className="px-3 py-2 text-right text-xs uppercase text-muted-foreground">Basis</th>
-                  <th className="px-3 py-2 text-right text-xs uppercase text-muted-foreground">%</th>
-                  <th className="px-3 py-2 text-right text-xs uppercase text-muted-foreground">Amount</th>
+                  <th className="px-3 py-2 text-right text-xs uppercase text-muted-foreground">Construction Cost</th>
+                  <th className="px-3 py-2 text-right text-xs uppercase text-muted-foreground">Service Charge %</th>
+                  <th className="px-3 py-2 text-right text-xs uppercase text-muted-foreground">Calculated</th>
+                  <th className="px-3 py-2 text-right text-xs uppercase text-muted-foreground">Billed</th>
+                  <th className="px-3 py-2 text-right text-xs uppercase text-muted-foreground">Collected</th>
+                  <th className="px-3 py-2 text-right text-xs uppercase text-muted-foreground">Uncollected</th>
                   <th className="px-3 py-2 text-left text-xs uppercase text-muted-foreground">Status</th>
-                  <th className="px-3 py-2 text-left text-xs uppercase text-muted-foreground">Settlement</th>
-                  <th className="px-3 py-2 text-right text-xs uppercase text-muted-foreground">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {ledger.rows.length === 0 ? (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">No phase cost is ready for service charge yet.</td></tr>
-                ) : ledger.rows.map((row) => (
-                  <tr key={`${row.phaseId ?? 'project'}-${row.entryId ?? row.phaseName}`} className="border-b">
-                    <td className="px-3 py-2 font-medium">{row.phaseName}</td>
-                    <td className="px-3 py-2 text-right">{formatBDT(row.basisAmount)}</td>
-                    <td className="px-3 py-2 text-right">{row.percentage?.toFixed?.(2) ?? row.percentage ?? 0}%</td>
-                    <td className="px-3 py-2 text-right">{formatBDT(row.serviceChargeAmount)}</td>
-                    <td className="px-3 py-2">{row.status.replaceAll('_', ' ')}</td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
-                      {row.settlementStatus.replaceAll('_', ' ')}
-                      {row.settlementReference ? <div>{row.settlementReference}</div> : null}
+                  <tr>
+                    <td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                      No phase cost is ready for service charge yet.
                     </td>
-                    <td className="px-3 py-2 text-right">{row.entryId && row.status !== 'PREVIEW' ? <ServiceChargeActions projectId={project.id} entryId={row.entryId} /> : null}</td>
                   </tr>
-                ))}
+                ) : (
+                  ledger.rows.map((row) => (
+                    <tr key={`${row.phaseId ?? 'project'}-${row.entryId ?? row.phaseName}`} className="border-b">
+                      <td className="px-3 py-2 font-medium">
+                        <div>{row.phaseName}</div>
+                        {row.settlementStatus === 'SETTLED' && !row.includedInDemand ? (
+                          <div className="text-[11px] text-amber-700">Legacy separate settlement</div>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-2 text-right">{formatBDT(row.basisAmount)}</td>
+                      <td className="px-3 py-2 text-right">{Number(row.percentage ?? 0).toFixed(2)}%</td>
+                      <td className="px-3 py-2 text-right">{formatBDT(row.serviceChargeAmount)}</td>
+                      <td className="px-3 py-2 text-right">{formatBDT(row.billedAmount)}</td>
+                      <td className="px-3 py-2 text-right text-emerald-700">{formatBDT(row.collectedAmount)}</td>
+                      <td className="px-3 py-2 text-right text-amber-700">{formatBDT(row.uncollectedAmount)}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                        <div>{row.status.replaceAll('_', ' ')}</div>
+                        <div>{row.includedInDemand ? 'Demand-linked' : row.settlementStatus.replaceAll('_', ' ')}</div>
+                        {row.settlementReference ? <div>{row.settlementReference}</div> : null}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

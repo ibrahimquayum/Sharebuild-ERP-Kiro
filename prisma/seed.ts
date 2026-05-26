@@ -357,7 +357,7 @@ async function main() {
       residentialFloors: 6,
       unitsPerFloor: 4,
       totalPlannedUnits: 24,
-      defaultServiceChargePct: 5,
+      defaultServiceChargePct: 0,
       phone: '01712553110',
       status: 'PLANNING',
     },
@@ -376,12 +376,36 @@ async function main() {
       residentialFloors: 6,
       unitsPerFloor: 4,
       totalPlannedUnits: 24,
-      defaultServiceChargePct: 5,
+      defaultServiceChargePct: 0,
       status: 'PLANNING',
       startDate: new Date('2024-01-01'),
     },
   });
   console.log('  âœ…  Access-control QA project:', shadowProject.name);
+
+  await prisma.phase.upsert({
+    where: { id: 'phase-madina-garden-planning' },
+    update: {
+      projectId: shadowProject.id,
+      name: 'Planning / Pre-construction',
+      phaseType: 'CUSTOM',
+      status: 'DRAFT',
+      sequence: 1,
+      workDesc: 'Planning-only phase for service-charge fallback QA.',
+      serviceChargePct: null,
+    },
+    create: {
+      id: 'phase-madina-garden-planning',
+      projectId: shadowProject.id,
+      name: 'Planning / Pre-construction',
+      nameBn: 'Planning / Pre-construction',
+      phaseType: 'CUSTOM',
+      status: 'DRAFT',
+      sequence: 1,
+      workDesc: 'Planning-only phase for service-charge fallback QA.',
+      serviceChargePct: null,
+    },
+  });
 
   const engineerPasswordHash = await bcrypt.hash('engineer123', 10);
   const projectEngineer = await prisma.user.upsert({

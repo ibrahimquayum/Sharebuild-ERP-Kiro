@@ -609,11 +609,13 @@ export function CompleteProjectPrintDocument({
                 <thead>
                   <tr className="border-b border-slate-300 bg-slate-100 text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-700">
                     <th className="px-2.5 py-2">Phase / Work</th>
-                    <th className="px-2.5 py-2 text-right">Basis</th>
+                    <th className="px-2.5 py-2 text-right">Construction Cost</th>
                     <th className="px-2.5 py-2 text-right">Percent</th>
-                    <th className="px-2.5 py-2 text-right">Service Charge</th>
-                    <th className="px-2.5 py-2">Settlement</th>
-                    <th className="px-2.5 py-2">Included in Demand</th>
+                    <th className="px-2.5 py-2 text-right">Calculated</th>
+                    <th className="px-2.5 py-2 text-right">Billed</th>
+                    <th className="px-2.5 py-2 text-right">Collected</th>
+                    <th className="px-2.5 py-2 text-right">Uncollected</th>
+                    <th className="px-2.5 py-2">Flow Note</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -623,8 +625,21 @@ export function CompleteProjectPrintDocument({
                       <td className="px-2.5 py-2 text-right"><PrintAmount value={formatBDT(row.basisAmount)} /></td>
                       <td className="px-2.5 py-2 text-right text-slate-700">{Number(row.percentage ?? 0).toFixed(2)}%</td>
                       <td className="px-2.5 py-2 text-right"><PrintAmount value={formatBDT(row.serviceChargeAmount)} tone="info" /></td>
-                      <td className="px-2.5 py-2"><PrintStatusPill label={row.settlementStatus.replaceAll('_', ' ')} tone={statusTone(row.settlementStatus)} /></td>
-                      <td className="px-2.5 py-2">{row.includedInDemand ? 'Yes' : 'No'}</td>
+                      <td className="px-2.5 py-2 text-right"><PrintAmount value={formatBDT(row.billedAmount)} /></td>
+                      <td className="px-2.5 py-2 text-right"><PrintAmount value={formatBDT(row.collectedAmount)} tone="positive" /></td>
+                      <td className="px-2.5 py-2 text-right"><PrintAmount value={formatBDT(row.uncollectedAmount)} tone={row.uncollectedAmount > 0 ? 'warning' : 'default'} /></td>
+                      <td className="px-2.5 py-2">
+                        <PrintStatusPill
+                          label={
+                            row.includedInDemand
+                              ? 'Demand-linked'
+                              : row.settlementStatus === 'SETTLED'
+                                ? 'Legacy separate settlement'
+                                : row.settlementStatus.replaceAll('_', ' ')
+                          }
+                          tone={row.includedInDemand ? 'positive' : statusTone(row.settlementStatus)}
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>

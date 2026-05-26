@@ -400,7 +400,7 @@ export async function getCompleteProjectReportData(
     phaseType: phases.find((item) => item.id === phase.phaseId)?.phaseType ?? 'CUSTOM',
     income: phase.collection,
     expense: phase.expense + phase.supplierBill + phase.subcontractorBill,
-    balance: phase.carryOut,
+    balance: phase.collection - (phase.expense + phase.supplierBill + phase.subcontractorBill),
   }));
 
   const officialExpenses = filteredExpenses.filter(

@@ -50,8 +50,6 @@ The next finance completion pass is now partially implemented in code on `feat/e
 Remaining gaps from this architecture:
 
 - no dedicated VAT/AIT/TDS liability ledger yet
-- no dedicated service charge entry ledger yet
-- no final reconciliation posting that creates buyer demand rows yet
 - no full replacement-cheque workflow yet
 - no true XLSX workbook or server-generated PDF yet
 
@@ -67,7 +65,6 @@ The finance QA, service charge, and final reconciliation pass is now implemented
 
 Remaining gaps from this architecture:
 
-- service charge collection and separate income settlement workflow still remain future
 - surplus reconciliation still posts buyer credit lines without a dedicated refund payment workflow
 - project closing and finance-ready workflow is still checklist-based, not a full close process
 - no true XLSX workbook or server-generated PDF yet
@@ -143,6 +140,34 @@ Remaining architectural gaps after this step:
 - server-generated PDF is still future work
 - Complete Project Report remains the only native XLSX workbook export
 - dependency hardening and private upload storage remain the next production-readiness pass
+
+## Phase 5.6 Status Update
+
+The finance-flow integrity pass is now implemented on `feat/erp-v1`:
+
+- service charge is now enforced as project-specific by fallback order:
+  - phase override
+  - project default
+  - company default
+  - `0`
+- seeded QA projects now prove three different project defaults plus one phase override:
+  - Relax Tower `5%`
+  - Madina Demo Complete Project `7.5%`
+  - Madina Demo 1st Slab override `3%`
+  - Madina Garden `0%`
+- service-charge settlement is no longer treated as the normal operating workflow
+- `/projects/[id]/finance/service-charge` now acts as a summary/reporting surface
+- demand batch and buyer bill surfaces now present service charge as part of total buyer billing
+- finance/report helpers now distinguish:
+  - real phase balance
+  - cumulative carry-forward / carry-out
+- Top Sheet row balance remains historical `income - expense`, preserving Relax Tower continuity
+
+Remaining architectural gaps after this step:
+
+- `ServiceChargeEntry` still remains as a persisted ledger/reporting snapshot because historical and approved rows already exist
+- legacy separate service-charge settlement records remain visible for audit continuity
+- server-generated PDF and broader workbook parity remain future work
 
 ## 1. Finance Philosophy
 
