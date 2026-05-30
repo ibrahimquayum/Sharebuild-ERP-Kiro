@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Clock,
   Layers,
+  MapPin,
   ReceiptText,
   TrendingDown,
   TrendingUp,
@@ -85,75 +86,89 @@ export default async function DashboardPage() {
     <div className="flex min-h-full flex-col">
       <Header title="Dashboard" />
 
-      <div className="flex-1 space-y-6 p-6">
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatCard
-            title="Total Collection"
-            value={formatBDTCompact(data.totals.totalCollection)}
-            subtitle={formatBDT(data.totals.totalCollection)}
-            icon={TrendingUp}
-            iconColor="text-green-600"
-            iconBg="bg-green-50"
-          />
-          <StatCard
-            title="Actual Construction Cost"
-            value={formatBDTCompact(data.totals.actualConstructionCost)}
-            subtitle={formatBDT(data.totals.actualConstructionCost)}
-            icon={TrendingDown}
-            iconColor="text-red-500"
-            iconBg="bg-red-50"
-          />
-          <StatCard
-            title="Company Service Charge"
-            value={formatBDTCompact(data.totals.serviceCharge)}
-            subtitle={formatBDT(data.totals.serviceCharge)}
-            icon={ReceiptText}
-            iconColor="text-sky-600"
-            iconBg="bg-sky-50"
-          />
-          <StatCard
-            title="Total Billable Cost"
-            value={formatBDTCompact(data.totals.totalBillableCost)}
-            subtitle={formatBDT(data.totals.totalBillableCost)}
-            icon={Wallet}
-            iconColor="text-violet-600"
-            iconBg="bg-violet-50"
-          />
+      <div className="w-full max-w-[1440px] flex-1 space-y-6 p-6">
+        <div>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Financial Summary</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              title="Total Collection"
+              value={formatBDTCompact(data.totals.totalCollection)}
+              subtitle={formatBDT(data.totals.totalCollection)}
+              icon={TrendingUp}
+              iconColor="text-green-600"
+              iconBg="bg-green-50"
+              accent="green"
+            />
+            <StatCard
+              title="Actual Construction Cost"
+              value={formatBDTCompact(data.totals.actualConstructionCost)}
+              subtitle={formatBDT(data.totals.actualConstructionCost)}
+              icon={TrendingDown}
+              iconColor="text-red-500"
+              iconBg="bg-red-50"
+              accent="slate"
+            />
+            <StatCard
+              title="Company Service Charge"
+              value={formatBDTCompact(data.totals.serviceCharge)}
+              subtitle={formatBDT(data.totals.serviceCharge)}
+              icon={ReceiptText}
+              iconColor="text-sky-600"
+              iconBg="bg-sky-50"
+              accent="sky"
+            />
+            <StatCard
+              title="Total Billable Cost"
+              value={formatBDTCompact(data.totals.totalBillableCost)}
+              subtitle={formatBDT(data.totals.totalBillableCost)}
+              icon={Wallet}
+              iconColor="text-violet-600"
+              iconBg="bg-violet-50"
+              accent="violet"
+            />
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatCard
-            title="Project Balance"
-            value={formatBDTCompact(data.totals.projectBalance)}
-            subtitle={data.totals.projectBalance >= 0 ? 'Collection - total billable cost' : 'Below total billable cost'}
-            icon={data.totals.projectBalance >= 0 ? CheckCircle2 : AlertCircle}
-            iconColor={data.totals.projectBalance >= 0 ? 'text-emerald-600' : 'text-red-600'}
-            iconBg={data.totals.projectBalance >= 0 ? 'bg-emerald-50' : 'bg-red-50'}
-          />
-          <StatCard
-            title="Buyer Due"
-            value={formatBDTCompact(data.totals.buyerDue)}
-            subtitle={formatBDT(data.totals.buyerDue)}
-            icon={Users}
-            iconColor="text-amber-600"
-            iconBg="bg-amber-50"
-          />
-          <StatCard
-            title="Pending Approvals"
-            value={String(data.pendingExpenses)}
-            subtitle="Expenses awaiting review"
-            icon={Clock}
-            iconColor="text-orange-500"
-            iconBg="bg-orange-50"
-          />
-          <StatCard
-            title="Buyer Advance / Unallocated"
-            value={formatBDTCompact(data.totals.buyerAdvance)}
-            subtitle={formatBDT(data.totals.buyerAdvance)}
-            icon={Layers}
-            iconColor="text-cyan-600"
-            iconBg="bg-cyan-50"
-          />
+        <div>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Operational Status</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              title="Project Balance"
+              value={formatBDTCompact(data.totals.projectBalance)}
+              subtitle={data.totals.projectBalance >= 0 ? 'Collection - total billable cost' : 'Below total billable cost'}
+              icon={data.totals.projectBalance >= 0 ? CheckCircle2 : AlertCircle}
+              iconColor={data.totals.projectBalance >= 0 ? 'text-emerald-600' : 'text-red-600'}
+              iconBg={data.totals.projectBalance >= 0 ? 'bg-emerald-50' : 'bg-red-50'}
+              accent={data.totals.projectBalance >= 0 ? 'green' : 'red'}
+            />
+            <StatCard
+              title="Buyer Due"
+              value={formatBDTCompact(data.totals.buyerDue)}
+              subtitle={formatBDT(data.totals.buyerDue)}
+              icon={Users}
+              iconColor="text-amber-600"
+              iconBg="bg-amber-50"
+              accent="amber"
+            />
+            <StatCard
+              title="Pending Approvals"
+              value={String(data.pendingExpenses)}
+              subtitle="Expenses awaiting review"
+              icon={Clock}
+              iconColor="text-orange-500"
+              iconBg="bg-orange-50"
+              accent="amber"
+            />
+            <StatCard
+              title="Buyer Advance / Unallocated"
+              value={formatBDTCompact(data.totals.buyerAdvance)}
+              subtitle={formatBDT(data.totals.buyerAdvance)}
+              icon={Layers}
+              iconColor="text-cyan-600"
+              iconBg="bg-cyan-50"
+              accent="sky"
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -175,15 +190,14 @@ export default async function DashboardPage() {
 
               return (
                 <Link key={project.id} href={`/projects/${project.id}`}>
-                  <Card className="cursor-pointer transition-shadow hover:shadow-md">
+                  <Card className="cursor-pointer rounded-xl border-slate-200 shadow-sm transition-shadow hover:shadow-md">
                     <CardContent className="space-y-3 p-4">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold">{project.name}</p>
+                          <p className="truncate text-sm font-semibold text-slate-900">{project.name}</p>
                           {project.nameBn ? (
                             <p className="bn truncate text-xs text-muted-foreground">{normalizeDisplayText(project.nameBn)}</p>
                           ) : null}
-                          <p className="mt-1 text-xs text-muted-foreground">{project.address}</p>
                         </div>
                         <Badge
                           className={cn(
@@ -199,13 +213,20 @@ export default async function DashboardPage() {
                         </Badge>
                       </div>
 
-                      <div className="flex gap-4 text-xs text-muted-foreground">
+                      {project.address ? (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <MapPin className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{project.address}</span>
+                        </div>
+                      ) : null}
+
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                         <span>{project._count.phases} phases</span>
                         <span>{project._count.buyers} buyers</span>
                         {project.totalFloors ? <span>{project.totalFloors} floors</span> : null}
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 text-xs">
                         <div>
                           <p className="text-muted-foreground">Total Collection</p>
                           <p className="font-medium text-slate-900">{formatBDT(finance.totalCollected)}</p>
@@ -231,24 +252,24 @@ export default async function DashboardPage() {
                 View all <ArrowRight className="h-3 w-3" />
               </Link>
             </div>
-            <Card>
-              <div className="divide-y">
+            <Card className="rounded-xl border-slate-200 shadow-sm">
+              <div className="divide-y divide-slate-100">
                 {recentPhases.map((phase, index) => {
                   const meta = phaseStatusMeta(phase.status);
                   return (
                     <Link key={phase.id} href={`/phases/${phase.id}`}>
-                      <div className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40">
-                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
+                      <div className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-slate-50">
+                        <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
                           {index + 1}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">{phase.name}</p>
+                          <p className="truncate text-sm font-medium text-slate-900">{phase.name}</p>
                           {phase.nameBn ? (
                             <p className="bn truncate text-xs text-muted-foreground">{normalizeDisplayText(phase.nameBn)}</p>
                           ) : null}
                         </div>
                         <div className="shrink-0 text-xs text-muted-foreground">
-                          {phase._count.collections} collections / {phase._count.expenses} expenses
+                          {phase._count.collections} collections · {phase._count.expenses} expenses
                         </div>
                         <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-xs font-medium', meta.color)}>
                           {meta.label}
@@ -262,26 +283,30 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        <Card>
+        <Card className="rounded-xl border-slate-200 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Portfolio Financial Summary</CardTitle>
             <CardDescription>Visible projects combined using the same project-finance helper logic.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-6">
-              <div className="text-center">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-lg bg-slate-50 p-4">
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Collection</p>
-                <p className="mt-1 text-2xl font-bold text-green-600">{formatBDTCompact(data.totals.totalCollection)}</p>
+                <p className="mt-1 break-words text-2xl font-bold tabular-nums text-green-600">
+                  {formatBDTCompact(data.totals.totalCollection)}
+                </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">{formatBDT(data.totals.totalCollection)}</p>
               </div>
-              <div className="text-center">
+              <div className="rounded-lg bg-slate-50 p-4">
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Billable Cost</p>
-                <p className="mt-1 text-2xl font-bold text-red-500">{formatBDTCompact(data.totals.totalBillableCost)}</p>
+                <p className="mt-1 break-words text-2xl font-bold tabular-nums text-slate-900">
+                  {formatBDTCompact(data.totals.totalBillableCost)}
+                </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">{formatBDT(data.totals.totalBillableCost)}</p>
               </div>
-              <div className="text-center">
+              <div className="rounded-lg bg-slate-50 p-4">
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">Project Balance</p>
-                <p className={cn('mt-1 text-2xl font-bold', balanceColor(data.totals.projectBalance))}>
+                <p className={cn('mt-1 break-words text-2xl font-bold tabular-nums', balanceColor(data.totals.projectBalance))}>
                   {formatBDTCompact(data.totals.projectBalance)}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
@@ -292,7 +317,7 @@ export default async function DashboardPage() {
 
             <div className="mt-5">
               <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-                <span>Total billable cost vs collection</span>
+                <span>Collection vs billable cost coverage</span>
                 <span>
                   {data.totals.totalCollection > 0
                     ? Math.round((data.totals.totalBillableCost / data.totals.totalCollection) * 100)
@@ -300,11 +325,11 @@ export default async function DashboardPage() {
                   % billed-cost coverage
                 </span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-muted">
+              <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                 <div
                   className={cn(
                     'h-full rounded-full transition-all',
-                    data.totals.totalBillableCost > data.totals.totalCollection ? 'bg-red-500' : 'bg-green-500',
+                    data.totals.totalBillableCost > data.totals.totalCollection ? 'bg-amber-500' : 'bg-emerald-500',
                   )}
                   style={{
                     width: `${Math.min(
@@ -318,22 +343,22 @@ export default async function DashboardPage() {
               </div>
             </div>
 
-            <div className="mt-5 grid grid-cols-2 gap-4 text-xs md:grid-cols-4">
-              <div>
+            <div className="mt-5 grid grid-cols-2 gap-3 text-xs md:grid-cols-4">
+              <div className="rounded-lg border border-slate-200 p-3">
                 <p className="text-muted-foreground">Projects</p>
-                <p className="font-semibold text-slate-900">{data.projects.length}</p>
+                <p className="mt-0.5 text-base font-semibold text-slate-900">{data.projects.length}</p>
               </div>
-              <div>
+              <div className="rounded-lg border border-slate-200 p-3">
                 <p className="text-muted-foreground">Buyers</p>
-                <p className="font-semibold text-slate-900">{data.buyers}</p>
+                <p className="mt-0.5 text-base font-semibold text-slate-900">{data.buyers}</p>
               </div>
-              <div>
+              <div className="rounded-lg border border-slate-200 p-3">
                 <p className="text-muted-foreground">Phases</p>
-                <p className="font-semibold text-slate-900">{data.phases.length}</p>
+                <p className="mt-0.5 text-base font-semibold text-slate-900">{data.phases.length}</p>
               </div>
-              <div>
+              <div className="rounded-lg border border-slate-200 p-3">
                 <p className="text-muted-foreground">Active phases</p>
-                <p className="font-semibold text-slate-900">{activePhases.length}</p>
+                <p className="mt-0.5 text-base font-semibold text-slate-900">{activePhases.length}</p>
               </div>
             </div>
           </CardContent>

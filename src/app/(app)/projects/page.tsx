@@ -51,7 +51,7 @@ export default async function ProjectsPage() {
         action={context.isCompanyWide ? { label: 'New Project', href: '/projects/new' } : undefined}
       />
 
-      <div className="p-6">
+      <div className="w-full max-w-[1440px] p-6">
         {projects.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center text-muted-foreground">
             <Building2 className="mb-4 h-12 w-12 opacity-30" />
@@ -66,7 +66,7 @@ export default async function ProjectsPage() {
 
               return (
                 <Link key={project.id} href={`/projects/${project.id}`}>
-                  <Card className="h-full cursor-pointer border transition-all hover:border-primary/30 hover:shadow-lg">
+                  <Card className="h-full cursor-pointer rounded-xl border border-slate-200 shadow-sm transition-all hover:border-primary/30 hover:shadow-md">
                     <CardContent className="flex h-full flex-col gap-4 p-5">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">

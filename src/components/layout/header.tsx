@@ -17,15 +17,15 @@ export function Header({ title }: { title?: string }) {
   const user = session?.user as any;
 
   return (
-    <header className="h-14 border-b bg-background flex items-center justify-between px-6 sticky top-0 z-10">
-      <div>
-        {title && <h1 className="text-base font-semibold">{title}</h1>}
+    <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-slate-200 bg-background px-6">
+      <div className="leading-tight">
+        {title && <h1 className="text-base font-semibold text-slate-900">{title}</h1>}
         {user?.companyName && (
           <p className="text-xs text-muted-foreground">{user.companyName}</p>
         )}
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         {/* Notification Bell */}
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-4 w-4" />
