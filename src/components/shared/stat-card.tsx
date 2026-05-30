@@ -31,7 +31,7 @@ export function StatCard({
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide truncate">
               {title}
             </p>
-            <p className="mt-1 text-2xl font-bold leading-tight truncate">{value}</p>
+            <p className="mt-1 text-xl font-bold leading-tight break-words">{value}</p>
             {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
             {trend && (
               <p

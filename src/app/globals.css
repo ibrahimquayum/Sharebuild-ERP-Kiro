@@ -186,6 +186,16 @@ body {
   table tfoot {
     display: table-footer-group;
   }
+  thead tr {
+    background: #f1f5f9 !important;
+  }
+  table th,
+  table td {
+    border-color: #cbd5e1 !important;
+  }
+  .tabular-nums {
+    white-space: nowrap;
+  }
   tr,
   img {
     break-inside: avoid;
