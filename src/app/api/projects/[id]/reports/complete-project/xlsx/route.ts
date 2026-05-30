@@ -455,10 +455,10 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   trackSheet(addTableSheet(workbook, {
     name: '13 Service Charge',
     title: 'Company Service Charge / Supervision Fee',
-    subtitle: 'Phase service charge basis, demand billing progress, collection progress, and legacy settlement visibility',
+    subtitle: 'Phase service charge basis, demand billing progress, and collection progress (billed / collected / uncollected)',
     company: data.branding.name,
     project: data.project.name,
-    headers: ['Phase / Work', 'Construction Cost', 'Percent', 'Calculated Service Charge', 'Billed', 'Collected', 'Uncollected', 'Flow Note', 'Included in Demand'],
+    headers: ['Phase / Work', 'Construction Cost', 'Percent', 'Effective Service Charge', 'Billed', 'Collected', 'Uncollected', 'Flow Note', 'Included in Demand'],
     rows: (data.serviceChargeLedger?.rows ?? []).map((row) => [
       row.phaseName,
       row.basisAmount,
@@ -468,10 +468,10 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       row.collectedAmount,
       row.uncollectedAmount,
       row.includedInDemand
-        ? 'Demand-linked'
-        : row.settlementStatus === 'SETTLED'
-          ? 'Legacy separate settlement'
-          : row.settlementStatus.replaceAll('_', ' '),
+        ? 'Included in demand'
+        : row.billedAmount > 0
+          ? 'Billed'
+          : 'Not billed yet',
       row.includedInDemand ? 'Yes' : 'No',
     ]),
     widths: [28, 16, 14, 16, 16, 16, 16, 22, 16],

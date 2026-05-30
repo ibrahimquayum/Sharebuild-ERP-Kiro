@@ -237,7 +237,7 @@ export function CompleteProjectPrintDocument({
                   const costGroup = data.costReport.phaseGroups.find((group) => group.phaseId === row.phaseId);
                   return (
                     <tr key={row.phaseId} className="border-b border-slate-200">
-                      <td className="px-2.5 py-2 font-medium text-slate-900">{row.phaseName}</td>
+                      <td className="px-2.5 py-2 font-medium text-slate-900">{normalizeDisplayText(row.phaseName) ?? row.phaseName}</td>
                       <td className="px-2.5 py-2">
                         <PrintStatusPill label={row.status.replaceAll('_', ' ')} tone={statusTone(row.status)} />
                       </td>
@@ -260,6 +260,7 @@ export function CompleteProjectPrintDocument({
         <>
           {data.costReport.phaseGroups.map((group, index) => {
             const phaseRow = data.phaseSummary.find((row) => row.phaseId === group.phaseId);
+            const phaseName = normalizeDisplayText(group.phaseName) ?? group.phaseName;
             const constructionCost =
               (group.totals.DIRECT_EXPENSE ?? 0) +
               (group.totals.SUPPLIER_BILL_ITEM ?? 0) +
@@ -269,7 +270,7 @@ export function CompleteProjectPrintDocument({
             return (
               <PrintPage key={group.phaseId ?? `project-general-${index}`} breakBefore>
                 <PrintSection
-                  title={`Phase Detail - ${group.phaseName}`}
+                  title={`Phase Detail - ${phaseName}`}
                   description="Phase collection, cost composition, and audit visibility for the selected reporting slice."
                 >
                   <PrintSubsection title="Phase Summary">
@@ -647,7 +648,7 @@ export function CompleteProjectPrintDocument({
                     <th className="px-2.5 py-2">Phase / Work</th>
                     <th className="px-2.5 py-2 text-right">Construction Cost</th>
                     <th className="px-2.5 py-2 text-right">Percent</th>
-                    <th className="px-2.5 py-2 text-right">Calculated</th>
+                    <th className="px-2.5 py-2 text-right">Effective Service Charge</th>
                     <th className="px-2.5 py-2 text-right">Billed</th>
                     <th className="px-2.5 py-2 text-right">Collected</th>
                     <th className="px-2.5 py-2 text-right">Uncollected</th>
@@ -669,13 +670,17 @@ export function CompleteProjectPrintDocument({
                           label={
                             row.includedInDemand
                               ? 'Included in demand'
-                              : row.billedAmount <= 0
-                                ? 'Not billed yet'
-                              : row.settlementStatus === 'SETTLED'
-                                ? 'Legacy separate settlement'
-                                : 'Billed separately'
+                              : row.billedAmount > 0
+                                ? 'Billed'
+                                : 'Not billed yet'
                           }
-                          tone={row.includedInDemand ? 'positive' : statusTone(row.settlementStatus)}
+                          tone={
+                            row.includedInDemand
+                              ? 'positive'
+                              : row.billedAmount > 0
+                                ? 'default'
+                                : 'warning'
+                          }
                         />
                       </td>
                     </tr>

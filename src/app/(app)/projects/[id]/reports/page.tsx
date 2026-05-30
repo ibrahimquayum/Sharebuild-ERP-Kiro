@@ -129,7 +129,7 @@ const reportGroups = [
       },
       {
         title: 'Service Charge Report',
-        description: 'Service charge calculation, demand billing, collection progress, and any legacy separate settlement history.',
+        description: 'Service charge effective amount, billed in demand, collected, and uncollected progress.',
         href: 'service-charge',
         actions: ['Print', 'CSV', 'PDF via browser'],
       },

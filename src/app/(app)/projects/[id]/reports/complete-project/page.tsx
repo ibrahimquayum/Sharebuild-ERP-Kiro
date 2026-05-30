@@ -690,14 +690,14 @@ export default async function CompleteProjectReportPage({
             </ReportTable>
           </ReportSection>
 
-          <ReportSection title="Service Charge Summary" description="Phase-level service charge basis, demand billing progress, collection progress, and legacy separate settlement visibility.">
+          <ReportSection title="Service Charge Summary" description="Phase-level service charge basis, billed in demand, collected, and uncollected progress.">
             <ReportTable dense>
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                   <th className="px-3 py-3">Phase / Work</th>
                   <th className="px-3 py-3 text-right">Construction Cost</th>
                   <th className="px-3 py-3 text-right">Percent</th>
-                  <th className="px-3 py-3 text-right">Calculated</th>
+                  <th className="px-3 py-3 text-right">Effective Service Charge</th>
                   <th className="px-3 py-3 text-right">Billed</th>
                   <th className="px-3 py-3 text-right">Collected</th>
                   <th className="px-3 py-3 text-right">Uncollected</th>
@@ -716,11 +716,11 @@ export default async function CompleteProjectReportPage({
                     <td className="px-3 py-3 text-right"><ReportAmount value={formatBDT(row.uncollectedAmount)} tone={amountTone(row.uncollectedAmount)} /></td>
                     <td className="px-3 py-3">
                       {row.includedInDemand ? (
-                        <ReportStatusBadge label="Demand-linked" tone="positive" />
-                      ) : row.settlementStatus === 'SETTLED' ? (
-                        <ReportStatusBadge label="Legacy separate settlement" tone="warning" />
+                        <ReportStatusBadge label="Included in demand" tone="positive" />
+                      ) : row.billedAmount > 0 ? (
+                        <ReportStatusBadge label="Billed" tone="default" />
                       ) : (
-                        <ReportStatusBadge label={row.settlementStatus.replaceAll('_', ' ')} tone={statusTone(row.settlementStatus)} />
+                        <ReportStatusBadge label="Not billed yet" tone="warning" />
                       )}
                     </td>
                   </tr>

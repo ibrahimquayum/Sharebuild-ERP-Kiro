@@ -255,7 +255,7 @@ export default async function ProjectFinancePage({ params }: { params: { id: str
             </div>
             {summary.legacySeparateServiceChargeSettled > 0 ? (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Legacy separate settlement</span>
+                <span className="text-muted-foreground">Service charge settled separately</span>
                 <span>{formatBDT(summary.legacySeparateServiceChargeSettled)}</span>
               </div>
             ) : null}
