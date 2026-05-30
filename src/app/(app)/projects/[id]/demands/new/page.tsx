@@ -4,20 +4,31 @@ import { getScopedProject } from '@/lib/access-control';
 import { prisma } from '@/lib/prisma';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DemandForm } from '@/components/projects/demand-form';
+import { getEffectiveServiceChargePercent, parseServiceChargePercentSetting } from '@/lib/service-charge';
 
 export const dynamic = 'force-dynamic';
 
 export default async function NewProjectDemandPage({ params }: { params: { id: string } }) {
-  const { project } = await getScopedProject(params.id, 'demands', 'create');
+  const { context, project } = await getScopedProject(params.id, 'demands', 'create');
 
-  const [phases, allocations] = await Promise.all([
-    prisma.phase.findMany({ where: { projectId: project.id }, select: { id: true, name: true, sequence: true }, orderBy: { sequence: 'asc' } }),
+  const [phases, allocations, companySetting] = await Promise.all([
+    prisma.phase.findMany({ where: { projectId: project.id }, select: { id: true, name: true, sequence: true, serviceChargePct: true }, orderBy: { sequence: 'asc' } }),
     prisma.unitBuyer.findMany({
       where: { unit: { projectId: project.id }, relationship: { not: 'PAYER_ONLY' } },
       include: { buyer: { select: { name: true } }, unit: { select: { unitNo: true, floor: true } } },
       orderBy: { assignedAt: 'asc' },
     }),
+    prisma.companySetting.findUnique({
+      where: {
+        companyId_key: {
+          companyId: context.companyId,
+          key: 'defaultServiceChargePct',
+        },
+      },
+      select: { value: true },
+    }),
   ]);
+  const companyDefaultPct = parseServiceChargePercentSetting(companySetting?.value);
 
   return (
     <div className="p-5 max-w-5xl mx-auto space-y-4">
@@ -32,12 +43,20 @@ export default async function NewProjectDemandPage({ params }: { params: { id: s
       <Card>
         <CardHeader>
           <CardTitle>Create Demand</CardTitle>
-          <CardDescription>Issue equal project-scoped demand records to selected buyer/unit ownership rows. For phase billing with service charge, use Demand Batch.</CardDescription>
+          <CardDescription>Issue project-scoped demand records to selected buyer/unit ownership rows. Service charge is added automatically at the effective rate.</CardDescription>
         </CardHeader>
         <CardContent>
           <DemandForm
             projectId={project.id}
-            phases={phases.map((phase) => ({ id: phase.id, label: phase.name }))}
+            phases={phases.map((phase) => ({
+              id: phase.id,
+              label: phase.name,
+              serviceChargePct: getEffectiveServiceChargePercent({
+                companyDefaultPct: companyDefaultPct ?? undefined,
+                projectDefaultPct: project.defaultServiceChargePct,
+                phaseOverridePct: phase.serviceChargePct,
+              }),
+            }))}
             allocations={allocations.map((allocation) => ({
               id: allocation.id,
               label: `${allocation.buyer.name} · Unit ${allocation.unit.unitNo}${allocation.unit.floor != null ? ` · Floor ${allocation.unit.floor}` : ''} · ${Number(allocation.sharePercent)}%`,

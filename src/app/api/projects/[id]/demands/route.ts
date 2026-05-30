@@ -4,6 +4,11 @@ import { assertApiProjectPermission } from '@/lib/access-control';
 import { prisma } from '@/lib/prisma';
 import { safeAuditLog } from '@/lib/audit';
 import { isPhaseLocked, lockedPhaseMessage } from '@/lib/accounting';
+import { getEffectiveServiceChargePercent, parseServiceChargePercentSetting } from '@/lib/service-charge';
+
+function roundMoney(value: number) {
+  return Number(value.toFixed(2));
+}
 
 const demandSchema = z.object({
   title: z.string().min(1),
@@ -74,7 +79,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 });
   const project = access.project;
 
-  const phase = await prisma.phase.findFirst({ where: { id: parsed.data.phaseId, projectId: project.id }, select: { id: true, auditLockedAt: true } });
+  const phase = await prisma.phase.findFirst({ where: { id: parsed.data.phaseId, projectId: project.id }, select: { id: true, auditLockedAt: true, serviceChargePct: true } });
   if (!phase) return NextResponse.json({ error: 'Phase not found in this project' }, { status: 404 });
   if (isPhaseLocked(phase)) return NextResponse.json({ error: lockedPhaseMessage() }, { status: 423 });
 
@@ -93,26 +98,58 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: 'Payer-only rows cannot receive ownership demands. Select owner or co-owner rows.' }, { status: 400 });
   }
 
+  // Auto-compute the effective service charge from the resolver hierarchy
+  // (phase override → project default → company default → 0) and apply it
+  // automatically on top of each buyer demand base amount. The client cannot
+  // override it; service charge is a system rule for buyer phase demands.
+  const [projectDefaults, companyDefaultServiceChargeSetting] = await Promise.all([
+    prisma.project.findUnique({
+      where: { id: project.id },
+      select: { defaultServiceChargePct: true },
+    }),
+    prisma.companySetting.findUnique({
+      where: {
+        companyId_key: {
+          companyId: access.context.companyId,
+          key: 'defaultServiceChargePct',
+        },
+      },
+      select: { value: true },
+    }),
+  ]);
+  const companyDefaultServiceChargePct = parseServiceChargePercentSetting(companyDefaultServiceChargeSetting?.value);
+  const effectiveServiceChargePct = getEffectiveServiceChargePercent({
+    companyDefaultPct: companyDefaultServiceChargePct ?? undefined,
+    projectDefaultPct: projectDefaults?.defaultServiceChargePct,
+    phaseOverridePct: phase.serviceChargePct,
+  });
+
   const sequenceStart = await prisma.demand.count({ where: { unit: { projectId: project.id } } });
   const dueDate = parsed.data.dueDate ? new Date(parsed.data.dueDate) : undefined;
   const perUnitAmount = parsed.data.amount;
 
   const demands = await prisma.$transaction(
-    allocations.map((allocation, index) => prisma.demand.create({
-      data: {
-        unitId: allocation.unitId,
-        buyerId: allocation.buyerId,
-        phaseId: phase.id,
-        title: parsed.data.title,
-        amount: perUnitAmount * (Number(allocation.sharePercent) / 100),
-        dueDate,
-        status: 'ISSUED',
-        issuedAt: new Date(),
-        baseAmount: perUnitAmount * (Number(allocation.sharePercent) / 100),
-        notes: parsed.data.notes ?? `Generated from per-unit amount ${perUnitAmount} and ${Number(allocation.sharePercent)}% ownership share.`,
-        demandNo: `DN-${String(sequenceStart + index + 1).padStart(4, '0')}`,
-      },
-    }))
+    allocations.map((allocation, index) => {
+      const baseAmount = roundMoney(perUnitAmount * (Number(allocation.sharePercent) / 100));
+      const serviceChargeAmount = roundMoney((baseAmount * effectiveServiceChargePct) / 100);
+      const amount = roundMoney(baseAmount + serviceChargeAmount);
+      return prisma.demand.create({
+        data: {
+          unitId: allocation.unitId,
+          buyerId: allocation.buyerId,
+          phaseId: phase.id,
+          title: parsed.data.title,
+          amount,
+          dueDate,
+          status: 'ISSUED',
+          issuedAt: new Date(),
+          baseAmount,
+          serviceChargeAmount,
+          notes: parsed.data.notes ?? `Generated from per-unit amount ${perUnitAmount} and ${Number(allocation.sharePercent)}% ownership share. Service charge auto-included at ${effectiveServiceChargePct}%.`,
+          demandNo: `DN-${String(sequenceStart + index + 1).padStart(4, '0')}`,
+        },
+      });
+    })
   );
 
   await safeAuditLog({
@@ -121,7 +158,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     action: 'CREATE',
     entityType: 'demand',
     entityId: demands[0]?.id,
-    newValues: { count: demands.length, perUnitAmount, ...parsed.data },
+    newValues: { count: demands.length, perUnitAmount, effectiveServiceChargePct, ...parsed.data },
     context: 'demand create',
   });
 

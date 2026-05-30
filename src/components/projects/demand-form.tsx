@@ -1,18 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Field, FormError, TextareaField, TextField } from '@/components/shared/form-field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { formatBDT } from '@/lib/utils';
 
 interface Option {
   id: string;
   label: string;
 }
 
-export function DemandForm({ projectId, phases, allocations }: { projectId: string; phases: Option[]; allocations: Option[] }) {
+interface PhaseOption extends Option {
+  serviceChargePct: number;
+}
+
+export function DemandForm({ projectId, phases, allocations }: { projectId: string; phases: PhaseOption[]; allocations: Option[] }) {
   const router = useRouter();
   const [title, setTitle] = useState('');
   const [phaseId, setPhaseId] = useState('');
@@ -22,6 +27,18 @@ export function DemandForm({ projectId, phases, allocations }: { projectId: stri
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  const selectedPhase = useMemo(
+    () => phases.find((phase) => phase.id === phaseId) ?? null,
+    [phaseId, phases],
+  );
+
+  const effectiveServiceChargePct = selectedPhase?.serviceChargePct ?? 0;
+
+  const serviceChargePreview = useMemo(
+    () => Number(((Number(amount || 0) * effectiveServiceChargePct) / 100).toFixed(2)),
+    [amount, effectiveServiceChargePct],
+  );
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -77,6 +94,20 @@ export function DemandForm({ projectId, phases, allocations }: { projectId: stri
         </Field>
         <TextField label="Equal Amount Per Unit" id="amount" required type="number" min={0.01} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
         <TextField label="Due Date" id="dueDate" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="rounded-lg border bg-muted/20 p-4">
+          <div className="text-xs text-muted-foreground">Effective Service Charge Rate</div>
+          <div className="mt-1 text-lg font-semibold">{effectiveServiceChargePct.toFixed(2)}%</div>
+        </div>
+        <div className="rounded-lg border bg-muted/20 p-4">
+          <div className="text-xs text-muted-foreground">Service Charge (auto-included)</div>
+          <div className="mt-1 text-lg font-semibold">{formatBDT(serviceChargePreview)}</div>
+        </div>
+      </div>
+      <div className="rounded-lg border bg-muted/20 p-4 text-sm text-muted-foreground">
+        Service charge is included automatically in the buyer phase demand at the effective rate and collected through
+        normal buyer payments. The amount above is the base amount; service charge is added on top by the system.
       </div>
       <Field label="Buyer / Unit Allocations" htmlFor="allocations" required hint="Amount is calculated per unit, then split by ownership share. A buyer with two full units receives two unit demands.">
         <div id="allocations" className="max-h-72 overflow-y-auto rounded-md border divide-y">
