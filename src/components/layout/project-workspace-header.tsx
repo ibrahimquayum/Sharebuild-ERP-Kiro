@@ -24,7 +24,7 @@ export function ProjectWorkspaceHeader({ project }: { project: ProjectMeta }) {
   const user = session?.user as any;
 
   return (
-    <header data-project-workspace-header="true" className="h-13 border-b bg-background flex items-center justify-between px-5 py-2.5 sticky top-0 z-10 shrink-0">
+    <header data-project-workspace-header="true" className="h-14 border-b bg-background flex items-center justify-between px-5 sticky top-0 z-20 shrink-0">
       <div className="min-w-0">
         <p className="text-sm font-semibold truncate">{project.name}</p>
         {project.address && (
