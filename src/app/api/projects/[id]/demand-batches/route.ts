@@ -4,14 +4,17 @@ import { safeAuditLog } from '@/lib/audit';
 import { isPhaseLocked, lockedPhaseMessage } from '@/lib/accounting';
 import { assertApiProjectPermission } from '@/lib/access-control';
 import { prisma } from '@/lib/prisma';
+import { getEffectiveServiceChargePercent, parseServiceChargePercentSetting } from '@/lib/service-charge';
 
 const demandBatchSchema = z.object({
   title: z.string().min(1),
   phaseId: z.string().min(1),
   basisType: z.enum(['EQUAL_PER_UNIT', 'OWNERSHIP_SHARE']).default('EQUAL_PER_UNIT'),
   baseAmount: z.number().nonnegative(),
+  // Service charge is computed server-side from the effective rate; any
+  // client-provided service-charge values are ignored for the billed figure.
   serviceChargeEntryId: z.string().optional(),
-  serviceChargeAmount: z.number().nonnegative().default(0),
+  serviceChargeAmount: z.number().nonnegative().optional(),
   adjustmentAmount: z.number().default(0),
   carryForwardAmount: z.number().default(0),
   dueDate: z.string().optional(),
@@ -30,27 +33,29 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const data = parsed.data;
 
-  const [phase, ownershipRows, serviceChargeEntry] = await Promise.all([
+  const [phase, ownershipRows, projectDefaults, companyDefaultServiceChargeSetting] = await Promise.all([
     prisma.phase.findFirst({
       where: { id: data.phaseId, projectId: access.project.id },
-      select: { id: true, name: true, auditLockedAt: true },
+      select: { id: true, name: true, auditLockedAt: true, serviceChargePct: true },
     }),
     prisma.unitBuyer.findMany({
       where: { unit: { projectId: access.project.id }, relationship: { not: 'PAYER_ONLY' } },
       include: { unit: { select: { id: true, unitNo: true } } },
       orderBy: [{ unit: { unitNo: 'asc' } }, { assignedAt: 'asc' }],
     }),
-    data.serviceChargeEntryId
-      ? prisma.serviceChargeEntry.findFirst({
-          where: {
-            id: data.serviceChargeEntryId,
-            projectId: access.project.id,
-            reversedAt: null,
-            status: 'APPROVED',
-          },
-          select: { id: true, serviceChargeAmount: true },
-        })
-      : Promise.resolve(null),
+    prisma.project.findUnique({
+      where: { id: access.project.id },
+      select: { defaultServiceChargePct: true },
+    }),
+    prisma.companySetting.findUnique({
+      where: {
+        companyId_key: {
+          companyId: access.context.companyId,
+          key: 'defaultServiceChargePct',
+        },
+      },
+      select: { value: true },
+    }),
   ]);
 
   if (!phase) return NextResponse.json({ error: 'Phase not found in this project.' }, { status: 404 });
@@ -58,12 +63,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (ownershipRows.length === 0) {
     return NextResponse.json({ error: 'Add unit ownership rows before issuing a demand batch.' }, { status: 400 });
   }
-  if (data.serviceChargeEntryId && !serviceChargeEntry) {
-    return NextResponse.json({ error: 'Selected service charge entry was not found or is not approved.' }, { status: 404 });
-  }
+
+  // Auto-compute the effective service charge from the resolver hierarchy
+  // (phase override → project default → company default → 0) and apply it
+  // automatically to the buyer demand batch. The client cannot override it.
+  const companyDefaultServiceChargePct = parseServiceChargePercentSetting(companyDefaultServiceChargeSetting?.value);
+  const effectiveServiceChargePct = getEffectiveServiceChargePercent({
+    companyDefaultPct: companyDefaultServiceChargePct ?? undefined,
+    projectDefaultPct: projectDefaults?.defaultServiceChargePct,
+    phaseOverridePct: phase.serviceChargePct,
+  });
+  const serviceChargeAmount = roundMoney((data.baseAmount * effectiveServiceChargePct) / 100);
 
   const totalBillableAmount = roundMoney(
-    data.baseAmount + data.serviceChargeAmount + data.adjustmentAmount + data.carryForwardAmount,
+    data.baseAmount + serviceChargeAmount + data.adjustmentAmount + data.carryForwardAmount,
   );
   if (totalBillableAmount <= 0) {
     return NextResponse.json({ error: 'Total billable amount must be greater than zero.' }, { status: 400 });
@@ -82,8 +95,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         batchNo: `DB-${String(batchCount + 1).padStart(4, '0')}`,
         basisType: data.basisType,
         baseAmount: data.baseAmount,
-        serviceChargeEntryId: serviceChargeEntry?.id,
-        serviceChargeAmount: data.serviceChargeAmount,
+        serviceChargeAmount,
         adjustmentAmount: data.adjustmentAmount,
         carryForwardAmount: data.carryForwardAmount,
         totalBillableAmount,
@@ -104,7 +116,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const unitCount = unitGroups.size || 1;
     const perUnitBase = data.baseAmount / unitCount;
-    const perUnitServiceCharge = data.serviceChargeAmount / unitCount;
+    const perUnitServiceCharge = serviceChargeAmount / unitCount;
     const perUnitAdjustment = data.adjustmentAmount / unitCount;
     const perUnitCarryForward = data.carryForwardAmount / unitCount;
 
@@ -118,10 +130,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             ? Number(row.sharePercent) / 100
             : Number(row.sharePercent) / 100;
         const baseAmount = roundMoney(perUnitBase * shareFactor);
-        const serviceChargeAmount = roundMoney(perUnitServiceCharge * shareFactor);
+        const serviceCharge = roundMoney(perUnitServiceCharge * shareFactor);
         const adjustmentAmount = roundMoney(perUnitAdjustment * shareFactor);
         const carryForwardAmount = roundMoney(perUnitCarryForward * shareFactor);
-        const amount = roundMoney(baseAmount + serviceChargeAmount + adjustmentAmount + carryForwardAmount);
+        const amount = roundMoney(baseAmount + serviceCharge + adjustmentAmount + carryForwardAmount);
         demandCount += 1;
 
         creates.push(
@@ -135,7 +147,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
               demandNo: `${batch.batchNo}-${String(demandCount).padStart(3, '0')}`,
               amount,
               baseAmount,
-              serviceChargeAmount,
+              serviceChargeAmount: serviceCharge,
               adjustmentAmount,
               carryForwardAmount,
               dueDate,
@@ -151,16 +163,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     await Promise.all(creates);
 
-    if (serviceChargeEntry?.id) {
-      await tx.serviceChargeEntry.update({
-        where: { id: serviceChargeEntry.id },
-        data: {
-          includedInDemand: true,
-          settlementStatus: 'INCLUDED_IN_DEMAND',
-        },
-      });
-    }
-
     return batch;
   });
 
@@ -174,7 +176,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       title: data.title,
       phaseId: data.phaseId,
       totalBillableAmount,
-      serviceChargeEntryId: data.serviceChargeEntryId ?? null,
+      serviceChargeAmount,
+      effectiveServiceChargePct,
     },
     context: 'demand batch create',
   });

@@ -11,16 +11,11 @@ export const dynamic = 'force-dynamic';
 export default async function DemandBatchNewPage({ params }: { params: { id: string } }) {
   const { context, project } = await getScopedProject(params.id, 'demands', 'create');
 
-  const [phases, serviceChargeEntries, companySetting] = await Promise.all([
+  const [phases, companySetting] = await Promise.all([
     prisma.phase.findMany({
       where: { projectId: project.id, status: { notIn: ['CANCELLED', 'DUPLICATE'] } },
       orderBy: { sequence: 'asc' },
       select: { id: true, name: true, serviceChargePct: true },
-    }),
-    prisma.serviceChargeEntry.findMany({
-      where: { projectId: project.id, status: 'APPROVED', reversedAt: null },
-      include: { phase: { select: { name: true } } },
-      orderBy: [{ phaseId: 'asc' }, { updatedAt: 'desc' }],
     }),
     prisma.companySetting.findUnique({
       where: {
@@ -42,7 +37,7 @@ export default async function DemandBatchNewPage({ params }: { params: { id: str
       <Card>
         <CardHeader>
           <CardTitle>Issue Demand Batch</CardTitle>
-          <CardDescription>Distribute base construction cost, service charge, adjustment, and carry-forward into project-scoped buyer demands.</CardDescription>
+          <CardDescription>Distribute base construction cost, adjustment, and carry-forward into project-scoped buyer demands. Service charge is added automatically at the effective rate.</CardDescription>
         </CardHeader>
         <CardContent>
           <DemandBatchForm
@@ -55,13 +50,6 @@ export default async function DemandBatchNewPage({ params }: { params: { id: str
                 projectDefaultPct: project.defaultServiceChargePct,
                 phaseOverridePct: phase.serviceChargePct,
               }),
-            }))}
-            serviceChargeEntries={serviceChargeEntries.map((entry) => ({
-              id: entry.id,
-              phaseId: entry.phaseId,
-              label: `${entry.phase?.name ?? 'Project-wide'} - ${Number(entry.serviceChargeAmount).toFixed(2)}`,
-              amount: Number(entry.serviceChargeAmount),
-              settlementStatus: entry.settlementStatus,
             }))}
           />
         </CardContent>
